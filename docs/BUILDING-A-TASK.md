@@ -77,6 +77,32 @@ Never the script, the batch, the migration or the task machinery. Keep it under 
 characters: AbuseFilter 221 warns on long summaries, and a `warn` clears by re-submitting
 once, which `core.ts` already handles.
 
+**Do not write the task number into it.** `core.ts` prefixes every bot edit with a link to
+the permission that authorises it, built from `taskNumber`:
+
+```
+[[ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۳|ربات]]: <your summary>
+```
+
+That is the convention both wikis actually use, sampled from live recent changes on
+۸ اکتبر ۲۰۲۶: of 500 en.wikipedia bot edits, **zero** wrote "Task N" as text and 211
+linked the approval on the word "Bot" (`[[Wikipedia:Bots/Requests for approval/VWF bot 6|Bot]]: …`).
+fa is the same shape — `[[ویکی‌پدیا:رده‌دهی مقالات همسنگ|ربات]]: …` from HujiBot,
+`[[وپ:دار|ربات: انتقال رده]] …` from Dexbot. A bare number tells a reader nothing; a link
+takes them to the approval in one click and costs the same characters.
+
+`core.ts` handles three things you do not have to:
+
+- a summary already starting «ربات:» is not given it twice;
+- the permission page is checked ONCE per run, and the link is dropped with a warning if
+  it does not exist — otherwise an unfiled task would put a **red link in every summary**,
+  which nothing else here checks for. وظیفهٔ ۱۳ and ۱۴ are in that state today;
+- a `--as-me` run never carries the link, because those are not bot edits and usually
+  exist precisely because the bot is *not* approved for the scope yet. Claiming the
+  permission there would be a false statement about who made the edit.
+
+See `src/brfa.ts`.
+
 ### `getTargets` — also the right place for bulk network work
 
 It is `async` and runs once before anything else, which makes it the only hook that can do
@@ -138,8 +164,8 @@ may contain one, so emit it as an entity rather than changing the quotation.
 Identity (`assert=user` + `assertuser`, re-login on `assertuserfailed`), `maxlag` with
 `Retry-After` honoured, the pacer, `{{nobots}}`, the on-wiki stop page, the resume
 checkpoint, edit-conflict protection via `baserevid`, the abuse-filter re-submit, `Ctrl-C`
-finishing the current page, post-save render verification with self-revert, and the
-concurrent-run rate sharing.
+finishing the current page, post-save render verification with self-revert, the
+concurrent-run rate sharing, and the permission link on every edit summary.
 
 Re-implementing any of it is what the وظیفهٔ ۱۲ review objected to: «یک سری مسائلی که از
 پیش حل شده را دوباره دارید حل می‌کنید».
@@ -277,7 +303,8 @@ Drafts go to the companion repo's `drafts/` and are **not posted** by the agent.
 - [ ] population measured on a real sample, not estimated
 - [ ] `src/tasks/task-NN/`, tests beside it, registered in `run.ts`
 - [ ] `docs/task-NN-*.md` records what it does and every decision taken with the operator
-- [ ] Persian summary, content-only, under ~150 chars
+- [ ] Persian summary, content-only, under ~150 chars, with NO task number in it
+      (`core.ts` adds the permission link; see `src/brfa.ts`)
 - [ ] `transform` is pure and can return `changed: false`
 - [ ] the task's own risk has a `verify` that refuses pre-save
 - [ ] refusals are published or written out, and a cumulative page has a store with a guard

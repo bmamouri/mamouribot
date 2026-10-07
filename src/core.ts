@@ -22,6 +22,7 @@
  */
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { Pacer, RunRegistry } from './pacing.js';
+import { brfaPage, fitsSummaryLimit, withBrfaLink } from './brfa.js';
 import { dirname } from 'path';
 import { isKnown, isParked, loadCheckpoint, markDeferred, markDone, serializeCheckpoint } from './lib/checkpoint.js';
 
@@ -193,6 +194,8 @@ export class Bot {
   private readonly runs: RunRegistry;
   /** Writes since the last `dbrepllag` poll. */
   private sinceLagPoll = Number.MAX_SAFE_INTEGER;
+  /** Resolved once per run: does this task's permission page exist to link to? */
+  private brfaLinkable: boolean | null = null;
 
   constructor(public opts: RunOptions) {
     // Assigned in the body, not as a field initializer: a field initializer that reads
@@ -379,6 +382,41 @@ export class Bot {
     const { ms, why } = this.pacer.nextGap();
     if (ms > this.opts.delayMs * 1.5) console.log(`  ⏳ ${Math.round(ms / 1000)}s — ${why}`);
     return ms;
+  }
+
+  /**
+   * The edit summary a task's writes should carry: its own text, prefixed with a link to
+   * the permission that authorises it. See src/brfa.ts for the convention.
+   *
+   * Two cases deliberately get NO link:
+   *
+   *  - the permission page does not exist. Linking it would put a red link in every
+   *    summary this run produces, and nothing else in this framework checks summaries for
+   *    red links. وظیفهٔ ۱۳ and ۱۴ are in exactly that state.
+   *  - the run is editing as the HUMAN operator (`--as-me`). Those are not bot edits:
+   *    unflagged, hand-paced, and usually made precisely BECAUSE the bot is not approved
+   *    for the scope yet. Claiming a permission on them would be a false statement about
+   *    who made the edit and under what authority.
+   */
+  async summaryFor(task: BotTask): Promise<string> {
+    if (this.opts.identity === 'human') return task.summary;
+    if (this.brfaLinkable === null) {
+      const page = brfaPage(task.taskNumber);
+      try {
+        const d = await this.apiGet({ action: 'query', titles: page, prop: 'info' });
+        this.brfaLinkable = !d.query?.pages?.[0]?.missing;
+      } catch { this.brfaLinkable = false; }
+      if (!this.brfaLinkable) {
+        console.warn(`  ⚠ «${page}» وجود ندارد — خلاصهٔ ویرایش بدون پیوند مجوز می‌رود`);
+      }
+    }
+    if (!this.brfaLinkable) return task.summary;
+    const full = withBrfaLink(task.taskNumber, task.summary);
+    if (!fitsSummaryLimit(full)) {
+      console.warn('  ⚠ خلاصه با پیوند از ۵۰۰ نویسه بیشتر می‌شود — بدون پیوند فرستاده شد');
+      return task.summary;
+    }
+    return full;
   }
 
   // ---------- emergency-stop checks ----------
@@ -657,7 +695,7 @@ export class Bot {
         if (stopTick++ % 5 === 0) { const ms = await this.mustStop(); if (ms.stop) { console.log(`⏹  توقف: ${ms.why}`); break; } }
 
         try {
-          const res = await this.edit(item.title, item.newText, task.summary, item.revid, item.basetimestamp,
+          const res = await this.edit(item.title, item.newText, await this.summaryFor(task), item.revid, item.basetimestamp,
                                       { allowCreate: !!task.createsMissing });
           const newrevid: number = res.edit?.newrevid ?? 0;
           // Verify the SAVED revision, not the preview. See savedErrorCount.

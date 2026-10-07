@@ -126,6 +126,8 @@ variables, so no credentials ever live in this repository.
 
 Safety behaviour that `core.ts` applies to every task, not per task:
 
+- every edit summary is prefixed with a link to the permission that authorises it,
+  which is the convention both fa and en bots use (`src/brfa.ts`)
 - `maxlag=5` on every write, with automatic retry when the replicas lag
 - a throttle between edits, and the run stops on a blocked or read-only API reply
 - the run page [`کاربر:MamouriBot/توقف`](https://fa.wikipedia.org/wiki/کاربر:MamouriBot/توقف)
