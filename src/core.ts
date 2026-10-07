@@ -76,6 +76,14 @@ export const HUMAN_UA =
 
 /** Page the operator/any editor can edit to halt the bot without an admin block. */
 export const STOP_PAGE = 'کاربر:MamouriBot/توقف';
+/**
+ * Consecutive failures to READ the stop page before the run halts itself.
+ *
+ * Fail-open on one failure, fail-closed on a pattern. An unreadable kill switch is not a
+ * kill switch, and carrying on indefinitely while unable to check it is exactly the
+ * situation the switch exists for.
+ */
+export const MAX_STOP_READ_FAILURES = 3;
 /** The only value on STOP_PAGE that lets the bot keep editing. */
 const STOP_GO_KEYWORD = 'بله';
 
@@ -196,6 +204,8 @@ export class Bot {
   private sinceLagPoll = Number.MAX_SAFE_INTEGER;
   /** Resolved once per run: does this task's permission page exist to link to? */
   private brfaLinkable: boolean | null = null;
+  /** Consecutive failures reading the stop page; see MAX_STOP_READ_FAILURES. */
+  private stopReadFailures = 0;
 
   constructor(public opts: RunOptions) {
     // Assigned in the body, not as a field initializer: a field initializer that reads
@@ -239,6 +249,7 @@ export class Bot {
    */
   private async request(init: () => Promise<Response>): Promise<any> {
     for (let attempt = 0; ; attempt++) {
+      let json: any;
       try {
         const r = await init();
         this.remember(r);
@@ -247,18 +258,48 @@ export class Bot {
         const headerLag = Number(r.headers.get('x-database-lag'));
         if (Number.isFinite(headerLag)) this.pacer.noteLag(headerLag);
         const body = await r.text();
-        try {
-          const json = JSON.parse(body);
-          // JSON body but the API says slow down → back off and retry
-          if (r.status === 429) throw new Error('429');
-          return json;
-        }
+        // JSON body but the API says slow down → back off and retry
+        if (r.status === 429) throw new Error('429');
+        try { json = JSON.parse(body); }
         catch {
+          // A 414 or a throttle page is HTML, not JSON. Retried, then surfaced.
           if (attempt >= 8) throw new Error(`rate-limited/non-JSON (status ${r.status}): ${body.slice(0, 80)}`);
+          json = undefined;
         }
       } catch (e) {
+        if (e instanceof BotStop) throw e;   // a deliberate halt is not transient
         if (attempt >= 8) throw e;
+        json = undefined;
       }
+
+      if (json !== undefined) {
+        // maxlag is handled HERE so it covers every verb rather than only edits.
+        //
+        // The parameter used to be sent on writes only, so reads ran at full speed
+        // through a lagged replica — and reads are most of what the bot does: target
+        // enumeration, four concurrent prefetches, the pre-save render guard, the
+        // post-save verification and the stop-page poll. The write would back off
+        // politely while everything around it hammered the servers, which is not what
+        // «maxlag=۵» in the permission requests promises.
+        //
+        // Handled OUTSIDE the parse try/catch on purpose: an earlier version threw the
+        // fatal BotStop from inside it, where the bare `catch` swallowed it and replaced
+        // it with a misleading "non-JSON" error.
+        if (json?.error?.code === 'maxlag') {
+          const lag = Number(json.error.lag);
+          if (Number.isFinite(lag)) this.pacer.noteLag(lag);
+          const wait = this.pacer.takeRetryAfterMs()
+            || (Number.isFinite(lag) ? Math.min(60_000, (lag + 1) * 1000) : 5000);
+          if (attempt === 0) {
+            console.log(`  … maxlag ${json.error.lag}s روی ${json.error.host ?? '?'} — ${Math.round(wait / 1000)}s صبر`);
+          }
+          if (attempt >= 8) throw new BotStop('maxlag پایدار — توقف', true);
+          await sleep(wait);
+          continue;
+        }
+        return json;
+      }
+
       // Obey the server's own figure when it gave one; fall back to exponential backoff
       // only when it did not.
       const asked = this.pacer.takeRetryAfterMs();
@@ -296,7 +337,13 @@ export class Bot {
     const wait = this.getGate.then(() => sleep(this.minGetGapMs));
     this.getGate = wait;
     await wait;
-    const qs = new URLSearchParams({ format: 'json', formatversion: '2', ...p });
+    // `maxlag` on READS too, not just writes. Omitted for `action=login`: combining it
+    // with `assert` there risks an infinite recursion while the replicas are lagged, and
+    // pywikibot and mwn both unset it for the same reason.
+    const withLag = p.action === 'login'
+      ? p
+      : { maxlag: String(this.opts.maxlag), ...p };
+    const qs = new URLSearchParams({ format: 'json', formatversion: '2', ...withLag });
 
     // Fall back to POST when the query string is too long for a URL.
     //
@@ -324,10 +371,13 @@ export class Bot {
       { headers: { 'User-Agent': this.id.ua, Cookie: this.cookieHeader() }, signal: AbortSignal.timeout(60000) }));
   }
   async apiPost(p: Record<string, string>): Promise<any> {
+    // Same as apiGet: `maxlag` unless this is the login round-trip. `edit()` already sets
+    // it explicitly; the spread below keeps the caller's value when there is one.
+    const withLag = p.action === 'login' ? p : { maxlag: String(this.opts.maxlag), ...p };
     return this.request(() => fetch(FA_API, {
       method: 'POST',
       headers: { 'User-Agent': this.id.ua, 'Content-Type': 'application/x-www-form-urlencoded', Cookie: this.cookieHeader() },
-      body: new URLSearchParams({ format: 'json', formatversion: '2', ...p }).toString(),
+      body: new URLSearchParams({ format: 'json', formatversion: '2', ...withLag }).toString(),
       signal: AbortSignal.timeout(60000),
     }));
   }
@@ -420,19 +470,37 @@ export class Bot {
   }
 
   // ---------- emergency-stop checks ----------
-  /** True if the bot must halt now (run page flipped, or admin-block detected earlier). */
+  /**
+   * True if the bot must halt now (stop page flipped, or an admin block seen earlier).
+   *
+   * Called before EVERY edit. The page is the kill switch any editor can use: it works
+   * while its content is exactly «بله», and blanking it or writing anything else stops
+   * the bot. HTML comments are stripped first, because the live page carries its own
+   * instructions in one.
+   *
+   * A read failure does not stop the run — a single network blip must not halt a batch —
+   * but it cannot be ignored forever either, because an unreadable stop page is a kill
+   * switch that silently does not work. After CONSECUTIVE failures the run halts and
+   * says why.
+   */
   async mustStop(): Promise<{ stop: boolean; why?: string }> {
     if (this.stopRequested) return { stop: true, why: 'SIGINT' };
-    // poll the run page; missing page or exact "بله" => keep going
     try {
       const d = await this.apiGet({ action: 'query', prop: 'revisions', rvprop: 'content', rvslots: 'main', titles: STOP_PAGE });
       const pg = d.query.pages[0];
+      this.stopReadFailures = 0;
       if (!('missing' in pg)) {
         const raw = pg.revisions?.[0]?.slots?.main?.content ?? '';
         const content = raw.replace(/<!--[\s\S]*?-->/g, '').trim(); // ignore HTML comments
         if (content !== STOP_GO_KEYWORD) return { stop: true, why: `صفحهٔ توقف «${STOP_PAGE}» مقدارش «${STOP_GO_KEYWORD}» نیست` };
       }
-    } catch { /* network blip: don't stop on read failure, next loop retries */ }
+    } catch (e) {
+      this.stopReadFailures++;
+      console.warn(`  ⚠ صفحهٔ توقف خوانده نشد (${this.stopReadFailures}/${MAX_STOP_READ_FAILURES}): ${(e as Error).message}`);
+      if (this.stopReadFailures >= MAX_STOP_READ_FAILURES) {
+        return { stop: true, why: `صفحهٔ توقف ${MAX_STOP_READ_FAILURES} بار پشت سر هم خوانده نشد — کلید توقف در دسترس نیست` };
+      }
+    }
     return { stop: false };
   }
 
@@ -643,7 +711,7 @@ export class Bot {
     console.log(`هدف‌ها: ${targets.length} صفحه (پردازش‌شده‌ٔ پیشین: ${doneN}، معوق: ${defN}`
       + (task.recheckAfterDays ? `، بازبینی دوباره پس از ${task.recheckAfterDays} روز` : '') + ')');
 
-    let edited = 0, skipped = 0, nomatch = 0, processed = 0, regressed = 0, stopTick = 0;
+    let edited = 0, skipped = 0, nomatch = 0, processed = 0, regressed = 0;
     const diffs: { title: string; before: string; after: string }[] = [];
 
     const work = targets.filter(t => !isParked(cp, t, task.recheckAfterDays));
@@ -690,9 +758,21 @@ export class Bot {
         if (item.kind === 'error') { console.error(`  ✗ ${item.title}: ${item.msg}`); continue; }
         if (item.kind === 'regressed') { regressed++; markDeferred(cp, item.title); saveState(); console.log(`  ⚠ ${item.title} — ویرایش خطای نمایش تازه می‌سازد (${item.detail}) — رد شد برای بازبینی دستی`); continue; }
 
-        // emergency stop: SIGINT every iteration (free); stop-PAGE polled ~every 5 writes.
+        // Emergency stop, checked BEFORE EVERY EDIT — no sampling.
+        //
+        // This used to poll the stop page on every fifth write, which contradicted a
+        // commitment written into an approved permission request: وظیفهٔ ۳ says «پیش از
+        // هر ویرایش، کلید توقفِ مشترکِ ربات بررسی می‌شود … ربات را بی‌درنگ متوقف می‌کند»,
+        // and the stop page itself tells any reader «ربات پیش از هر ویرایش این صفحه را
+        // بررسی می‌کند». Neither was true. At the bot's 10s cadence the sampling let the
+        // bot run on for up to five more edits after someone asked it to stop; under the
+        // human 30-120s pacing, for up to ten minutes.
+        //
+        // One extra read per write is not a meaningful cost: each edit already costs
+        // several reads for the render guard and the post-save verification.
         if (this.stopRequested) { console.log('⏹  توقف: SIGINT'); break; }
-        if (stopTick++ % 5 === 0) { const ms = await this.mustStop(); if (ms.stop) { console.log(`⏹  توقف: ${ms.why}`); break; } }
+        const ms = await this.mustStop();
+        if (ms.stop) { console.log(`⏹  توقف: ${ms.why}`); break; }
 
         try {
           const res = await this.edit(item.title, item.newText, await this.summaryFor(task), item.revid, item.basetimestamp,
