@@ -112,7 +112,7 @@ never esbuild by hand. See the warning in `TOOLFORGE.md`; a hand-rolled bundle
 makes every `isMain()` guard fire, and `destub-report`'s main publishes a report
 page when `--live` is in argv.
 
-Toolforge: tool `tools.mamouribot-fa-notelist`, job `notelist-daily`,
+Toolforge: tool `tools.mamouribot` (the only tool), job `notelist-daily`,
 `23 4 * * *` UTC, `--delay 12` (the BRFA promises ≥10s between edits).
 Definition saved at `~/bot/jobs.yaml` for `toolforge jobs load`.
 

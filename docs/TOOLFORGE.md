@@ -63,9 +63,6 @@ times, and `toolforge jobs list` only ever shows one tool, so the bot's full sch
 existed nowhere. One tool has room: the quota is 50 cron definitions, 15 concurrent jobs,
 16 pods, 8 GiB, against four jobs today.
 
-If a task ever genuinely needs its own tool, name it `mamouribot-fa-t<NN>-<slug>`
-(see Naming).
-
 ### Verifying this table
 
 It rots silently, so check it rather than trusting it. From a machine with the
@@ -84,38 +81,36 @@ so a plain `curl` plus tag-stripping reads them; no browser or login required.
 
 Last verified against the live tools: ۸ اکتبر ۲۰۲۶, after the consolidation.
 
-### Naming — and why you almost certainly do not need it
+### There is no second tool, and no naming scheme for one
 
-**Do not create a new tool.** One tool holds every task; that is the decision of
-۷ اکتبر ۲۰۲۶ and the reasoning is above. Adding a tool re-creates the staleness,
-duplicated credentials and invisible schedule that the consolidation removed.
+**One tool: `mamouribot`. Every task goes inside it. Do not create another.**
 
-The rest of this section is kept only so that a genuine exception has a name to use — for
-example if somebody needed access to exactly one task and nothing else. It is NOT standing
-guidance, and «from now on new tools will be called …» was true for about a day before the
-consolidation superseded it.
+This is the rule, not a default to be weighed against alternatives. An earlier version of
+this file carried a naming scheme for new tools (`mamouribot-fa-t<NN>-<slug>`), proposed
+on ۷ اکتبر ۲۰۲۶ and superseded by the consolidation later the same day. It was left in as
+"for a genuine exception" and that was a mistake: a named scheme reads as permission, and
+it had already caused one round of confusion about whether it governed tool names or the
+repository's own directories. It governs neither now, because there will not be another
+tool. It is deleted.
 
-If that exception ever arrives: `mamouribot-fa-t<NN>-<slug>`, the BRFA number zero-padded
-then a short slug, e.g. `mamouribot-fa-t05-empty-params`. Max 32 characters, which leaves
-about 12 for the slug.
+What a new task needs is a **directory inside the one tool**, not a tool:
 
-**This is a TOOLFORGE TOOL name and nothing else.** Directories in this repository are
-`task-NN` and `task-NN-<slug>` — `src/tasks/task-03/`, `toolforge/task-03-cite-params/`,
-`docs/task-03-*.md` — and that convention is settled. The two were confused once; the
-32-character cap is the giveaway, since it is a Toolforge constraint rather than a
-filesystem one.
+```
+src/tasks/task-NN/          the code and its tests
+docs/task-NN-<slug>.md      what it does and why
+toolforge/task-NN-<slug>/   run.sh + jobs.yaml, deployed to ~/task-NN-<slug>/
+```
 
-**The one remaining name is the right one.** `mamouribot` says nothing about any
-particular task, which is exactly correct now that it runs all of them. The eight others
-accumulated without a scheme — `fawiki-musician-infobox-params` had no `mamouribot`
-prefix, `mamouribot-taxobox` had no `fa-` — and they are being deleted rather than
-renamed, because a Toolforge tool **cannot be renamed**: migrating means create-new,
-redeploy, re-register envvars, recreate jobs, verify, delete-old. A deleted tool name is
-also never released for reuse, so those eight names are gone for good.
+and a job on `mamouribot`. That is the whole of it.
 
-After the tool is created, `id` shows the new group within ~2 min but `become`
-fails with `no such tool` for another ~5–10 min while NFS/sudoers provision.
-Wait and retry — don't debug it.
+**It fits, measured, not assumed.** Live quota on ۸ اکتبر ۲۰۲۶ with four cron jobs
+running: **4 of 50** cron definitions, 1 of 16 concurrent pods, 0 of 16 continuous jobs,
+1 GiB of 8 GiB memory (6 GiB per job), 1 of 16 CPU. Fourteen tasks with a cron each would
+be 14 of 50. Nothing about the task count brings the one-tool arrangement near a limit.
+
+The old names are gone for good: a Toolforge tool **cannot be renamed**, and a deleted
+name is never released for reuse. `mamouribot` says nothing about any particular task,
+which is exactly right now that it runs all of them.
 
 ⚠️ **Job logs APPEND.** `toolforge jobs run -o ~/logs/x.out` adds to that file
 rather than replacing it, so reading the top of it after a re-run shows you the

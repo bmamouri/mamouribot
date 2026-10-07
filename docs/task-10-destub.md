@@ -9,7 +9,7 @@ articles in `رده:همه مقاله‌های خرد`, and many were stubs only
 edits is in the request — 0 refused at save time, 0 reverted, 66 distinct stub
 templates. Code copy: `کاربر:MamouriBot/کد/وظیفه ۱۰`. Review page:
 `ویکی‌پدیا:گزارش دیتابیس/مقاله‌های خرد بلند/بازبینی`. Toolforge tool created:
-`tools.mamouribot-fa-destub` — not yet deployed; see "Running forever" below,
+`tools.mamouribot` — see "Running forever" below,
 which is a materially different cadence from what was approved and has an open
 question before it goes live.
 
@@ -181,37 +181,42 @@ WEEKLY maintenance. A job ticking every 10–15 minutes forever is a materially
 different public cadence than what was approved, even though the safety logic,
 the summary, and every check are identical. This needs a decision (tell the reviewer
 first? just run it and let the contribution history speak for itself? widen the
-poll interval instead?) before `tools.mamouribot-fa-destub` gets a cron job —
+poll interval instead?) — 
 see the conversation, not just this file, for that decision once it's made.
 
-Three bundles, three jobs, one tool (`tools.mamouribot-fa-destub`):
+Three bundles, three jobs, on the one tool (`tools.mamouribot`):
 
 ```bash
 npm run bundle                           # builds + gates every entry point
 
-# deploy (see TOOLFORGE.md §2 for the stdin-pipe pattern — no scp)
+# deploy to the ONE tool (see TOOLFORGE.md §2 for the stdin-pipe pattern — no scp).
+# The bundles live at the tool home and are shared; nothing is per-tool any more.
 cat dist/destub-watch.mjs | ssh mamouri@login.toolforge.org \
-  "become mamouribot-fa-destub bash -c 'mkdir -p ~/bot && cat > ~/bot/destub-watch.mjs'"
+  "become mamouribot bash -c 'cat > ~/destub-watch.mjs'"
 cat dist/destub-inventory.mjs | ssh mamouri@login.toolforge.org \
-  "become mamouribot-fa-destub bash -c 'cat > ~/bot/destub-inventory.mjs'"
-cat dist/bot-run.mjs | ssh mamouri@login.toolforge.org \
-  "become mamouribot-fa-destub bash -c 'cat > ~/bot/bot-run.mjs'"   # manual backlog sweeps only
-grep -E "^WIKIPEDIA_BOT_(USERNAME|PASSWORD)=" .env | ssh mamouri@login.toolforge.org \
-  "become mamouribot-fa-destub bash -c 'cat > ~/bot/.env && chmod 600 ~/bot/.env'"
+  "become mamouribot bash -c 'cat > ~/destub-inventory.mjs'"
 
+# Credentials are already set as envvars on the tool — do NOT write a .env there.
+```
+
+This task needs its own working directory, which most do not: its state paths
+(`.state/destub/…`) are relative to the process CWD rather than to `BOT_STATE_DIR`, so
+its jobs `cd ~/task-10-destub` and reach the shared bundles as `../destub-watch.mjs`.
+
+```bash
 # the FIRST stub-templates.json must exist before the watcher can run at all —
-# either upload the one already built locally (.state/destub/
-# stub-templates.json) the same stdin way, or run the inventory job once by hand:
-become mamouribot-fa-destub toolforge jobs run destub-inventory-once \
-  --command "cd \$HOME/bot && node destub-inventory.mjs" --image node20
+# either upload the one already built locally (.state/destub/stub-templates.json)
+# the same stdin way into ~/task-10-destub/.state/destub/, or run the inventory once:
+become mamouribot toolforge jobs run destub-inventory-once \
+  --command "cd ~/task-10-destub && node ../destub-inventory.mjs" --image node20 --wait
 
-# scheduled jobs, once the cadence question above is settled:
-become mamouribot-fa-destub toolforge jobs run destub-watch \
-  --command "cd \$HOME/bot && node destub-watch.mjs --live" \
-  --image node20 --schedule "*/10 * * * *" --mem 512Mi
-become mamouribot-fa-destub toolforge jobs run destub-inventory-monthly \
-  --command "cd \$HOME/bot && node destub-inventory.mjs" \
-  --image node20 --schedule "0 2 1 * *" --mem 512Mi
+# the scheduled jobs, as they currently exist:
+become mamouribot toolforge jobs run destub-watch \
+  --command "cd /data/project/mamouribot/task-10-destub && node ../destub-watch.mjs --live" \
+  --image node20 --schedule "*/10 * * * *" --mem 1Gi
+become mamouribot toolforge jobs run destub-inventory-monthly \
+  --command "cd /data/project/mamouribot/task-10-destub && node ../destub-inventory.mjs" \
+  --image node20 --schedule "0 2 1 * *" --mem 1Gi
 ```
 
 `destub-watch.ts` is deliberately NOT given the whole outstanding backlog on

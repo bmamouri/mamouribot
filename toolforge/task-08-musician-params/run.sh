@@ -1,5 +1,5 @@
 #!/bin/bash
-# Toolforge tool: fawiki-musician-infobox-params   (see docs/TOOLFORGE.md for the full task/tool table)
+# Toolforge tool: mamouribot   (the only tool; see docs/TOOLFORGE.md)
 # Entry point for every MamouriBot job on Toolforge.
 set -euo pipefail
 cd "$(dirname "$0")"

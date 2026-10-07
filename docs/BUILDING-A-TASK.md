@@ -46,6 +46,10 @@ toolforge/task-NN-<name>/            run.sh + jobs.yaml for deployment
 Register the task in `src/run.ts`'s `TASKS` map. That is the whole wiring; `run.ts` gives
 you dry-run-by-default, `--live`, `--as-me`, `--limit`, `--delay` and `--check` for free.
 
+**A new task never needs a new Toolforge tool.** There is exactly one, `mamouribot`, and
+a task lives in it as a directory and a job. The quota is nowhere near: 4 of 50 cron
+definitions used on ۸ اکتبر ۲۰۲۶. See `TOOLFORGE.md`.
+
 `archive/` is git-ignored and is where one-off probes, measurement scripts and
 differential checks belong. They are not part of the build and `tsconfig.json` excludes
 them deliberately.
