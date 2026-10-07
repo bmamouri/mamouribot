@@ -437,6 +437,7 @@ print('%-4s %-28s correct table/code indentation is left alone%s'
       % ('ok' if ok else 'FAIL', 'check_talk_reply', '' if ok else '  <-- %r' % p))
 
 print()
+
 print('FAILURES: %d' % FAILS)
 sys.exit(1 if FAILS else 0)
 
