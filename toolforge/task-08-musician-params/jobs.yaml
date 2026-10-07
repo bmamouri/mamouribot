@@ -1,0 +1,51 @@
+# MamouriBot jobs on Toolforge.   toolforge jobs load jobs.yaml
+#
+# Both jobs run the SAME bundle; only the flags differ. The trial is deliberately
+# a separate job so its 100 edits finish and can be audited before the full run is
+# ever created.
+#
+# --delay 15 = seconds between writes (policy floor is 10). The task is not urgent;
+# a slower pace costs nothing and keeps the bot invisible in recent-changes load.
+#
+# NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in
+# the directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127 with
+# «./run.sh: not found». run.sh itself does `cd "$(dirname "$0")"`, so the relative
+# paths inside it still resolve.
+---
+# Step 0 — preflight: verify credentials, bot flag and the stop key. Makes NO edits.
+- name: mp-check
+  command: ./task-08-musician-params/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/check.out
+  filelog-stderr: logs/check.err
+
+# Step 1 — build the frozen target list, no login, no writes.
+- name: mp-targets
+  command: ./task-08-musician-params/run.sh --limit 1
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/targets.out
+  filelog-stderr: logs/targets.err
+
+# Step 2 — the approved trial: 100 live edits, then stop.
+- name: mp-trial
+  command: ./task-08-musician-params/run.sh --live --limit 100 --delay 15
+  image: node20
+  mem: 512Mi
+  retry: 0          # never silently re-run a partial edit batch
+  emails: all
+  filelog-stdout: logs/trial.out
+  filelog-stderr: logs/trial.err
+
+# Step 3 — the rest. ONLY create this after auditing the trial.
+- name: mp-full
+  command: ./task-08-musician-params/run.sh --live --delay 15
+  image: node20
+  mem: 512Mi
+  retry: 0
+  emails: all
+  filelog-stdout: logs/full.out
+  filelog-stderr: logs/full.err

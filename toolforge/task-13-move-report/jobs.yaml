@@ -1,0 +1,38 @@
+# وظیفهٔ ۱۳ jobs on Toolforge.   toolforge jobs load jobs.yaml
+#
+# This task writes exactly ONE page and never edits an article, so there is no trial
+# batch to audit: the whole output is the page, and a dry run shows all of it.
+#
+# NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in
+# the directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127 with
+# «./run.sh: not found». run.sh itself does `cd "$(dirname "$0")"`, so the relative
+# paths inside it still resolve.
+---
+# Step 0 — the rule engine and the publish gate, with no network and no database.
+- name: mr-selftest
+  command: ./task-13-move-report/run.sh --selftest
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/selftest.out
+  filelog-stderr: logs/selftest.err
+
+# Step 1 — a full dry run: reads the replica and the API, writes nothing. The wikitext
+# it would publish goes to the log, so it can be read before the first live run.
+- name: mr-dry
+  command: ./task-13-move-report/run.sh --refresh
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/dry.out
+  filelog-stderr: logs/dry.err
+
+# Step 2 — the daily publish. Create this only after reading a dry run's log.
+- name: mr-daily
+  command: ./task-13-move-report/run.sh --live --refresh
+  image: node20
+  mem: 1Gi
+  schedule: "17 3 * * *"
+  emails: onfailure
+  filelog-stdout: logs/daily.out
+  filelog-stderr: logs/daily.err

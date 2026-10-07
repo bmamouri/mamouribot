@@ -1,0 +1,786 @@
+{
+ "targets": [
+  "الگو:Taxonomy/Afrocygnus",
+  "الگو:Taxonomy/Ancistrus",
+  "الگو:Taxonomy/Acidobacteriota",
+  "الگو:Taxonomy/Pachyplichas",
+  "الگو:Taxonomy/Ouranopithecus",
+  "الگو:Taxonomy/Auroralumina",
+  "الگو:Taxonomy/Ikaria",
+  "الگو:Taxonomy/Bucephalandra",
+  "الگو:Taxonomy/Petalonamae",
+  "الگو:Taxonomy/Cheritra",
+  "الگو:Taxonomy/Pellia",
+  "الگو:Taxonomy/Pothos",
+  "الگو:Taxonomy/Brachychalcinus orbicularis",
+  "الگو:Taxonomy/Raphanus",
+  "الگو:Taxonomy/Stizorhina",
+  "الگو:Taxonomy/Chuquiraga",
+  "الگو:Taxonomy/Hippoidea",
+  "الگو:Taxonomy/Arctodus",
+  "الگو:Taxonomy/Procavia",
+  "الگو:Taxonomy/Bharatisiren",
+  "الگو:Taxonomy/Dipus",
+  "الگو:Taxonomy/Gomphaeschna",
+  "الگو:Taxonomy/Palaeanodonta",
+  "الگو:Taxonomy/Paleoanguimorpha",
+  "الگو:Taxonomy/Rugoconites",
+  "الگو:Taxonomy/Xenophyophorea",
+  "الگو:Taxonomy/Cyclomedusa",
+  "الگو:Taxonomy/Nummulitidae",
+  "الگو:Taxonomy/Malaconotus",
+  "الگو:Taxonomy/Corydiidae",
+  "الگو:Taxonomy/Padda",
+  "الگو:Taxonomy/Thyatira",
+  "الگو:Taxonomy/Nyctiprogne",
+  "الگو:Taxonomy/Chordeiles",
+  "الگو:Taxonomy/Antrostomus",
+  "الگو:Taxonomy/Freesia",
+  "الگو:Taxonomy/Filoviridae",
+  "الگو:Taxonomy/Zentrygon",
+  "الگو:Taxonomy/Symphyotrichum lateriflorum",
+  "الگو:Taxonomy/Gondwanascorpio",
+  "الگو:Taxonomy/Baeomycetales",
+  "الگو:Taxonomy/Dipteryx",
+  "الگو:Taxonomy/Bovoidea",
+  "الگو:Taxonomy/Geranoididae",
+  "الگو:Taxonomy/Oxudercidae",
+  "الگو:Taxonomy/Rhizocarpon geographicum",
+  "الگو:Taxonomy/Macroramphosidae",
+  "الگو:Taxonomy/Polyprion",
+  "الگو:Taxonomy/Progura",
+  "الگو:Taxonomy/Fraseria",
+  "الگو:Taxonomy/Rhizocarpales",
+  "الگو:Taxonomy/Protosirenidae",
+  "الگو:Taxonomy/Poodytes"
+ ],
+ "rows": [
+  {
+   "title": "الگو:Taxonomy/Afrocygnus",
+   "ok": true,
+   "detail": "آفریقاقوها از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=آفریقاقوها\n|parent=Anserinae\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Ancistrus",
+   "ok": true,
+   "detail": "آنسیتروس از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=آنسیتروس\n|parent=Ancistrini\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Acidobacteriota",
+   "ok": true,
+   "detail": "اسیدوباکتریوتا از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=phylum\n|link=اسیدوباکتریوتا\n|parent=Pseudomonadati\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Pachyplichas",
+   "ok": true,
+   "detail": "الیکایی‌های ستبرپا از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=الیکایی‌های ستبرپا\n|parent=Acanthisittidae\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Ouranopithecus",
+   "ok": true,
+   "detail": "اورانوپیتکوس مقدونی از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=میمون آسمانی\n|parent=Hominoidea\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Auroralumina",
+   "ok": true,
+   "detail": "اورورالومینا از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=اورورالومینا\n|parent=Medusozoa\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Ikaria",
+   "ok": true,
+   "detail": "ایکاریا (سرده) از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=ایکاریا (سرده)\n|parent=Bilateria\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Bucephalandra",
+   "ok": true,
+   "detail": "بوسفالاندرا از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=بوسفالاندرا\n|parent=Araceae\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Petalonamae",
+   "ok": true,
+   "detail": "پتالونامائه از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=phylum\n|link=پتالونامائه\n|parent=Animalia\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Cheritra",
+   "ok": true,
+   "detail": "پروانه‌های پادشاهی از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=پروانه‌های پادشاهی\n|parent=Lycaenidae\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Pellia",
+   "ok": true,
+   "detail": "پلیا از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=پلیا\n|parent=Pelliaceae\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Pothos",
+   "ok": true,
+   "detail": "پوتوس (گیاه) از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=پوتوس (گیاه)\n|parent=Araceae\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Brachychalcinus orbicularis",
+   "ok": false,
+   "detail": "تترای صفحه‌ای پس از ساخت این الگو همچنان در ردهٔ تمیزکاری می‌ماند",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=species\n|link=تترای صفحه‌ای\n|parent=Brachychalcinus\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Raphanus",
+   "ok": true,
+   "detail": "تربچه از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=ترب (سرده)\n|parent=Brassiceae\n|refs=\n}}\n"
+  },
+  {
+   "title": "الگو:Taxonomy/Stizorhina",
+   "ok": true,
+   "detail": "توکای حنایی از ردهٔ تمیزکاری خارج می‌شود",
+   "body": "{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=توکای حنایی\n|parent=Turdidae\n|refs=\n}}\n"
+  }
+ ],
+ "refusals": [
+  {
+   "taxon": "اورتوپوکس ویروس",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "آبله"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "آبله گاوی"
+  },
+  {
+   "taxon": "اگوپسیدا",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "اگوپسیدا"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "اولموس توماسی (نارون چوب‌پنبه)"
+  },
+  {
+   "taxon": "اونگولیانت",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "اونگولیانت (عنکبوت خرمن)"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "ایرانوتریوم"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "باکتریوفاژ تی۷"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "بیماری زبان آبی"
+  },
+  {
+   "taxon": "پاپیلوماویریده",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "پاپیلوماویریده"
+  },
+  {
+   "taxon": "پارامیکسوویروس‌ها",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "پارامیکسوویروس‌ها"
+  },
+  {
+   "taxon": "پاکس‌ویریده",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "پاکس‌ویریده"
+  },
+  {
+   "taxon": "پیکورناویریده",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "پیکورناویروس‌ها"
+  },
+  {
+   "taxon": "تیغه‌دار جنوبی",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "تیغه‌دار جنوبی"
+  },
+  {
+   "taxon": "Poecile",
+   "why": "زنجیره بیش از حد عمیق",
+   "article": "چرخ‌ریسک ابروسفید"
+  },
+  {
+   "taxon": "Poecile",
+   "why": "زنجیره بیش از حد عمیق",
+   "article": "چرخ‌ریسک سینه‌حنایی"
+  },
+  {
+   "taxon": "Baeolophus",
+   "why": "زنجیره بیش از حد عمیق",
+   "article": "چرخ‌ریسوک‌ها"
+  },
+  {
+   "taxon": "| authority = [[ویلیام الفورد لیچ|لیچ]]، ۱۸۱۹",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "خرچنگ نعل‌اسبی"
+  },
+  {
+   "taxon": "خوش‌کاوآشیانان",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "خوش‌کاوآشیانان"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "دوکوژگان"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "دیستمپر سگ‌سانان"
+  },
+  {
+   "taxon": "راماتالوس لوباتوس",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "راماتالوس"
+  },
+  {
+   "taxon": "راناویروس",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "راناویروس"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "راینوتراکئیت ویروسی گربه"
+  },
+  {
+   "taxon": "روتراویریسیت‌ها",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "روتراویریسیت‌ها"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "ریسه‌زیان"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "زنتوفینا"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "سسکان راستین"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "سهره پری‌شاهرخی"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "شهدطوطی یقه‌دار"
+  },
+  {
+   "taxon": "Vini",
+   "why": "زنجیره بیش از حد عمیق",
+   "article": "شهدطوطیک نخلی"
+  },
+  {
+   "taxon": "Micropsitta",
+   "why": "زنجیره بیش از حد عمیق",
+   "article": "طوطی کوتوله کلاه‌زرد"
+  },
+  {
+   "taxon": "گسترده‌تارها",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "عنکبوت‌های گسترده‌تار"
+  },
+  {
+   "taxon": "پروکنسول",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "فرماندار (نخستی‌سان)"
+  },
+  {
+   "taxon": "Ancylopoda قلاب‌پایان",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "قلاب‌پایان"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "قورباغه بنفش"
+  },
+  {
+   "taxon": "کروناویروس‌ها",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "کروناویروس"
+  },
+  {
+   "taxon": "کفچه‌مارواران",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "کفچه‌مارواران"
+  },
+  {
+   "taxon": "متاپنوموویروس",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "متاپنوموویروس"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "مرال"
+  },
+  {
+   "taxon": "می‌می‌ویریده",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "می‌می‌ویریده"
+  },
+  {
+   "taxon": "ویروس واکسینیا",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "واکسینیا"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "ویروس آبله میمون"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "ویروس آندس"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "ویروس آنفلوانزای نوع A زیرگروه H5N1"
+  },
+  {
+   "taxon": "ویروس آنفلوانزا A زیرگروه H1N1",
+   "why": "نام آرایه در مقاله فارسی نوشته شده",
+   "article": "ویروس آنفلوانزای A زیرگروه H1N1"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "ویروس تب دنگی"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "ویروس موزائیک تنباکو"
+  },
+  {
+   "taxon": "",
+   "why": "پارامتر آرایه در جعبه نیست",
+   "article": "ویروس نیپا"
+  },
+  {
+   "taxon": "Caranginae",
+   "why": "رتبهٔ ناشناخته (Q164280)",
+   "article": "آجی (ماهی)"
+  },
+  {
+   "taxon": "Promethearchaeota",
+   "why": "الگوی رستهٔ بالادست (Promethearchaeati) هنوز وجود ندارد",
+   "article": "آرکی‌های آسگارد"
+  },
+  {
+   "taxon": "Aspidella",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "آسپیدلا"
+  },
+  {
+   "taxon": "Acritarcha",
+   "why": "رتبهٔ ناشناخته (—)",
+   "article": "آکریتارک"
+  },
+  {
+   "taxon": "Helmgras",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "آموفیلا (گیاه)"
+  },
+  {
+   "taxon": "Spriggina",
+   "why": "الگوی رستهٔ بالادست (Sprigginidae) هنوز وجود ندارد",
+   "article": "اسپریگینا"
+  },
+  {
+   "taxon": "Escavadodon",
+   "why": "الگوی رستهٔ بالادست (Escavadodontidae) هنوز وجود ندارد",
+   "article": "اسکاوادندان"
+  },
+  {
+   "taxon": "Actinomycetia",
+   "why": "الگوی رستهٔ بالادست (Actinomycetota) هنوز وجود ندارد",
+   "article": "اکتینومیستیا"
+  },
+  {
+   "taxon": "Iraniplectus",
+   "why": "الگوی رستهٔ بالادست (Zignoichthydae) هنوز وجود ندارد",
+   "article": "ایرانی‌پلکتوس"
+  },
+  {
+   "taxon": "Apodimorphae",
+   "why": "الگوی رستهٔ بالادست (Passerae) هنوز وجود ندارد",
+   "article": "بادخورک‌ریختان"
+  },
+  {
+   "taxon": "Coelolepida",
+   "why": "رتبهٔ ناشناخته (—)",
+   "article": "بالپولک‌سانیان کوئلویی"
+  },
+  {
+   "taxon": "Bordetella",
+   "why": "الگوی رستهٔ بالادست (Alcaligenaceae) هنوز وجود ندارد",
+   "article": "بوردتلا"
+  },
+  {
+   "taxon": "Pteridinium",
+   "why": "الگوی رستهٔ بالادست (Pteridiniidae) هنوز وجود ندارد",
+   "article": "پتریدینیوم"
+  },
+  {
+   "taxon": "Polystoechotes",
+   "why": "الگوی رستهٔ بالادست (Polystoechotidae) هنوز وجود ندارد",
+   "article": "پررجه‌ها"
+  },
+  {
+   "taxon": "Kurtiformes",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "پرستارماهی‌سانان"
+  },
+  {
+   "taxon": "Turanana cytis",
+   "why": "الگوی رستهٔ بالادست (Turanana) هنوز وجود ندارد",
+   "article": "پروانه تک‌خال پارسی آبی"
+  },
+  {
+   "taxon": "Parides",
+   "why": "الگوی رستهٔ بالادست (Troidina) هنوز وجود ندارد",
+   "article": "پروانه‌های گاودل"
+  },
+  {
+   "taxon": "Protungulatum",
+   "why": "الگوی رستهٔ بالادست (Pan-Euungulata) هنوز وجود ندارد",
+   "article": "پروتونگولاتوم"
+  },
+  {
+   "taxon": "Promethearchaeaceae",
+   "why": "الگوی رستهٔ بالادست (Promethearchaeales) هنوز وجود ندارد",
+   "article": "پرومتئارکئاسه"
+  },
+  {
+   "taxon": "Taphrina",
+   "why": "الگوی رستهٔ بالادست (Taphrinaceae) هنوز وجود ندارد",
+   "article": "تافرینا (قارچ)"
+  },
+  {
+   "taxon": "Ediacara Hills",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "تپه‌های ادیاکارا"
+  },
+  {
+   "taxon": "Paleognathae",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "تنهارو"
+  },
+  {
+   "taxon": "Tobamovirus",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "توباموویروس"
+  },
+  {
+   "taxon": "Tillodontia",
+   "why": "رتبهٔ ناشناخته (Q5867959)",
+   "article": "تیلودونتیا"
+  },
+  {
+   "taxon": "Tincinae",
+   "why": "رتبهٔ ناشناخته (Q164280)",
+   "article": "تینسینا"
+  },
+  {
+   "taxon": "\"Candidatus Thorarchaeia\"",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "ثورآرکئا"
+  },
+  {
+   "taxon": "Ashbyia lovensis",
+   "why": "الگوی رستهٔ بالادست (Ashbyia) هنوز وجود ندارد",
+   "article": "جیبرمرغ"
+  },
+  {
+   "taxon": "Charnia",
+   "why": "الگوی رستهٔ بالادست (Charniidae) هنوز وجود ندارد",
+   "article": "چارنیا"
+  },
+  {
+   "taxon": "Charniodiscus",
+   "why": "الگوی رستهٔ بالادست (Arboreomorpha) هنوز وجود ندارد",
+   "article": "چارنیودیسکوس"
+  },
+  {
+   "taxon": "Proscopiinae",
+   "why": "رتبهٔ ناشناخته (Q164280)",
+   "article": "چوبین‌ملخیان"
+  },
+  {
+   "taxon": "Herpestoidea",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "خدنگ‌واران"
+  },
+  {
+   "taxon": "Potamon",
+   "why": "الگوی رستهٔ بالادست (Potaminae) هنوز وجود ندارد",
+   "article": "خرچنگ آب شیرین مالتی"
+  },
+  {
+   "taxon": "Hippidae",
+   "why": "الگوی رستهٔ بالادست (Hippoidea) هنوز وجود ندارد",
+   "article": "خرچنگان شنی"
+  },
+  {
+   "taxon": "Daphoenus",
+   "why": "الگوی رستهٔ بالادست (Daphoeninae) هنوز وجود ندارد",
+   "article": "دافونوس"
+  },
+  {
+   "taxon": "Longirostres",
+   "why": "رتبهٔ ناشناخته (—)",
+   "article": "درازپوزگان"
+  },
+  {
+   "taxon": "Dermatophyllum",
+   "why": "الگوی رستهٔ بالادست (Sophoreae) هنوز وجود ندارد",
+   "article": "درماتوفیلوم"
+  },
+  {
+   "taxon": "Rhodomonas",
+   "why": "الگوی رستهٔ بالادست (Pyrenomonadaceae) هنوز وجود ندارد",
+   "article": "رودوموناس"
+  },
+  {
+   "taxon": "Sarpa salpa",
+   "why": "الگوی رستهٔ بالادست (Sarpa) هنوز وجود ندارد",
+   "article": "رویاماهی"
+  },
+  {
+   "taxon": "Tettigarcta",
+   "why": "الگوی رستهٔ بالادست (Tettigarctidae) هنوز وجود ندارد",
+   "article": "زنجره‌های پرمو"
+  },
+  {
+   "taxon": "Scopus",
+   "why": "الگوی رستهٔ بالادست (Scopidae) هنوز وجود ندارد",
+   "article": "سرچکشی‌ها"
+  },
+  {
+   "taxon": "Scarabaeus",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "سرگین‌خواران"
+  },
+  {
+   "taxon": "Serengetilagus",
+   "why": "الگوی رستهٔ بالادست (Leporinae) هنوز وجود ندارد",
+   "article": "سرنگتی‌خرگوش‌ها"
+  },
+  {
+   "taxon": "Wilsonia (bird)",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "سسک‌های ویلسونیا"
+  },
+  {
+   "taxon": "Eurocephalus",
+   "why": "الگوی رستهٔ بالادست (Eurocephalidae) هنوز وجود ندارد",
+   "article": "سنگ‌چشم‌های تاج‌سفید"
+  },
+  {
+   "taxon": "Lucanus",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "سوسک‌های شاخ‌گوزنی"
+  },
+  {
+   "taxon": "Polypogon (plant)",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "شال‌دم (سرده)"
+  },
+  {
+   "taxon": "Argulidae",
+   "why": "الگوی رستهٔ بالادست (Arguloida) هنوز وجود ندارد",
+   "article": "شپش ماهی"
+  },
+  {
+   "taxon": "Halopeplis",
+   "why": "الگوی رستهٔ بالادست (Salicornieae) هنوز وجود ندارد",
+   "article": "شورها (سرده)"
+  },
+  {
+   "taxon": "Micropsitta|species=bruijnii",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "طوطی کوتوله سینه‌سرخ"
+  },
+  {
+   "taxon": "Sebastinae",
+   "why": "رتبهٔ ناشناخته (Q164280)",
+   "article": "عقرب‌ماهی‌های صخره"
+  },
+  {
+   "taxon": "Funisia",
+   "why": "الگوی رستهٔ بالادست (Olgunidae) هنوز وجود ندارد",
+   "article": "فونیسیا"
+  },
+  {
+   "taxon": "Macrotermitinae",
+   "why": "رتبهٔ ناشناخته (Q164280)",
+   "article": "قارچ‌موریانه‌ایان"
+  },
+  {
+   "taxon": "Craterellus",
+   "why": "الگوی رستهٔ بالادست (Hydnaceae) هنوز وجود ندارد",
+   "article": "قارچ‌های شیپوری"
+  },
+  {
+   "taxon": "Caridina",
+   "why": "الگوی رستهٔ بالادست (Atyidae) هنوز وجود ندارد",
+   "article": "کاریدینا"
+  },
+  {
+   "taxon": "Caveasphaera",
+   "why": "رستهٔ بالادست در ویکی‌داده مشخص نیست",
+   "article": "کاوئاسفائرا"
+  },
+  {
+   "taxon": "Crangonidae",
+   "why": "الگوی رستهٔ بالادست (Crangonoidea) هنوز وجود ندارد",
+   "article": "کرانگونیده"
+  },
+  {
+   "taxon": "Teredo",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "کرم کشتی (سرده)"
+  },
+  {
+   "taxon": "Mesenchytraeus",
+   "why": "الگوی رستهٔ بالادست (Enchytraeidae) هنوز وجود ندارد",
+   "article": "کرم یخی"
+  },
+  {
+   "taxon": "Thoracica",
+   "why": "رتبهٔ ناشناخته (Q2007442)",
+   "article": "کشتی‌چسب غازی"
+  },
+  {
+   "taxon": "Teredinidae",
+   "why": "الگوی رستهٔ بالادست (Pholadoidea) هنوز وجود ندارد",
+   "article": "کشتی‌کرمان"
+  },
+  {
+   "taxon": "Corvides",
+   "why": "رتبهٔ ناشناخته (—)",
+   "article": "کلاغی‌ها"
+  },
+  {
+   "taxon": "Serranus cabrilla",
+   "why": "الگوی رستهٔ بالادست (Serranus) هنوز وجود ندارد",
+   "article": "کمبر (ماهی)"
+  },
+  {
+   "taxon": "Canini (tribe)",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "گرگ‌تباریان"
+  },
+  {
+   "taxon": "Carangiformes",
+   "why": "الگوی رستهٔ بالادست (Carangaria) هنوز وجود ندارد",
+   "article": "گیش‌ماهی‌سانان"
+  },
+  {
+   "taxon": "Cottinae",
+   "why": "رتبهٔ ناشناخته (Q164280)",
+   "article": "لنگرماهیان نمادین"
+  },
+  {
+   "taxon": "Congrogadinae",
+   "why": "رتبهٔ ناشناخته (Q164280)",
+   "article": "مارماهی‌بلنیان"
+  },
+  {
+   "taxon": "Steatornithidae",
+   "why": "الگوی رستهٔ بالادست (Steatornithiformes) هنوز وجود ندارد",
+   "article": "مرغان روغنی"
+  },
+  {
+   "taxon": "Mongolonyx",
+   "why": "الگوی رستهٔ بالادست (Mesonychinae) هنوز وجود ندارد",
+   "article": "مغول‌پنجه"
+  },
+  {
+   "taxon": "میان‌پنجه‌ایان",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "مغولی‌دزد"
+  },
+  {
+   "taxon": "Monodnaviria",
+   "why": "رتبهٔ ناشناخته (Q62075839)",
+   "article": "مونودناویریا"
+  },
+  {
+   "taxon": "Minerva (bird)",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "مینروا (جغد)"
+  },
+  {
+   "taxon": "Glaucestrilda",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "نوک‌مومی‌های کبود"
+  },
+  {
+   "taxon": "Brunhilda (bird)",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "نوک‌مومی‌های گونه‌سیاه"
+  },
+  {
+   "taxon": "Microspizias",
+   "why": "الگوی رستهٔ بالادست (Harpaginae) هنوز وجود ندارد",
+   "article": "واشک‌ها"
+  },
+  {
+   "taxon": "Virophaviricetes",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "ویروفاژ"
+  },
+  {
+   "taxon": "Mammantavirinae",
+   "why": "رتبهٔ ناشناخته (Q164280)",
+   "article": "هانتاویروس"
+  },
+  {
+   "taxon": "Hantaviridae",
+   "why": "الگوی رستهٔ بالادست (Elliovirales) هنوز وجود ندارد",
+   "article": "هانتاویریدا"
+  },
+  {
+   "taxon": "Pan-Euungulata",
+   "why": "رتبهٔ ناشناخته (00287862b2d135c1056703a1f9befd8a)",
+   "article": "همه‌سم‌داران"
+  },
+  {
+   "taxon": "Yorgia waggoneri",
+   "why": "در ویکی‌داده یافت نشد یا بیش از یک آیتم دارد",
+   "article": "یورگیا"
+  }
+ ]
+}

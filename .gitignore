@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.state/
+.env
+*.log
+__pycache__/
+
+# Internal one-offs: the scripts that filed the permission requests and published
+# the old on-wiki code pages, plus the per-task trial runs. They are kept locally
+# because the next one gets built by copying the closest existing one, and they are
+# not part of what is published for review.
+archive/
+.DS_Store
+
+# Build output. `toolforge/*.mjs` and `toolforge/gates.py` are byte-identical copies
+# that `npm run bundle` writes next to each deployment's run.sh — the same artifacts as
+# dist/, placed where TOOLFORGE.md pipes them up from. Tracking generated files means
+# every source change produces a second, larger diff of machine output, and the copy in
+# git is stale the moment anyone edits src/ without rebuilding. Rebuild with
+# `npm run bundle`; the run.sh, jobs.yaml and README in those directories ARE source and
+# stay tracked.
+toolforge/*.mjs
+toolforge/gates.py

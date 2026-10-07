@@ -1,0 +1,27 @@
+{
+  "name": "mamouribot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MamouriBot — approved maintenance tasks for the Persian Wikipedia (fa.wikipedia.org)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "bot": "tsx src/run.ts",
+    "test": "node tools/run-tests.mjs",
+    "check:vendored": "tsx tools/check-vendored.ts",
+    "bundle": "tsx tools/build-bundle.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.25.12",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "mysql2": "^3.24.5"
+  }
+}

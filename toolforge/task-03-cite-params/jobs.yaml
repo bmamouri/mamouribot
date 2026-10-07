@@ -1,0 +1,52 @@
+# وظیفهٔ ۳ jobs on Toolforge.   toolforge jobs load jobs.yaml
+#
+# Approved on ۱۱ ژوئیهٔ ۲۰۲۶ for up to ۱٬۰۰۰ trial edits
+# («برای تا ۱٬۰۰۰ ویرایش آزمایشی مجوز دارد»), after which the trial is reported and
+# the full permission asked for. Step 3 therefore stops at 1000 and is not a
+# recurring schedule.
+#
+# --delay 15 = seconds between writes (policy floor is 10).
+#
+# NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in
+# the directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127 with
+# «./run.sh: not found». run.sh itself does `cd "$(dirname "$0")"`, so the relative
+# paths inside it still resolve.
+---
+# Step 0 — credentials, bot flag and the stop key. Makes NO edits.
+- name: cn-check
+  command: ./task-03-cite-params/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/check.out
+  filelog-stderr: logs/check.err
+
+# Step 1 — a capped dry run: reads only, no login, no writes. Proves the bundle
+# imports, the API and the gate are reachable, and prints the diffs it would make.
+- name: cn-dry
+  command: ./task-03-cite-params/run.sh --limit 25
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/dry.out
+  filelog-stderr: logs/dry.err
+
+# Step 2 — a small live batch to eyeball before committing the whole trial.
+- name: cn-trial-50
+  command: ./task-03-cite-params/run.sh --live --limit 50 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0          # never silently re-run a partial edit batch
+  emails: all
+  filelog-stdout: logs/trial50.out
+  filelog-stderr: logs/trial50.err
+
+# Step 3 — the rest of the approved trial. Create this ONLY after auditing step 2.
+- name: cn-trial-1000
+  command: ./task-03-cite-params/run.sh --live --limit 950 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0
+  emails: all
+  filelog-stdout: logs/trial1000.out
+  filelog-stderr: logs/trial1000.err
