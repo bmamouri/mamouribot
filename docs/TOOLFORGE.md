@@ -36,16 +36,29 @@ Layout on the tool:
 relative to the process CWD rather than `BOT_STATE_DIR`, so its jobs `cd ~/task-10-destub`
 and reach the bundles as `../destub-watch.mjs`. Everything else uses `BOT_STATE_DIR`.
 
-### The eight retired tools
+### The eight retired tools — disabled ۸ اکتبر ۲۰۲۶
 
 `fawiki-musician-infobox-params`, `mamouribot-taxobox`, `mamouribot-fa-software-infobox`,
 `mamouribot-fa-notelist`, `mamouribot-fa-destub`, `mamouribot-fa-taxonomy-create`,
 `mamouribot-fa-cite-normalize`, `mamouribot-fa-cite-update-params`.
 
-All jobs deleted, `bot/`, `state/` and the bot-password `.env` removed from each. Nothing
-on them is runnable. **Deleting the tools themselves is a web action at
-`https://toolsadmin.wikimedia.org/tools/id/<tool>`** — neither the CLI nor the API can do
-it, so that step is the maintainer's.
+Jobs deleted, then `bot/`, `state/` and the bot-password `.env` removed from each, then
+the tools **disabled** by the maintainer at toolsadmin.
+
+⚠️ **Disabling is not immediate deletion, and this will confuse you if you do not know
+it.** toolsadmin says: «Disabled tools are archived and deleted after 40 days». So until
+roughly **۱۷ نوامبر ۲۰۲۶**:
+
+- `id -Gn | grep ^tools[.]` still lists all nine. That is NOT a sign the consolidation
+  failed.
+- `become <tool>` still works and the archived home is still readable.
+- but nothing runs there: the jobs are gone and the tools are disabled.
+
+Two consequences worth knowing. There is a **40-day window in which anything missed in
+the migration can still be recovered** — read it out with `become <tool> cat …` before
+the window closes. And a stray script pointed at an old tool would still *appear* to
+work during that window while never being scheduled, which is exactly the kind of silent
+nothing-happens this playbook exists to prevent. Point everything at `mamouribot`.
 
 Their checkpoints were migrated into `~/state/` on `mamouribot` first, not discarded:
 `musician-params.json` (3,635 done), `taxonomy-link-localize.json` (6,950),
@@ -69,17 +82,25 @@ It rots silently, so check it rather than trusting it. From a machine with the
 Wikimedia developer key:
 
 ```bash
+# the jobs, which is the thing that matters
+ssh mamouri@login.toolforge.org 'become mamouribot toolforge jobs list'
+ssh mamouri@login.toolforge.org 'become mamouribot toolforge jobs quota'
+
+# group membership still shows the eight disabled tools until ~۱۷ نوامبر ۲۰۲۶; see above
 ssh mamouri@login.toolforge.org 'id -Gn | tr " " "\n" | grep ^tools[.]'
-# then, per tool:
-ssh mamouri@login.toolforge.org \
-  'become <tool> bash -c "ls ~/bot 2>/dev/null; toolforge jobs list"'
 ```
 
-Each tool's title and description are public and need no login, at
-`https://toolsadmin.wikimedia.org/tools/id/<tool>`. The page is server-rendered,
-so a plain `curl` plus tag-stripping reads them; no browser or login required.
+A tool's title, description and **disabled/deleted state** are public and need no login,
+at `https://toolsadmin.wikimedia.org/tools/id/<tool>`. The page is server-rendered, so a
+plain `curl` plus tag-stripping reads it; no browser or login required. That is how to
+tell a disabled tool from a live one, since `become` and `id` cannot:
 
-Last verified against the live tools: ۸ اکتبر ۲۰۲۶, after the consolidation.
+```bash
+curl -s https://toolsadmin.wikimedia.org/tools/id/<tool> | sed -e 's/<[^>]*>/ /g' | tr -s ' ' | grep -i 'disabled\|Tool:'
+```
+
+Last verified: ۸ اکتبر ۲۰۲۶ — `mamouribot` live with four cron jobs, the other eight
+disabled and pending automatic deletion.
 
 ### There is no second tool, and no naming scheme for one
 
