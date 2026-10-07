@@ -84,21 +84,34 @@ so a plain `curl` plus tag-stripping reads them; no browser or login required.
 
 Last verified against the live tools: ۸ اکتبر ۲۰۲۶, after the consolidation.
 
-### Naming
+### Naming — and why you almost certainly do not need it
 
-**New tools are `mamouribot-fa-t<NN>-<slug>`** — the BRFA number zero-padded, then a
-short slug: `mamouribot-fa-t05-empty-params`. Decided ۷ اکتبر ۲۰۲۶. The number is the
-same index the repo uses for `src/tasks/task-05/` and `docs/task-05-*.md`, so a tool
-name tells you where its code is without a lookup. Max 32 characters, which the shape
-above leaves about 12 for the slug.
+**Do not create a new tool.** One tool holds every task; that is the decision of
+۷ اکتبر ۲۰۲۶ and the reasoning is above. Adding a tool re-creates the staleness,
+duplicated credentials and invisible schedule that the consolidation removed.
 
-**Existing names stay as they are.** They accumulated without a scheme —
-`fawiki-musician-infobox-params` has no `mamouribot` prefix, `mamouribot-taxobox` has
-no `fa-`, `mamouribot` says nothing about what it does — and renaming is not worth the
-churn: a Toolforge tool **cannot be renamed**, so migrating means create-new, redeploy,
-re-register envvars, recreate jobs, verify, delete-old, and a deleted name is not
-released for reuse. Three of these tools have live cron jobs; each migration is a
-chance to silently stop one. The table above is what maps the old names to tasks.
+The rest of this section is kept only so that a genuine exception has a name to use — for
+example if somebody needed access to exactly one task and nothing else. It is NOT standing
+guidance, and «from now on new tools will be called …» was true for about a day before the
+consolidation superseded it.
+
+If that exception ever arrives: `mamouribot-fa-t<NN>-<slug>`, the BRFA number zero-padded
+then a short slug, e.g. `mamouribot-fa-t05-empty-params`. Max 32 characters, which leaves
+about 12 for the slug.
+
+**This is a TOOLFORGE TOOL name and nothing else.** Directories in this repository are
+`task-NN` and `task-NN-<slug>` — `src/tasks/task-03/`, `toolforge/task-03-cite-params/`,
+`docs/task-03-*.md` — and that convention is settled. The two were confused once; the
+32-character cap is the giveaway, since it is a Toolforge constraint rather than a
+filesystem one.
+
+**The one remaining name is the right one.** `mamouribot` says nothing about any
+particular task, which is exactly correct now that it runs all of them. The eight others
+accumulated without a scheme — `fawiki-musician-infobox-params` had no `mamouribot`
+prefix, `mamouribot-taxobox` had no `fa-` — and they are being deleted rather than
+renamed, because a Toolforge tool **cannot be renamed**: migrating means create-new,
+redeploy, re-register envvars, recreate jobs, verify, delete-old. A deleted tool name is
+also never released for reuse, so those eight names are gone for good.
 
 After the tool is created, `id` shows the new group within ~2 min but `become`
 fails with `no such tool` for another ~5–10 min while NFS/sudoers provision.

@@ -39,6 +39,7 @@ you pass an `api` callable.
 
 from __future__ import annotations
 
+import html
 import re
 
 # --------------------------------------------------------------------------
@@ -511,7 +512,9 @@ def audit_latin_display_label(text: str):
         label = re.sub(r'<[^>]*>', '', label)
         if styled and re.fullmatch(r'[A-Z0-9]{1,4}', label.strip()):
             continue
-        bare = label.strip("'’\" ")
+        # `&#x2202;` / `&nbsp;` are characters, not English words: a Unicode
+        # chart cell `[[مشتق جزئی|&#x2202;]]` displays ∂. Judge the decoded text.
+        bare = html.unescape(label).strip("'’\" \u00a0")
         if not bare or re.search(r'[؀-ۿ]', bare):
             continue                      # label already has Persian
         if not re.search(r'[A-Za-z]', bare):
@@ -756,6 +759,7 @@ def audit_persian_digit_number(text: str):
                          masked):
         hits.append('{{div col|%s}}' % m.group(1))
     return hits
+
 
 
 _TEXT_AUDITS = [
