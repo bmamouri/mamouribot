@@ -272,3 +272,53 @@ clear a large share of 4,361 error pages — upside and blast radius both large.
 operator's decision, not the bot's, and it should be sandboxed
 (`پودمان:Citation/CS1/fa/Configuration/تمرین` + `templatesandboxtext` renders of the nine
 cases above) before any live edit.
+
+---
+
+## THE MODULE FIX IS LIVE — ۸ اکتبر ۲۰۲۶
+
+Applied to both `پودمان:Citation/CS1/en/Configuration` (rev 44677658) and
+`پودمان:Citation/CS1/fa/Configuration` (rev 44677662), with the same text first saved to
+each `/تمرین` sandbox. The block rebuilds `dependencies_t` at the END of the fa i18n
+overlay, keyed on **every** alias, so it sees the Persian names that the original
+build — 2,200 lines earlier — could not.
+
+### The instrument that finally measured it
+
+`action=parse&text=…&revid=<n>` — `text=` alone is preview mode and renders clean;
+adding `revid=` sets `{{REVISIONID}}` and reproduces the stored parse **exactly**. On the
+nine-case sandbox: stored `oldid=` → 12 spans / 6 «نیازمند»; `text=` alone → 0/0;
+`text=` + `revid=` → **12/6**. That is the whole two-day instrument puzzle, and it means
+a defect of this class is now testable against unsaved wikitext.
+
+### Verified before saving, via templatesandboxtext
+
+On the nine-case sandbox: baseline 12 spans / 6 «نیازمند»; en/Configuration patched
+→ 2/1 (only the `زبان=fa` case left, which the fa engine handles); fa/Configuration
+patched → 10/5. Together, 0. **0 Lua errors in every run.**
+
+### Live, after saving (`action=parse&page=`, purged)
+
+| page | cs1 errors before → after | this message before → after |
+|---|---|---|
+| the nine-case sandbox | 12 → **0** | 6 → **0** |
+| ایران | 276 → **48** | 114 → **0** |
+| شیرین عبادی | 130 → **123** | 7 → **0** |
+| گوگل | 49 → **43** | 3 → **0** |
+| کیفر ساترلند | 11 → **9** | 1 → **0** |
+| امپراتوری بیزانس | 2 → 2 | 1 → **0** |
+| کردستان | 6 → 6 | — → **0** |
+| آمریکایی‌ها، زبان‌های هندواروپایی، حافظ، مدل (شخص)، فرودگاه…پیرسون، فهرست…شنا | unchanged | unchanged |
+
+**0 Lua errors on any of them.** The two pages still showing the message (افغانستان،
+محمدرضا شجریان) are genuine: an archive date with no archive url at all, no archive.today
+involved. `رده:صفحه‌های دارای خطا در نشانی بایگانی` held **4,363** articles when the fix
+went live; it drains as the job queue re-renders.
+
+### Open: the bot guard can now be lifted
+
+`ARCHIVE_TODAY_FAMILY` is still in force, which means ~18,400 articles never get their
+archive parameters normalised. That is deliberate for now — the parser cache keeps old
+renders around, and the guard costs nothing while the category drains. Once the category
+has settled, lift it and re-run the five pages the earlier batch self-reverted; they are
+the natural first test.
