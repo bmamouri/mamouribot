@@ -257,7 +257,7 @@ function urlStatusWrite(rawVal: string, canonical: string): string {
  * check `پودمان:Citation/CS1/Configuration` before adding one, do not choose on style.
  *   archive-url → «پیوند بایگانی» · archive-date → «تاریخ بایگانی» · url-status → «چگونگی پیوند»
  */
-const FIELDS: FieldDef[] = [
+const ALL_FIELDS: FieldDef[] = [
   {
     // «پیوند بایگانی», NOT «نشانی بایگانی». The latter was chosen on style grounds
     // («Persian, shortest/native», 2026-09-27) and never checked against the module.
@@ -380,6 +380,45 @@ const FIELDS: FieldDef[] = [
     aliases: ['ناشر', 'انتشارات', 'publisher', 'institution'],
   },
 ];
+
+/**
+ * WHAT THE PERMISSION ACTUALLY COVERS — and why the rest is off by default.
+ *
+ * `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۳` was granted
+ * {{مجوز دارد}} on ۸ اکتبر ۲۰۲۶. Read against the approved page, the scope is:
+ *
+ *   • the dead-url family → «چگونگی پیوند», with مرده/زنده values   (request body)
+ *   • `ref=harv` removal                                            (request body)
+ *   • archive-url / archiveurl / نشانی بایگانی / archive-date / archivedate
+ *                                                     (declared as deviation «یک»)
+ *
+ * The follow-up declared THREE deviations. A fourth, covering the ten families below,
+ * was in the draft and was removed before posting, so none of access-date, language,
+ * title, book-title, date, page, pages, periodical, chapter or publisher appears
+ * anywhere on the approved page — checked term by term, not assumed.
+ *
+ * They therefore stay OFF. A bot editing outside its approval is the kind of thing a
+ * flag gets pulled for, and the failure is silent: every one of those edits is
+ * individually correct and still unauthorised. Compare
+ * lessons/api-and-permissions/repo-folder-is-not-the-approved-scope.md, where the same
+ * confusion went the other way.
+ *
+ * To enable them, do BOTH: get them approved on the request page, and set
+ * `CITE_WIDENED_SCOPE=1`. The env var alone is not permission.
+ */
+export const APPROVED_FIELDS = new Set(['archive-url', 'archive-date', 'url-status']);
+
+const WIDENED_SCOPE_ENABLED = process.env.CITE_WIDENED_SCOPE === '1';
+
+const FIELDS: FieldDef[] = WIDENED_SCOPE_ENABLED
+  ? ALL_FIELDS
+  : ALL_FIELDS.filter(f => APPROVED_FIELDS.has(f.field));
+
+if (WIDENED_SCOPE_ENABLED) {
+  console.warn('⚠ CITE_WIDENED_SCOPE=1 — '
+    + `${ALL_FIELDS.length - APPROVED_FIELDS.size} خانوادهٔ خارج از مجوز فعال شد. `
+    + 'مطمئن شوید درخواست مجوز به‌روز شده است.');
+}
 
 /** normalizedKey → FieldDef, for O(1) classification of a param. */
 const ALIAS_TO_FIELD = new Map<string, FieldDef>();

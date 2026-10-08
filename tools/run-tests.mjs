@@ -42,7 +42,15 @@ function walk_py(dir) {
 const failures = [];
 
 function run(label, cmd, args) {
-  const r = spawnSync(cmd, args, { cwd: REPO, stdio: 'inherit' });
+  // CITE_WIDENED_SCOPE=1 so the behaviour tests exercise every citation family, including
+  // the ten that are OFF in a real run because the permission does not cover them yet.
+  // That the default is the approved subset is asserted separately, in scope.test.ts,
+  // which spawns a child WITHOUT this variable — otherwise enabling it here would hide
+  // the very gate it exists to protect.
+  const r = spawnSync(cmd, args, {
+    cwd: REPO, stdio: 'inherit',
+    env: { ...process.env, CITE_WIDENED_SCOPE: '1' },
+  });
   const ok = r.status === 0;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`);
   if (!ok) failures.push(label);
