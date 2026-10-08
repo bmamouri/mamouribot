@@ -1,7 +1,7 @@
 # وظیفهٔ ۳ — state of the full run, ۸ اکتبر ۲۰۲۶
 
-Handover. Everything measured, not estimated. **The run is STOPPED and deliberately so**;
-§3 is the reason and it is not in the bot.
+Handover. Everything measured, not estimated. The run was stopped on a defect that was
+never in the bot; it is now diagnosed and guarded against, so the run can resume. See §3.
 
 ## 1. Where it stands
 
@@ -37,7 +37,39 @@ They are therefore **off by default**, gated behind `CITE_WIDENED_SCOPE=1`, and
 that variable. The env var is not permission: those families need approving on the request
 page first.
 
-## 3. WHY THE RUN IS STOPPED — a module bug, not a bot bug
+## 3. WHY THE RUN WAS STOPPED — SOLVED ۸ اکتبر ۲۰۲۶، the guard is in
+
+**Root cause: an `archive.today` URL, not a `mw.loadData` proxy and not engine mixing.**
+A single citation on an otherwise empty page reproduces it; the "many English citations"
+correlation was an artefact of page size.
+
+`Module:Citation/CS1/en` runs `has_archive_today_url`, which blanks any parameter holding
+an archive.today-family URL **and its declared dependents**. `cfg.dependencies_t` has two
+faults: `url_dependency_map_t` is keyed on **English parameter names only** (no
+`['پیوند بایگانی']`), and `dependencies_t` is built ~2,200 lines **before** the fa i18n
+overlay appends the Persian aliases. So a Persian-named archive url is blanked alone, its
+date survives, and the citation reports «|archive-date= نیازمند |archive-url= است».
+
+A preview cannot see it: `is_preview_mode = not is_set(REVISIONID)`, and the suppression
+pass is skipped in preview. `action=parse&text=` has no REVISIONID — which is the entire
+`text=` vs `oldid=` disagreement, and why every isolation test rendered clean.
+
+**The guard is implemented.** `ARCHIVE_TODAY_FAMILY` in `normalize-cite-params.ts` freezes
+the whole archive family (`archive-url`, `archive-date`, `url-status`) on any citation
+carrying such a URL; everything else on the page is still done. **All five pages this run
+self-reverted carry an archive.today URL — 5 of 5** — and under the guard none of them
+produces a Persian-named archive parameter inside such a citation. Four tests cover it,
+built on the real failing citation from آمریکایی‌ها.
+
+The **module** fix (rebuild `dependencies_t` keyed on every alias, after the overlay, in
+both Configurations) would additionally clear a large share of
+`رده:صفحه‌های دارای خطا در نشانی بایگانی` — 4,361 pages, most of them broken by hand, with
+no bot involved. It is a core-module edit and is the operator's call. Full diagnosis, the
+nine-case reproduction table and the exact Lua: `docs/task-03-open-defect.md`.
+
+The run can resume: §4.
+
+## 3b. The original (superseded) hypothesis
 
 ~20% of edits in the last batch were self-reverted, all with one message:
 
@@ -155,8 +187,7 @@ change, and let those pages be picked up when they next have real work.
 
 ## 7. Open items, in order
 
-1. **Fix the CS1 alias asymmetry** (§3). This unblocks the whole run and is the only thing
-   standing between the task and a clean sweep of ~250,000 articles.
+1. ~~Fix the CS1 alias asymmetry~~ — **done in the bot** (§3). Resume the run.
 2. **Guard the harv-only cosmetic edit** (§6).
 3. **Get the ten widened families approved**, then set `CITE_WIDENED_SCOPE=1` (§2).
 4. Resume with the command in §4, in supervised batches, watching the revert rate. Above a

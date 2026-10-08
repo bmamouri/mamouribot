@@ -142,3 +142,133 @@ Persian names, save, and parse by `oldid`. Then vary the ORDER of the Persian-na
 citation relative to the converted one. If the error tracks the order, the shared
 `loadData` table is confirmed and the fix belongs in
 «پودمان:Citation/CS1/fa/Configuration» or the dispatch, not here.
+
+---
+
+## ACTUAL ROOT CAUSE — ۸ اکتبر ۲۰۲۶. The section above is superseded.
+
+**It is not a `mw.loadData` proxy, and it is not about mixing engines.** A SINGLE citation
+on an otherwise empty page reproduces it. The "many English citations" correlation was an
+artefact of page size, and the `text=` vs `oldid=` split has a plain explanation.
+
+### The trigger is an `archive.today` URL
+
+`Module:Citation/CS1/en` (and `/fa`, identical here) runs a suppression pass at ~line 4830:
+
+```lua
+if cfg.suppress_archive_today_urls then
+    has_archive_today_url (cite_args_t);
+```
+
+`has_archive_today_url` blanks any parameter holding an archive.today-family URL **and its
+declared dependents**:
+
+```lua
+for p, v in pairs (cite_args_t) do
+    if is_archive_today_url (v:lower()) then
+        table.insert (unset_params_t, p);
+        if cfg.dependencies_t[p] then          -- keyed on the LITERAL parameter name
+            for _, dependent in ipairs (cfg.dependencies_t[p]) do
+                table.insert (unset_params_t, dependent);
+            end
+        end
+    end
+end
+if 0 < #unset_params_t then
+    if not is_preview_mode then                -- preview does NOT suppress
+```
+
+`cfg.dependencies_t` has **two independent faults**, in both
+`پودمان:Citation/CS1/en/Configuration` and `پودمان:Citation/CS1/fa/Configuration`
+(byte-identical in this region, lines 462–491):
+
+1. **`url_dependency_map_t` is keyed on English parameter names only** — `['archive-url']`,
+   `['archiveurl']`, `['url']`… There is no `['پیوند بایگانی']`. A Persian-named archive
+   url is therefore blanked **alone**, and `تاریخ بایگانی` survives.
+2. **`dependencies_t` is built at line ~478, about 2,200 lines BEFORE the fa i18n overlay**
+   (line ~2680) appends the Persian aliases to `aliases`. So even under the English key
+   `archiveurl` the dependent list holds only `archive-date`/`archivedate` — never
+   `تاریخ بایگانی`.
+
+Either way the engine reaches line 4106 with ArchiveDate set and ArchiveURL blank:
+
+```lua
+if utilities.is_set (ArchiveDate) then     -- ArchiveURL not set but ArchiveDate is
+    utilities.set_message ('err_archive_date_missing_url');
+```
+
+### Why a preview never reproduced it
+
+`is_preview_mode = not utilities.is_set (frame:preprocess ('{{REVISIONID}}'))` (line 4707),
+and the suppression pass is skipped in preview. `action=parse&text=` has no REVISIONID, so
+it **is** preview mode — nothing gets blanked, nothing becomes inconsistent, the render is
+clean. That is the whole `text=` / `oldid=` disagreement, and why every isolation test
+passed. Measurement mistake #1 above was reading a real difference as an instrument quirk.
+
+### Measured, on a live sandbox (کاربر:Mamouri/آزمایش یادکرد، نسخهٔ ۴۴۶۷۵۴۰۴)
+
+One citation per case. `oldid=`: 14 `cs1-visible-error` spans, 6 «نیازمند». `text=` on the
+same bytes: 2 spans, **0** «نیازمند».
+
+| case | archive-url param | archive-date param | host | stored parse |
+|---|---|---|---|---|
+| A | `پیوند بایگانی` | `تاریخ بایگانی` | archive.today | **error** |
+| B | `archiveurl` | `archivedate` | archive.today | clean |
+| C | `archive-url` | `archive-date` | archive.today | clean |
+| D | `پیوند بایگانی` | `تاریخ بایگانی` | web.archive.org | clean |
+| E | A, but `{{یادکرد وب}}` | | archive.today | **error** |
+| F | A, plus `زبان=fa` (fa engine) | | archive.today | **error** |
+| G | `نشانی بایگانی` | `تاریخ بایگانی` | archive.today | **error** |
+| H | `archiveurl` | `تاریخ بایگانی` | archive.today | **error** ← fault 2 alone, no bot involved |
+| I | `پیوند بایگانی` | `archivedate` | archive.today | **error** |
+
+So: an archive.today-family URL whose archive-url and archive-date parameters are **not
+both from the same language's name set**. `web.archive.org` is clean under any naming.
+
+**Case H explains the ten pre-existing «نیازمند» pages the write-up above could not
+account for.** ~18,400 mainspace articles carry an archive.today-family URL and ~4,050 of
+those also contain `تاریخ بایگانی`; a hand-written mixture breaks identically.
+`رده:صفحه‌های دارای خطا در نشانی بایگانی` holds 4,361 pages.
+
+### What was done in the bot — DONE
+
+`ARCHIVE_TODAY_FAMILY` in `src/tasks/task-03/normalize-cite-params.ts`: when a citation
+carries such a URL, the whole archive family (`archive-url`, `archive-date`, `url-status`)
+is left exactly as written. The rest of the citation, and the rest of the page, still get
+their work. **All five pages the run self-reverted carry an archive.today URL** — 5 of 5 —
+and under the guard none of them produces a Persian-named archive parameter inside such a
+citation. Four tests cover it, including the real failing citation from آمریکایی‌ها.
+
+### The module fix — NOT done, needs the operator's call
+
+Rebuild `dependencies_t` keyed on **every** alias, **after** the i18n overlay, in both
+Configurations. Insert at the end of the `F A   I 1 8 N   O V E R L A Y` `do` block, just
+after the existing `aliases_add` merge loop (`/fa/Configuration` ≈ line 2675,
+`/en/Configuration` ≈ line 2685). Both tables are top-level locals (68 locals, far under
+Lua's 200 limit) and `dependencies_t` is exported *after* the overlay at line 2723, so
+mutating it there propagates.
+
+```lua
+	-- fa i18n: <dependencies_t> was built at line ~478 from <aliases> BEFORE the Persian names
+	-- were appended just above, and <url_dependency_map_t> is keyed on English parameter names
+	-- only, so has_archive_today_url() blanks a Persian-named archive url without blanking
+	-- |تاریخ بایگانی=, which then trips err_archive_date_missing_url.  Rebuild, keyed on every alias.
+	for meta, key in pairs ({URL = 'url', ArchiveURL = 'archive-url', ChapterURL = 'chapter-url',
+		ConferenceURL = 'conference-url', MapURL = 'map-url', TranscriptURL = 'transcript-url'}) do
+		local deps_t = {};
+		for _, dep_meta in ipairs (url_dependency_map_t[key] or {}) do
+			local a = aliases[dep_meta];
+			if 'string' == type (a) then deps_t[#deps_t + 1] = a;
+			else for _, n in ipairs (a) do deps_t[#deps_t + 1] = n; end end
+		end
+		local names_t = aliases[meta];
+		if 'string' == type (names_t) then names_t = {names_t}; end
+		for _, n in ipairs (names_t) do dependencies_t[n] = deps_t; end
+	end
+```
+
+This is a change to a core module that renders on every citation on the wiki, and it would
+clear a large share of 4,361 error pages — upside and blast radius both large. It is the
+operator's decision, not the bot's, and it should be sandboxed
+(`پودمان:Citation/CS1/fa/Configuration/تمرین` + `templatesandboxtext` renders of the nine
+cases above) before any live edit.

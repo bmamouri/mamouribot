@@ -1,0 +1,47 @@
+# وظیفهٔ ۱۴ — {{جمعیت ایران}} rollout.   toolforge jobs load jobs.yaml
+#
+# All four jobs run the SAME bundle; only the flags differ. The trial is deliberately a
+# separate job so its 50 edits finish and can be audited before the full run exists.
+#
+# A job starts in the TOOL HOME, not where you ran `toolforge jobs load`, so the command
+# is path-qualified; run.sh itself does `cd "$(dirname "$0")"`.
+#
+# mem is 1Gi, not 512Mi: getTargets holds ~16.6k QIDs and resolves every sitelink.
+---
+# Step 0 — preflight: credentials, bot flag, the stop key. Makes NO edits.
+- name: pop-check
+  command: ./task-14-population/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/pop-check.out
+  filelog-stderr: logs/pop-check.err
+
+# Step 1 — enumerate and classify, no login, no writes. Also prints the refusal report.
+- name: pop-dry
+  command: ./task-14-population/run.sh --limit 200
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/pop-dry.out
+  filelog-stderr: logs/pop-dry.err
+
+# Step 2 — the BRFA trial: 50 live edits, then stop. Create ONLY after approval.
+- name: pop-trial
+  command: ./task-14-population/run.sh --live --limit 50 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0          # never silently re-run a partial edit batch
+  emails: all
+  filelog-stdout: logs/pop-trial.out
+  filelog-stderr: logs/pop-trial.err
+
+# Step 3 — the rest. ONLY create this after auditing the trial diffs AND renders.
+- name: pop-full
+  command: ./task-14-population/run.sh --live --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0
+  emails: all
+  filelog-stdout: logs/pop-full.out
+  filelog-stderr: logs/pop-full.err

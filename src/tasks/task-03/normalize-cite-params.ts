@@ -408,6 +408,46 @@ const ALL_FIELDS: FieldDef[] = [
  */
 export const APPROVED_FIELDS = new Set(['archive-url', 'archive-date', 'url-status']);
 
+/** The archive family, which must move together or not at all. See ARCHIVE_TODAY_FAMILY. */
+export const ARCHIVE_FIELDS = new Set(['archive-url', 'archive-date', 'url-status']);
+
+/**
+ * The archive.today family of domains — and the reason this task was stopped for a day.
+ *
+ * `Module:Citation/CS1/en` has a suppression pass, `has_archive_today_url`, which blanks
+ * any parameter holding an archive.today-family url **and its declared dependents**. The
+ * dependent list, `cfg.dependencies_t`, has two faults:
+ *
+ *   1. `url_dependency_map_t` is keyed on ENGLISH parameter names only — there is no
+ *      `['پیوند بایگانی']` entry — so a Persian-named archive url is blanked alone.
+ *   2. `dependencies_t` is built ~2,200 lines BEFORE the fa i18n overlay appends the
+ *      Persian aliases, so even under the English key the dependents are only
+ *      `archive-date`/`archivedate`, never `تاریخ بایگانی`.
+ *
+ * Either way the engine arrives with ArchiveDate set and ArchiveURL blank and emits
+ * «|archive-date= نیازمند |archive-url= است». Renaming EITHER of the pair to a Persian
+ * name while the other keeps an English one is what trips it, so this task leaves the
+ * whole family alone whenever such a url is present — it is the mixture that breaks,
+ * and mixing is unavoidable mid-rename.
+ *
+ * Two consequences worth knowing:
+ *
+ *   - **A preview cannot see it.** `is_preview_mode` is `not is_set(REVISIONID)`, and the
+ *     suppression pass is skipped in preview. `action=parse&text=` therefore has no
+ *     REVISIONID, renders clean, and disagrees with the stored page — which is the whole
+ *     `text=` vs `oldid=` split this task chased for two days, and why every isolation
+ *     test passed.
+ *   - **Most such pages are broken already, without any bot.** ~18,400 mainspace articles
+ *     carry an archive.today-family url; ~4,050 of those also contain `تاریخ بایگانی`. A
+ *     hand-written mixture breaks identically. That is where the ten unexplained
+ *     pre-existing «نیازمند» pages in the trial came from.
+ *
+ * The real fix is in the module (rebuild `dependencies_t` keyed on every alias, after the
+ * i18n overlay, in both `/en/Configuration` and `/fa/Configuration`). This guard is what
+ * lets the task run in the meantime without waiting on it.
+ */
+export const ARCHIVE_TODAY_FAMILY = /archive\.(today|ph|is|md|li|fo|vn)\//i;
+
 const WIDENED_SCOPE_ENABLED = process.env.CITE_WIDENED_SCOPE === '1';
 
 const FIELDS: FieldDef[] = WIDENED_SCOPE_ENABLED
@@ -622,9 +662,19 @@ function normalizeSpan(span: string): { out: string; changed: boolean; collision
 
   if (!byField.size && !changed) return { out: span, changed: false, collision: false, conflicts };
 
+  // --- the archive.today trap ----------------------------------------------
+  // See ARCHIVE_TODAY_FAMILY. A citation whose archive url is on an archive.today
+  // domain must keep its archive parameters EXACTLY as written: renaming one of them
+  // to a Persian name makes the module's own suppression pass blank the url without
+  // blanking its date, and the citation then reports «|archive-date= نیازمند
+  // |archive-url= است». This is the defect that stopped the run, and it is the only
+  // thing standing between this task and a clean sweep.
+  const archiveTodayHere = ARCHIVE_TODAY_FAMILY.test(span);
+
   for (const f of FIELDS) {
     const hits = byField.get(f.field);
     if (!hits || !hits.length) continue;
+    if (archiveTodayHere && ARCHIVE_FIELDS.has(f.field)) continue;
 
     // apply value-map for comparison + for the eventual kept value
     const mapped = hits.map(h => ({ ...h, mappedVal: f.valueMap ? f.valueMap(h.alias, h.rawVal) : h.rawVal }));

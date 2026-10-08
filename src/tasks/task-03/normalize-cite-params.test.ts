@@ -396,5 +396,38 @@ t('a canonical name still beats a Persian alias when both are present',
   r => (r.text.includes('تاریخ بازبینی=') && !r.text.includes('|بازبینی='))
        ? null : 'تاریخ بازبینی is the canonical and should survive');
 
+
+// ---------------------------------------------------------------------------
+// The archive.today trap. This exact citation, from «آمریکایی‌ها» rev 44674288, is what
+// stopped the approved run: renaming its archive parameters to Persian names makes the
+// module's own suppression pass blank the url without blanking the date, and the saved
+// page then reports «|archive-date= نیازمند |archive-url= است». A PREVIEW renders it
+// clean, so no pre-save check can catch it — the only defence is not making the edit.
+// See ARCHIVE_TODAY_FAMILY for the mechanism.
+const ARCHIVE_TODAY_CITE =
+  '{{cite press release|title=خ|url=http://e.com/a.html|accessdate=November 23, 2012'
+  + '|archiveurl=https://archive.today/20120913055849/http://www.e.com/a.html'
+  + '|archivedate=۲۴ دسامبر ۲۰۱۰|deadurl=yes}}';
+
+t('an archive.today url freezes the whole archive family',
+  ARCHIVE_TODAY_CITE,
+  r => (!r.changed || (!r.text.includes('پیوند بایگانی') && !r.text.includes('تاریخ بایگانی')
+                       && !r.text.includes('چگونگی پیوند')))
+       ? null : `the archive family must not be renamed:\n${r.text}`);
+
+t('every archive.today sibling domain is covered',
+  '{{یادکرد وب|عنوان=خ|archiveurl=https://archive.ph/abc/http://e.com|archivedate=۱ مه ۲۰۲۰}}',
+  r => !r.text.includes('پیوند بایگانی') ? null : 'archive.ph must freeze too');
+
+t('web.archive.org is NOT frozen — the common case still migrates',
+  '{{یادکرد وب|عنوان=خ|archiveurl=https://web.archive.org/x/http://e.com|archivedate=۱ مه ۲۰۲۰}}',
+  r => (r.changed && r.text.includes('پیوند بایگانی=') && r.text.includes('تاریخ بایگانی='))
+       ? null : `web.archive.org must still be renamed:\n${r.text}`);
+
+t('an archive.today citation still gets its NON-archive work done',
+  '{{یادکرد وب|عنوان=خ|ref=harv|archiveurl=https://archive.is/q/http://e.com|archivedate=۱ مه ۲۰۲۰}}',
+  r => (r.changed && !r.text.includes('ref=harv') && r.text.includes('archiveurl='))
+       ? null : `ref=harv should go while the archive family stays:\n${r.text}`);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

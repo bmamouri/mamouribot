@@ -24,6 +24,7 @@ import { normalizeCiteParamsTask } from './tasks/task-03/normalize-cite-params.j
 import { destubTask } from './tasks/task-10/destub.js';
 import { task as taxonomyCreateMissingTask } from './tasks/task-11/taxonomy-create-missing.js';
 import { linkfixTask } from './tasks/task-12/linkfix.js';
+import { populationBoxTask } from './tasks/task-14/population-box.js';
 
 const TASKS: Record<string, BotTask> = {
   [useDmyDatesTask.id]: useDmyDatesTask,
@@ -37,6 +38,7 @@ const TASKS: Record<string, BotTask> = {
   [destubTask.id]: destubTask,
   [taxonomyCreateMissingTask.id]: taxonomyCreateMissingTask,
   [linkfixTask.id]: linkfixTask,
+  [populationBoxTask.id]: populationBoxTask,
 };
 
 function parseArgs(argv: string[]) {
