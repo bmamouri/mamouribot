@@ -53,17 +53,16 @@ page rather than iterating over articles, so it has its own entry point,
 
 Current as of ۷ اکتبر ۲۰۲۶. Delete an entry when it is done rather than letting this rot.
 
-**وظیفهٔ ۳ (trial run, follow-up drafted and unposted).** 834 edits over 758 articles and
-6 self-reverts of the approved 1,000; ~160 left. Full state, including the open defect and
-everything already ruled out, in `docs/task-03-trial-state.md`. The follow-up is written at
-`drafts/brfa-task03-trial-report.wiki` in the companion repo and has NOT been posted; it
-declares the three deviations from the filed request (archive parameters added to the
-scope, TypeScript instead of Python, Persian url-status values).
+**وظیفهٔ ۳ (APPROVED, run paused).** {{مجوز دارد}} granted ۸ اکتبر ۲۰۲۶. 45 edits made,
+5 self-reverted, all 5 restored byte-identically. **The run is stopped on purpose**: about
+20% of edits on the legacy-alias population trip one CS1 module bug, where the en engine
+recognises `تاریخ بایگانی` as ArchiveDate but not `پیوند بایگانی` as ArchiveURL. The bot's
+edits are correct; the fix is one Lua alias. Full state and the resume command in
+`docs/task-03-run-state.md`, diagnosis in `docs/task-03-open-defect.md`.
 
-One thing is still open rather than merely undone: the 0.7% regression is CONTAINED by the
-post-save check, not fixed. Cause unknown; the one live clue is that `parse&oldid=` and
-`parse&text=` disagree on identical bytes, which is also why no pre-save guard can catch
-it. The reviewer may reasonably want it root-caused before the full permission.
+Also open there: ten citation families are implemented but **not approved** and so are off
+behind `CITE_WIDENED_SCOPE=1`, and a `ref=harv`-only edit would be cosmetic, which the
+request promises not to do.
 
 **وظیفهٔ ۱۳ (not filed).** Code, tests and deployment are ready and verified against the
 live wiki; see `docs/task-13-move-report.md`. The permission request is drafted at
