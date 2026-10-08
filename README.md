@@ -25,7 +25,7 @@ waits what it waits, and `docs/task-NN-*.md` for each task's own decisions.
 | # | directory | Task id | What it does |
 |---|---|---|---|
 | ۱ | `task-01/` | `remove-use-dmy-dates` | Removes the imported `{{Use dmy dates}}`, which renders nothing on fa.wiki and only populates a tracking category |
-| ۳ | `task-03/` | `normalize-cite-params` | Unifies the deprecated link-status parameters in citation templates and drops `ref=harv` |
+| ۳ | `task-03/` | `normalize-cite-params` | Unifies the archive parameter names in citation templates (`archive-url`/`نشانی بایگانی` → `پیوند بایگانی`, `archive-date` → `تاریخ بایگانی`, the `dead-url` family → `چگونگی پیوند`) and drops `ref=harv` |
 | ۴ | `task-04/` | `company-deprecated-params` | Renames deprecated `جعبه اطلاعات شرکت` parameters, restoring field values the template was silently dropping |
 | ۴ | `task-04/` | `citation-dedup-accessdate` | The approved addition to task ۴: removes a duplicated access-date parameter where both copies hold the same date |
 | ۵ | `task-05/` | `empty-unknown-params.py` | Removes *empty* unknown citation parameters that raise a CS1 error (Python; to be ported to pywikibot) |
@@ -37,6 +37,7 @@ waits what it waits, and `docs/task-NN-*.md` for each task's own decisions.
 | ۱۱ | `task-11/` | `taxonomy-create-missing` | Creates missing taxonomy templates that task ۹ depends on |
 | ۱۲ | `task-12/` | `linkfix` | Repairs links the mass imports left in English: fa article if one exists, else an interwiki with a Persian label, else plain Persian text. Never invents a Persian name. Permission withheld pending three requests from the review, all now done. See `docs/task-12-linkfix.md` |
 | ۱۳ | `task-13/` | `move-report` | Rebuilds the «برای انتقال مقاله» database report of titles whose spelling needs fixing. Proposes only; writes one page and never edits an article. See `docs/task-13-move-report.md` |
+| ۱۴ | `task-14/` | `population-box` | Places `{{جمعیت ایران}}`, the Wikidata-fed census trend box, on Iranian village articles. No number travels in the edit; replacing a hand-written box carries a deletion proof. See `docs/task-14-population.md` |
 
 **The directory name is the BRFA number**, zero-padded so it sorts, and it is the index
 for the whole repository: `src/tasks/task-10/`, `docs/task-10-destub.md`,
@@ -46,27 +47,41 @@ so `src/tasks/task-07/` is everything task ۷ is.
 Task ۲ (the ship-infobox conversion) was a one-off run from a separate script and is
 not part of this runner. Task ۱۳ is not a `BotTask` either: it writes a single report
 page rather than iterating over articles, so it has its own entry point,
-`src/tasks/task-13/move-report-cli.ts`. Its permission request is not filed yet.
+`src/tasks/task-13/move-report-cli.ts`.
 
 
 ## Open items
 
-Current as of ۷ اکتبر ۲۰۲۶. Delete an entry when it is done rather than letting this rot.
+Current as of ۸ اکتبر ۲۰۲۶. Delete an entry when it is done rather than letting this rot.
 
-**وظیفهٔ ۳ (APPROVED, run paused).** {{مجوز دارد}} granted ۸ اکتبر ۲۰۲۶. 45 edits made,
-5 self-reverted, all 5 restored byte-identically. **The run is stopped on purpose**: about
-20% of edits on the legacy-alias population trip one CS1 module bug, where the en engine
-recognises `تاریخ بایگانی` as ArchiveDate but not `پیوند بایگانی` as ArchiveURL. The bot's
-edits are correct; the fix is one Lua alias. Full state and the resume command in
-`docs/task-03-run-state.md`, diagnosis in `docs/task-03-open-defect.md`.
+**وظیفهٔ ۳ (APPROVED, running).** {{مجوز دارد}} granted ۸ اکتبر ۲۰۲۶. The run was stopped
+for a day on a defect that turned out to be **in `Module:Citation/CS1`, not in the bot**,
+and not where the first diagnosis guessed. `has_archive_today_url` blanks a parameter
+holding an `archive.today` URL plus its dependents, but `url_dependency_map_t` is keyed on
+English parameter names only and `dependencies_t` is built ~2,200 lines before the fa i18n
+overlay adds the Persian aliases. So a Persian-named archive url was blanked while its date
+survived, and the citation reported «|archive-date= نیازمند |archive-url= است». A preview can
+never show it: the suppression pass is skipped when `{{REVISIONID}}` is unset.
 
-Also open there: ten citation families are implemented but **not approved** and so are off
-behind `CITE_WIDENED_SCOPE=1`, and a `ref=harv`-only edit would be cosmetic, which the
-request promises not to do.
+Both fixes are in. The bot freezes the archive family on any citation carrying such a URL
+(`ARCHIVE_TODAY_FAMILY`), and the module now rebuilds `dependencies_t` keyed on every alias,
+live in both Configurations as of ۸ اکتبر ۲۰۲۶. Since then: **171 edits, 0 reverts**, against
+45 edits with 5 reverts before. Full state and the resume command in
+`docs/task-03-run-state.md`, the whole diagnosis in `docs/task-03-open-defect.md`.
 
-**وظیفهٔ ۱۳ (not filed).** Code, tests and deployment are ready and verified against the
-live wiki; see `docs/task-13-move-report.md`. The permission request is drafted at
-`drafts/brfa-task13-move-report.wiki` in the companion repo and has not been posted.
+Still open there: ten citation families are implemented but **not approved** and so are off
+behind `CITE_WIDENED_SCOPE=1`; a `ref=harv`-only edit would be cosmetic, which the request
+promises not to do; and the `ARCHIVE_TODAY_FAMILY` guard can be lifted now that the module is
+fixed, which would release the ~18,400 articles it currently declines.
+
+**وظیفهٔ ۱۳ (filed ۸ اکتبر ۲۰۲۶, awaiting review).** Code, tests and deployment are ready and
+verified against the live wiki. The request's figures were refreshed from a same-day replica
+run before filing: 1,096,710 titles, 286 proposals, 282 rows published. See
+`docs/task-13-move-report.md`.
+
+**وظیفهٔ ۱۴ (filed ۸ اکتبر ۲۰۲۶, awaiting review).** Code, 28 tests and the Toolforge jobs are
+ready; the dry run found 39 of 40 articles actionable, every diff a one-line addition. Not run
+live. See `docs/task-14-population.md`.
 
 **وظیفهٔ ۱۲ (filed, permission WITHHELD).** Declined on ۳ اکتبر ۲۰۲۶ pending three
 changes: pywikibot for the Python bots, code on GitHub rather than in the wiki, and
