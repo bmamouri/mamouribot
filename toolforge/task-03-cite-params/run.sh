@@ -29,18 +29,28 @@ esac
 
 # The frozen target list, and why this task uses one instead of enumerating each run.
 #
-# `getTargets` walks the duplicate-parameter category (45,173 members) BEFORE the
-# legacy-alias searches, and for the approved scope that category is drained — an early
-# capped run processed 25 pages for 0 edits. A scheduled run with a cap would therefore
-# spend its whole budget on pages with nothing to do and the task would look finished
-# while 250,000 articles still needed it.
+# `getTargets` walks the duplicate-parameter category before the legacy-alias searches,
+# and the in-run cap is `--limit * 20`, so a scheduled capped run re-enumerates the SAME
+# leading window every time and goes idle once that window is done, with tens of thousands
+# of pages left. The category is NOT drained: ~92% of its 45,126 members are actionable
+# under the approved scope.
 #
-# So the targets are harvested once from the searches the scope actually covers
-# (archiveurl, archive-url, archivedate, archive-date, نشانی بایگانی, dead-url, deadurl,
-# ref=harv) and frozen to a file; the resume checkpoint in $BOT_STATE_DIR skips the ones
-# already done. CirrusSearch will not paginate past ~10,000 per query, so the list is the
-# union of the eight, currently 43,919 titles. Regenerate it with
+# So the targets are harvested once and frozen to a file — the 45,126 members of
+# «رده:صفحه‌های دارای ارجاع با متغیر تکراری», plus the union of the eight searches the
+# scope covers (archiveurl, archive-url, archivedate, archive-date, نشانی بایگانی,
+# dead-url, deadurl, ref=harv). The resume checkpoint in $BOT_STATE_DIR skips the ones
+# already done. CirrusSearch hard-errors past offset 10,000
+# (`cirrussearch-offset-too-large`), so each search contributes one 10,000 window; the
+# list is currently 80,450 titles. Regenerate it with
 # `scripts/archive/task3-harvest-targets.py` in the companion repo when it runs dry.
+#
+# The list is SHUFFLED, with a fixed seed. Not cosmetic: `list=categorymembers` returns a
+# stable order whose leading window is almost all already-clean pages — measured, the
+# first 100 category members yield 4 edits while a random 100 yield 100. A capped run that
+# walks the list from the start therefore reports "nothing to do" and looks finished. That
+# is what the original «live1 processed 25 pages for 0 edits» actually was, and it is why
+# this handover once claimed the category was drained. Shuffled, every run's slice is
+# representative and the edit rate matches the population.
 export TARGET_FILE="${TARGET_FILE:-$PWD/targets.txt}"
 
 exec node ../mamouribot.mjs normalize-cite-params "$@"

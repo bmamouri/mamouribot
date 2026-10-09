@@ -186,20 +186,60 @@ from `toolforge jobs list`, and the task looked stopped when it had merely run o
 cap. With the full permission it is a cron job instead:
 
 ```
-cite-params-2h   scheduled: 20 */2 * * *
-  ./task-03-cite-params/run.sh --live --limit 200 --delay 15
+cite-params-hourly   scheduled: 25 * * * *
+  ./task-03-cite-params/run.sh --live --limit 250 --delay 5
 ```
 
-200 pages every two hours is ~85 minutes of work at the observed ~25s per edit, so a run
-always finishes well before the next one fires — an overrunning schedule stacks pods and
-is worse than a slower one.
+`TARGET_FILE` defaults to `targets.txt` inside `run.sh`, so no job command has to set it.
+The list is **80,450 titles** — the 45,126 category members first, then the union of the
+eight search windows (`scripts/archive/task3-harvest-targets.py` in the companion repo).
+Checkpoint when this was written: **1,189 done, 15 deferred**. Regenerate the list when
+runs start reporting nothing to do, and **verify the claim before believing it** — §4.
 
-`TARGET_FILE` now defaults to `targets.txt` inside `run.sh`, so no job command has to set
-it. The list is **80,450 titles** — the 45,126 category members first, then the union of
-the eight search windows (`scripts/archive/task3-harvest-targets.py` in the
-companion repo). Checkpoint at the time of writing: **1,189 done, 15 deferred**. At ~2,400
-edits a day that is about five weeks of work; regenerate the list when runs start
-reporting nothing to do, and **verify the claim before believing it** — see §4.
+### The list is shuffled, and that is load-bearing
+
+`list=categorymembers` returns a stable order, and its **leading window is almost all
+already-clean pages**. Measured ۹ اکتبر ۲۰۲۶ with the task's own transform:
+
+| slice of the 45,126 category members | would be edited |
+|---|---|
+| **first 100 in enumeration order** | **4** |
+| random 100 | **100** |
+| random 300 | 275 |
+
+So a capped run that walks the list from the start edits almost nothing and reports
+«موردی برای هم‌سان‌سازی نبود» on every page. **That is what the original
+«live1 processed 25 pages for 0 edits» actually was** — not a drained category — and the
+first hourly run on the un-shuffled list reproduced it exactly: 110 pages, **0 edits**.
+
+The list is therefore shuffled with a fixed seed before upload, so every run's slice is
+representative and the observed edit rate matches the population. Rebuild it the same way
+or the trap comes back.
+
+### Where the pace comes from, measured
+
+| | |
+|---|---|
+| Non-delay cost per edit | **~7s** — read, pre-save render, write, post-save render by `oldid` |
+| Observed cadence at `--delay 15` | median **22s** over 429 consecutive gaps |
+| At `--delay 5` | ~12s per edit, ~300/hour, ~7,200/day → the list in ~11 days |
+
+Both render checks already short-circuit when the error count is zero, so that 7s is two
+API round trips and a write, not four parses. **Do not trim it by dropping the post-save
+check** — that is the one that caught the archive.today defect and self-reverted it.
+
+- **MamouriBot holds `noratelimit`** (verified ۹ اکتبر ۲۰۲۶: `ratelimits.edit` is `{}`),
+  so the server imposes no edit throttle. The only limits are `maxlag` and our own floor.
+- **fa's bot policy names five seconds itself** as the example gap for slowing a bot down
+  («فاصله زمانی مثلاً پنج ثانیه»), so `--delay 5` is inside policy, not at its edge. The
+  same section asks fast bots to ease off at peak hours.
+- **Parallel shards would not help.** `src/pacing.ts` multiplies the gap by the number of
+  concurrent runs (pywikibot's `process_multiplicity`), so N shards each run at 1/N and
+  the aggregate is unchanged. Raising throughput means raising the budget, not adding
+  workers.
+- The pace is **the operator's call, not a constant** —
+  `lessons/api-and-permissions/pacing-is-the-users-call-not-a-constant.md`. He chose 250
+  hourly at `--delay 5` on ۹ اکتبر ۲۰۲۶, from a measured table of the options.
 
 ## 5. What was verified about the edits themselves
 
