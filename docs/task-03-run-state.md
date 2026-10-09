@@ -127,27 +127,57 @@ tracks the order, the shared `loadData` table is confirmed.
 
 Full diagnosis: `docs/task-03-open-defect.md`.
 
-## 4. Enumeration order matters for this scope
+## 4. Enumeration order matters for this scope — ⚠ THE EARLIER CLAIM HERE WAS WRONG
 
-`getTargets` walks the duplicate-parameter category (45,173 members) before the
-legacy-alias searches. With the approved scope that category is largely drained — the trial
-and a human-account run already did its archive cases — so a capped run finds nothing:
-`live1` processed 25 pages for **0 edits**, every one «موردی برای هم‌سان‌سازی نبود».
+This section used to say the duplicate-parameter category was «largely drained» for the
+approved scope, on the strength of one capped run that processed 25 pages for 0 edits.
+**That was false, and it was repeated to the operator before anyone checked it.**
 
-The work is in the searches: **118,930** articles with `dead-url`, **169,076** with
-`archive-url`, **41,394** with `نشانی بایگانی`, 1,735 with `ref=harv`.
+Measured on ۹ اکتبر ۲۰۲۶ — a random 300 of the category's members, each run through the
+task's own `normalizeCiteParams`:
 
-So the supervised batches were driven from a title list built off those searches and
-uploaded to `~/task-03-cite-params/targets.txt` (2,837 titles). To resume:
+| scope | would be edited | no change | needs a human |
+|---|---|---|---|
+| **approved only** | **275 / 300 (۹۲٪)** | 23 | 2 |
+| widened (the ten unapproved families) | 286 / 300 | 2 | 12 |
 
-```bash
-become mamouribot
-toolforge jobs run cn-live --image node20 --mem 2Gi \
-  --command "env TARGET_FILE=/data/project/mamouribot/task-03-cite-params/targets.txt \
-             /data/project/mamouribot/task-03-cite-params/run.sh --live --limit 250 --delay 10" \
-  -o /data/project/mamouribot/task-03-cite-params/logs/live4.out \
-  -e /data/project/mamouribot/task-03-cite-params/logs/live4.err
-```
+So «رده:صفحه‌های دارای ارجاع با متغیر تکراری» holds **45,126** articles (ns0) and about
+92% of them are actionable **under the approved scope alone**. It is the opposite of
+drained, and it is the better population to work first: a duplicate parameter renders a
+visible CS1 error, where a legacy alias renders fine and is only a migration debt.
+
+The one capped run that found nothing was evidence about one 25-page window and a then
+different code state, not about 45,000 pages. A zero needs a positive control
+(`lessons/verification-and-gates/a-zero-needs-a-positive-control.md`); this one never got
+one.
+
+The searches are the second population, re-measured the same day:
+
+| query | articles |
+|---|---|
+| `insource:"archive-url"` | 169,083 |
+| `insource:"archive-date"` | 169,006 |
+| `insource:"url-status"` | 126,513 |
+| `insource:"dead-url"` | 118,378 |
+| `insource:"archiveurl"` | 109,295 |
+| `insource:"archivedate"` | 109,288 |
+| `insource:"پیوند مرده"` | 77,197 |
+| `insource:"پیوند بایگانی"` | 45,741 |
+| `insource:"نشانی بایگانی"` | 41,505 |
+| `insource:"deadurl"` | 12,416 |
+| `insource:"ref=harv"` | 1,730 |
+
+### Why the targets are a frozen file and not enumerated per run
+
+Not laziness: **CirrusSearch hard-errors past offset 10,000** —
+`cirrussearch-offset-too-large`, verified ۹ اکتبر ۲۰۲۶ — so an uncapped in-run enumeration
+of those searches throws rather than stopping politely. And the in-run cap is
+`limit * 20`, which means a scheduled capped run re-enumerates the *same* leading window
+every time and goes idle once that window is done, with tens of thousands of pages left.
+
+So the list is harvested once and frozen, **category first** because those pages carry a
+visible error, then the union of the eight search windows:
+`scripts/archive/task3-harvest-targets.py` in the companion repo.
 
 ## 4b. It runs on a schedule now — ۹ اکتبر ۲۰۲۶
 
@@ -165,12 +195,11 @@ always finishes well before the next one fires — an overrunning schedule stack
 is worse than a slower one.
 
 `TARGET_FILE` now defaults to `targets.txt` inside `run.sh`, so no job command has to set
-it. The list was re-harvested from the eight legacy-alias searches the approved scope
-covers and is **43,919 titles** (`scripts/archive/task3-harvest-targets.py` in the
-companion repo; CirrusSearch will not paginate past ~10,000 per query, so it is the union
-of the eight). Checkpoint at the time of writing: **1,189 done, 15 deferred**. At ~2,400
-edits a day the list lasts a few weeks; regenerate it when runs start reporting nothing to
-do rather than assuming the task is finished.
+it. The list is **80,450 titles** — the 45,126 category members first, then the union of
+the eight search windows (`scripts/archive/task3-harvest-targets.py` in the
+companion repo). Checkpoint at the time of writing: **1,189 done, 15 deferred**. At ~2,400
+edits a day that is about five weeks of work; regenerate the list when runs start
+reporting nothing to do, and **verify the claim before believing it** — see §4.
 
 ## 5. What was verified about the edits themselves
 

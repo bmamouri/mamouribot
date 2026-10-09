@@ -67,9 +67,17 @@ Both fixes are in. The bot freezes the archive family on any citation carrying s
 (`ARCHIVE_TODAY_FAMILY`), and the module now rebuilds `dependencies_t` keyed on every alias,
 live in both Configurations as of ۸ اکتبر ۲۰۲۶. Since then: **460 edits, 0 reverts**, against 45 edits with 5
 reverts before. It now runs as the cron job `cite-params-2h` (200 pages every two hours) off a
-frozen 43,919-title target list, not as one-off capped batches — a finished one-off
+frozen **80,450**-title target list, not as one-off capped batches — a finished one-off
 vanishes from `toolforge jobs list` and the task then looks stopped when it has only
-run out of its cap. Full state and the resume command in
+run out of its cap.
+
+**A correction worth not re-making:** this file and `docs/task-03-run-state.md` both said
+the duplicate-parameter tracking category was «largely drained» for the approved scope, on
+the strength of one capped run that edited nothing. Measured on ۹ اکتبر ۲۰۲۶ against a
+random 300 of its members, **275 (۹۲٪) are actionable under the approved scope alone**, and
+the category holds 45,126 articles. It is the opposite of drained, and it is the population
+to work first because a duplicate parameter renders a visible CS1 error. The target list now
+puts it ahead of the search results. Full state and the resume command in
 `docs/task-03-run-state.md`, the whole diagnosis in `docs/task-03-open-defect.md`.
 
 Still open there: ten citation families are implemented but **not approved** and so are off
