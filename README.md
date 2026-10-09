@@ -17,6 +17,10 @@ time a task was approved.
 `core.ts` already does so you do not rebuild it, how a task gets approved, and the traps.
 Read it before adding `src/tasks/task-NN/`.
 
+**[`TODO.md`](TODO.md)** is what is left to do. Start there after a gap: the campaigns run
+for months, so most of it is "do this once X is true", and every entry carries the trigger
+and a command that answers whether it is due yet.
+
 Other references: `docs/TOOLFORGE.md` for deployment, `docs/PACING.md` for why the bot
 waits what it waits, and `docs/task-NN-*.md` for each task's own decisions.
 
@@ -52,67 +56,48 @@ page rather than iterating over articles, so it has its own entry point,
 
 ## Open items
 
-Current as of ۸ اکتبر ۲۰۲۶. Delete an entry when it is done rather than letting this rot.
+**The actionable list lives in [`TODO.md`](TODO.md)**, not here. Each entry there carries a
+trigger, a command to check whether it is due, and what to do — because these campaigns run
+for months and a flat checklist rots before its conditions arrive.
 
-**وظیفهٔ ۳ (APPROVED, running).** {{مجوز دارد}} granted ۸ اکتبر ۲۰۲۶. The run was stopped
-for a day on a defect that turned out to be **in `Module:Citation/CS1`, not in the bot**,
-and not where the first diagnosis guessed. `has_archive_today_url` blanks a parameter
-holding an `archive.today` URL plus its dependents, but `url_dependency_map_t` is keyed on
-English parameter names only and `dependencies_t` is built ~2,200 lines before the fa i18n
-overlay adds the Persian aliases. So a Persian-named archive url was blanked while its date
-survived, and the citation reported «|archive-date= نیازمند |archive-url= است». A preview can
-never show it: the suppression pass is skipped when `{{REVISIONID}}` is unset.
+What is below is *status*: where each task stands and why. Delete an entry when it stops
+being true.
 
-Both fixes are in. The bot freezes the archive family on any citation carrying such a URL
-(`ARCHIVE_TODAY_FAMILY`), and the module now rebuilds `dependencies_t` keyed on every alias,
-live in both Configurations as of ۸ اکتبر ۲۰۲۶. Since then: **460 edits, 0 reverts**, against 45 edits with 5
-reverts before. It now runs as the cron job `cite-params-hourly` (250 pages an hour, `--delay 5`) off a
-frozen **80,450**-title target list, not as one-off capped batches — a finished one-off
-vanishes from `toolforge jobs list` and the task then looks stopped when it has only
-run out of its cap.
+**وظیفهٔ ۳ (APPROVED, running).** {{مجوز دارد}} granted ۸ اکتبر ۲۰۲۶. Runs as the cron job
+`cite-params-hourly` — 250 pages an hour at `--delay 5`, off a frozen, shuffled 80,450-title
+target list. ~2,000 articles done of an estimated ~265,000; see `docs/task-03-run-state.md`.
+
+It was stopped for a day on a defect that turned out to be **in `Module:Citation/CS1`, not
+in the bot**. `has_archive_today_url` blanks a parameter holding an `archive.today` URL plus
+its dependents, but `url_dependency_map_t` is keyed on English parameter names only and
+`dependencies_t` is built ~2,200 lines before the fa i18n overlay adds the Persian aliases,
+so a Persian-named archive url was blanked while its date survived. A preview can never show
+it: the suppression pass is skipped when `{{REVISIONID}}` is unset. Both fixes are live —
+the bot freezes the archive family on such citations, and the module rebuilds
+`dependencies_t` keyed on every alias. Full diagnosis: `docs/task-03-open-defect.md`.
 
 **A correction worth not re-making:** this file and `docs/task-03-run-state.md` both said
 the duplicate-parameter tracking category was «largely drained» for the approved scope, on
 the strength of one capped run that edited nothing. Measured on ۹ اکتبر ۲۰۲۶ against a
 random 300 of its members, **275 (۹۲٪) are actionable under the approved scope alone**, and
-the category holds 45,126 articles. It is the opposite of drained, and it is the population
-to work first because a duplicate parameter renders a visible CS1 error. The target list now
-puts it ahead of the search results. Full state and the resume command in
-`docs/task-03-run-state.md`, the whole diagnosis in `docs/task-03-open-defect.md`.
+the category holds 45,126 articles. The ordering was the trap, not the population:
+`list=categorymembers` returns a leading window that is nearly all already-clean pages.
 
-Still open there: ten citation families are implemented but **not approved** and so are off
-behind `CITE_WIDENED_SCOPE=1`; a `ref=harv`-only edit would be cosmetic, which the request
-promises not to do; and the `ARCHIVE_TODAY_FAMILY` guard can be lifted now that the module is
-fixed, which would release the ~18,400 articles it currently declines.
+**وظیفهٔ ۱۲ (second trial done, permanent permission expected).** The ۵۰-edit trial ran
+۹ اکتبر ۲۰۲۶ and the report is posted: 141 links rewritten, content red links 2,840 → 2,720,
+0 self-reverts, red links down on 46 articles and up on none. See `docs/task-12-linkfix.md`.
 
 **وظیفهٔ ۱۳ — LIVE since ۹ اکتبر ۲۰۲۶, permission declined as unnecessary.** Runs daily as
-`mr-daily`; first publication rev 44682987 came back `bot: false`, the unflagged edit asked
-for. The BAG's answer was
-that such a bot needs no permission and that its edits are *better off not bot-flagged*,
-because the flag is flood control and this task writes one page a day. It therefore runs on
-MamouriBot with `flagEdits: false`, which `RunOptions` now carries independently of
-`identity`. **It does not need the operator's credentials on Toolforge** — `bot=1` is a
-per-edit parameter, verified live. See `docs/task-13-move-report.md`.
+`mr-daily`; first publication rev 44682987 came back `bot: false`. The BAG's answer was that
+such a bot needs no permission and that its edits are *better off not bot-flagged*, because
+the flag is flood control and this task writes one page a day. It runs on MamouriBot with
+`flagEdits: false`, which `RunOptions` carries independently of `identity` —
+**it does not need the operator's credentials on Toolforge**, because `bot=1` is a per-edit
+parameter. See `docs/task-13-move-report.md`.
 
-**وظیفهٔ ۱۴ (filed ۸ اکتبر ۲۰۲۶, awaiting review).** Code, 28 tests and the Toolforge jobs are
-ready; the dry run found 39 of 40 articles actionable, every diff a one-line addition. Not run
-live. See `docs/task-14-population.md`.
-
-**وظیفهٔ ۱۲ (filed, permission WITHHELD).** Declined on ۳ اکتبر ۲۰۲۶ pending three
-changes: pywikibot for the Python bots, code on GitHub rather than in the wiki, and
-Toolforge. All three are now done — the task is TypeScript at `src/tasks/task-12/`, this
-repo is public, and it runs on `tools.mamouribot` — and the review scoped the pywikibot
-request to Python bots. The reply is drafted in the companion repo's `drafts/` and is NOT
-posted. See `docs/task-12-linkfix.md`.
-
-One question in that reply is genuinely open and is the operator's to answer: whether to
-move this repo under `PersianWikipedia/fawikibot` as the review suggested, or link to it from
-there.
-
-**Persian url-status values.** `مرده`/`زنده` were added to the keywords table in all five
-CS1 configs and the bot writes them. Untested over time: that config tells
-InternetArchiveBot what to RECOGNISE, not what to EMIT, so IABot may still write `dead`
-when it next visits a page the bot set to `مرده`. Only observable by waiting.
+**وظیفهٔ ۱۴ (filed ۸ اکتبر ۲۰۲۶, awaiting review).** Code, 28 tests and the Toolforge jobs
+are ready; the dry run found 39 of 40 articles actionable, every diff a one-line addition.
+Not run live. See `docs/task-14-population.md`.
 
 ## Layout
 
