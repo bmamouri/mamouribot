@@ -172,6 +172,30 @@ non-village items the `P31=Q532` filter excludes), and retiring
 
 ---
 
+## 7b. وظیفهٔ ۱۴ needs a نظرخواهی before it can run
+
+**Why.** Huji on the request page, ۹ اکتبر ۲۰۲۶: technically fine, but the task moves where
+population vandalism *lands*. Today a wrong figure is reverted by fa patrollers; read from
+Wikidata, it has to be caught on Wikidata, where there are far fewer Persian-speaking
+patrollers. He does not accept the قهوه‌خانه thread as consensus — too few participants,
+and this specific risk was never raised there.
+
+He also said, plainly, that **the long messages were part of why that thread failed**:
+«شما و هوشواره‌تان پیام‌های طولانی نوشته بودید و دنبال کردنش احتمالاً از حوصلهٔ خیلی‌ها
+خارج بوده». Whoever writes the نظرخواهی: make it short enough to be read by people who are
+not already invested. That is the actual blocker, not the code.
+
+**Trigger.** A نظرخواهی is opened, runs, and reaches a conclusion.
+
+**Then.** If it passes, the trial as in §7. If it does not, the template and module stay —
+the قهوه‌خانه request is already satisfied and any editor can place `{{جمعیت ایران}}` by
+hand. Do not run the bot on the strength of a thin thread.
+
+**Worth answering in the نظرخواهی, because it is the real objection:** how a wrong number on
+Wikidata gets noticed from fa. The honest answer today is "it does not, reliably".
+
+---
+
 ## 8. Port وظیفهٔ ۵ to pywikibot
 
 **Why.** Huji asked for it when declining وظیفهٔ ۱۲: «وقتش است که ربات‌های پایتون خود را به
