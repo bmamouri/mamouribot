@@ -114,6 +114,18 @@ async function buildOne(entry: string, out: string) {
     entryPoints: [entry], bundle: true, platform: 'node', target: 'node20',
     format: 'esm', outfile: out,
     define: { __BUNDLED__: 'true' },   // the whole point of this file — see src/lib/is-main.ts
+    // An ESM bundle has no `require`, but a CommonJS dependency rolled into it may still
+    // call one at RUN time, and esbuild leaves that as a stub that throws «Dynamic require
+    // of "buffer" is not supported». It is invisible until the code path actually runs:
+    // the move-report bundle built, passed both gates and its own selftest, and died on
+    // the tool the first time it reached the replica, because mysql2 → sql-escaper
+    // requires `buffer` dynamically.
+    //
+    // This shim gives the bundle a real `require`. Keep it on every bundle, not just the
+    // one that needed it: the next CJS dependency will fail the same way, equally late.
+    banner: {
+      js: "import { createRequire as __cr } from 'module'; const require = __cr(import.meta.url);",
+    },
   });
   console.log(`ساخته شد: ${out}`);
   gate1(out);

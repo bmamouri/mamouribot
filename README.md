@@ -85,7 +85,9 @@ behind `CITE_WIDENED_SCOPE=1`; a `ref=harv`-only edit would be cosmetic, which t
 promises not to do; and the `ARCHIVE_TODAY_FAMILY` guard can be lifted now that the module is
 fixed, which would release the ~18,400 articles it currently declines.
 
-**وظیفهٔ ۱۳ — permission DECLINED AS UNNECESSARY, ۹ اکتبر ۲۰۲۶.** The BAG's answer was
+**وظیفهٔ ۱۳ — LIVE since ۹ اکتبر ۲۰۲۶, permission declined as unnecessary.** Runs daily as
+`mr-daily`; first publication rev 44682987 came back `bot: false`, the unflagged edit asked
+for. The BAG's answer was
 that such a bot needs no permission and that its edits are *better off not bot-flagged*,
 because the flag is flood control and this task writes one page a day. It therefore runs on
 MamouriBot with `flagEdits: false`, which `RunOptions` now carries independently of
