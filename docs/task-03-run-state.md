@@ -8,7 +8,7 @@ never in the bot; it is now diagnosed and guarded against, so the run can resume
 | | |
 |---|---|
 | Permission | **{{مجوز دارد}}** granted ۸ اکتبر ۲۰۲۶ (full, not a trial) |
-| Edits this run | **45** |
+| Edits, ۸ اکتبر | **45** (5 self-reverted, all restored byte-identically) |
 | Self-reverted by the guard | **5** |
 | Processed | 75 |
 | Checkpoint | 729 done, 15 deferred (`~/state/normalize-cite-params.json`) |
@@ -148,6 +148,29 @@ toolforge jobs run cn-live --image node20 --mem 2Gi \
   -o /data/project/mamouribot/task-03-cite-params/logs/live4.out \
   -e /data/project/mamouribot/task-03-cite-params/logs/live4.err
 ```
+
+## 4b. It runs on a schedule now — ۹ اکتبر ۲۰۲۶
+
+The earlier batches were **one-off** jobs with a `--limit`, so each finished and vanished
+from `toolforge jobs list`, and the task looked stopped when it had merely run out of its
+cap. With the full permission it is a cron job instead:
+
+```
+cite-params-2h   scheduled: 20 */2 * * *
+  ./task-03-cite-params/run.sh --live --limit 200 --delay 15
+```
+
+200 pages every two hours is ~85 minutes of work at the observed ~25s per edit, so a run
+always finishes well before the next one fires — an overrunning schedule stacks pods and
+is worse than a slower one.
+
+`TARGET_FILE` now defaults to `targets.txt` inside `run.sh`, so no job command has to set
+it. The list was re-harvested from the eight legacy-alias searches the approved scope
+covers and is **43,919 titles** (`scripts/archive/task3-harvest-targets.py` in the
+companion repo; CirrusSearch will not paginate past ~10,000 per query, so it is the union
+of the eight). Checkpoint at the time of writing: **1,189 done, 15 deferred**. At ~2,400
+edits a day the list lasts a few weeks; regenerate it when runs start reporting nothing to
+do rather than assuming the task is finished.
 
 ## 5. What was verified about the edits themselves
 

@@ -27,4 +27,20 @@ case " $* " in
     fi ;;
 esac
 
+# The frozen target list, and why this task uses one instead of enumerating each run.
+#
+# `getTargets` walks the duplicate-parameter category (45,173 members) BEFORE the
+# legacy-alias searches, and for the approved scope that category is drained — an early
+# capped run processed 25 pages for 0 edits. A scheduled run with a cap would therefore
+# spend its whole budget on pages with nothing to do and the task would look finished
+# while 250,000 articles still needed it.
+#
+# So the targets are harvested once from the searches the scope actually covers
+# (archiveurl, archive-url, archivedate, archive-date, نشانی بایگانی, dead-url, deadurl,
+# ref=harv) and frozen to a file; the resume checkpoint in $BOT_STATE_DIR skips the ones
+# already done. CirrusSearch will not paginate past ~10,000 per query, so the list is the
+# union of the eight, currently 43,919 titles. Regenerate it with
+# `scripts/archive/task3-harvest-targets.py` in the companion repo when it runs dry.
+export TARGET_FILE="${TARGET_FILE:-$PWD/targets.txt}"
+
 exec node ../mamouribot.mjs normalize-cite-params "$@"

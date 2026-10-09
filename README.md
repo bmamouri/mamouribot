@@ -65,8 +65,11 @@ never show it: the suppression pass is skipped when `{{REVISIONID}}` is unset.
 
 Both fixes are in. The bot freezes the archive family on any citation carrying such a URL
 (`ARCHIVE_TODAY_FAMILY`), and the module now rebuilds `dependencies_t` keyed on every alias,
-live in both Configurations as of ۸ اکتبر ۲۰۲۶. Since then: **171 edits, 0 reverts**, against
-45 edits with 5 reverts before. Full state and the resume command in
+live in both Configurations as of ۸ اکتبر ۲۰۲۶. Since then: **460 edits, 0 reverts**, against 45 edits with 5
+reverts before. It now runs as the cron job `cite-params-2h` (200 pages every two hours) off a
+frozen 43,919-title target list, not as one-off capped batches — a finished one-off
+vanishes from `toolforge jobs list` and the task then looks stopped when it has only
+run out of its cap. Full state and the resume command in
 `docs/task-03-run-state.md`, the whole diagnosis in `docs/task-03-open-defect.md`.
 
 Still open there: ten citation families are implemented but **not approved** and so are off
