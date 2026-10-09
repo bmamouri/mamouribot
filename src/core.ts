@@ -575,7 +575,9 @@ export class Bot {
     return this.apiPost({
       action: 'edit', title, undo: String(revid), token: this.csrf!,
       summary: `واگردانی ویرایش خودکار: ${why}`,
-      ...(this.id.botFlag ? { bot: '1' } : {}),
+      // Same coupling as edit(): the bot undoing its own edit seconds later is the
+      // definition of routine, and the pair is pure noise in recent changes.
+      ...(this.id.botFlag ? { bot: '1', minor: '1' } : {}),
       assert: 'user', assertuser: this.username!, maxlag: String(this.opts.maxlag),
     });
   }
@@ -619,7 +621,21 @@ export class Bot {
       action: 'edit', title, text, summary,
       // Only a bot-identity run marks its edits as bot edits. A human-account trial must
       // stay visible in recent changes: being reviewable by other editors is the point.
-      ...(this.id.botFlag ? { bot: '1' } : {}),
+      //
+      // `minor` travels WITH the bot flag, never apart from it. Huji, on
+      // بحث کاربر:Mamouri § پرچم ربات (۹ اکتبر ۲۰۲۶): «پرچم ربات فقط بر ویرایش‌های جزئی
+      // اعمال می‌شود پس ربات باید ویرایش‌هایش را جزئی علامت بزند و گزینهٔ پرچم را هم در
+      // زمان ویرایشش استفاده کند.» The two are one decision: if an edit is routine
+      // enough to hide from recent changes, it is a minor edit, and if it is not, it
+      // should carry neither mark.
+      //
+      // That coupling is why this is `this.id.botFlag` and not a blanket `minor: '1'`:
+      // وظیفهٔ ۱۳ runs with `flagEdits: false` precisely so its one daily edit is SEEN,
+      // and marking it minor would hide it again from everyone filtering minor edits.
+      // A human-account trial is the same case.
+      //
+      // MediaWiki ignores `minor` on a page creation, so task ۱۱ needs no exception.
+      ...(this.id.botFlag ? { bot: '1', minor: '1' } : {}),
       ...(opts.allowCreate ? {} : { nocreate: '1' }),
       token: this.csrf!,
       // A page being created has no base revision to collide with; sending an

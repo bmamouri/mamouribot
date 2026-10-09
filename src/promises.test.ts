@@ -95,11 +95,29 @@ console.log('\n== the bot flag is separable from the account ==');
   ok('RunOptions carries flagEdits', /flagEdits\?: boolean;/.test(core));
   ok('it overrides only the flag, not the account',
      /if \(opts\.flagEdits !== undefined\) this\.id = \{ \.\.\.this\.id, botFlag: opts\.flagEdits \};/.test(core));
-  ok('edit() still gates bot=1 on that one field', /this\.id\.botFlag \? \{ bot: '1' \}/.test(core));
+  ok('edit() still gates the marks on that one field',
+     /this\.id\.botFlag \? \{ bot: '1', minor: '1' \}/.test(core));
   const mr = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'tasks/task-13/move-report.ts'), 'utf8');
   ok('وظیفهٔ ۱۳ asks for unflagged edits', /flagEdits: false/.test(mr));
   ok('and still authenticates as the bot, not as the operator',
      !/identity: 'human'/.test(mr), 'task 13 must not switch to the human account');
+}
+
+
+console.log('\n== a flagged edit is also a MINOR edit ==');
+{
+  // Huji, on بحث کاربر:Mamouri § پرچم ربات (۹ اکتبر ۲۰۲۶): «پرچم ربات فقط بر ویرایش‌های
+  // جزئی اعمال می‌شود پس ربات باید ویرایش‌هایش را جزئی علامت بزند و گزینهٔ پرچم را هم در
+  // زمان ویرایشش استفاده کند.» Measured at the time: every task-3 edit had bot:true and
+  // minor:FALSE, and MamouriBot had 0 minor edits in the whole RC window.
+  ok('edit() sends bot and minor together', /\{ bot: '1', minor: '1' \}/.test(core));
+  ok('the self-revert does too',
+     (core.match(/bot: '1', minor: '1'/g) ?? []).length >= 2, 'undoEdit must match edit()');
+  // The coupling is the point: وظیفهٔ ۱۳ sets flagEdits:false so its one daily edit is
+  // SEEN, and a blanket minor:'1' would hide it again from anyone filtering minor edits.
+  ok('neither mark is sent unconditionally',
+     !/\bminor: '1',?\s*$/m.test(core.replace(/bot: '1', minor: '1'/g, '')),
+     'minor must ride on botFlag, never on its own');
 }
 
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);
