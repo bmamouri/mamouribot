@@ -36,7 +36,7 @@ waits what it waits, and `docs/task-NN-*.md` for each task's own decisions.
 | ۱۰ | `task-10/` | `destub` | Removes stub tags from articles that are demonstrably no longer stubs |
 | ۱۱ | `task-11/` | `taxonomy-create-missing` | Creates missing taxonomy templates that task ۹ depends on |
 | ۱۲ | `task-12/` | `linkfix` | Repairs links the mass imports left in English: fa article if one exists, else an interwiki with a Persian label, else plain Persian text. Never invents a Persian name. Permission withheld pending three requests from the review, all now done. See `docs/task-12-linkfix.md` |
-| ۱۳ | `task-13/` | `move-report` | Rebuilds the «برای انتقال مقاله» database report of titles whose spelling needs fixing. Proposes only; writes one page and never edits an article. See `docs/task-13-move-report.md` |
+| ۱۳ | `task-13/` | `move-report` | Rebuilds the «برای انتقال مقاله» database report of titles whose spelling needs fixing. Proposes only; writes one page and never edits an article. **Needs no permission and runs UNFLAGGED** (`flagEdits: false`) — see `docs/task-13-move-report.md` |
 | ۱۴ | `task-14/` | `population-box` | Places `{{جمعیت ایران}}`, the Wikidata-fed census trend box, on Iranian village articles. No number travels in the edit; replacing a hand-written box carries a deletion proof. See `docs/task-14-population.md` |
 
 **The directory name is the BRFA number**, zero-padded so it sorts, and it is the index
@@ -85,10 +85,12 @@ behind `CITE_WIDENED_SCOPE=1`; a `ref=harv`-only edit would be cosmetic, which t
 promises not to do; and the `ARCHIVE_TODAY_FAMILY` guard can be lifted now that the module is
 fixed, which would release the ~18,400 articles it currently declines.
 
-**وظیفهٔ ۱۳ (filed ۸ اکتبر ۲۰۲۶, awaiting review).** Code, tests and deployment are ready and
-verified against the live wiki. The request's figures were refreshed from a same-day replica
-run before filing: 1,096,710 titles, 286 proposals, 282 rows published. See
-`docs/task-13-move-report.md`.
+**وظیفهٔ ۱۳ — permission DECLINED AS UNNECESSARY, ۹ اکتبر ۲۰۲۶.** The BAG's answer was
+that such a bot needs no permission and that its edits are *better off not bot-flagged*,
+because the flag is flood control and this task writes one page a day. It therefore runs on
+MamouriBot with `flagEdits: false`, which `RunOptions` now carries independently of
+`identity`. **It does not need the operator's credentials on Toolforge** — `bot=1` is a
+per-edit parameter, verified live. See `docs/task-13-move-report.md`.
 
 **وظیفهٔ ۱۴ (filed ۸ اکتبر ۲۰۲۶, awaiting review).** Code, 28 tests and the Toolforge jobs are
 ready; the dry run found 39 of 40 articles actionable, every diff a one-line addition. Not run

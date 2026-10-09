@@ -1,5 +1,45 @@
 # وظیفهٔ ۱۳ — ویکی‌پدیا:گزارش دیتابیس/برای انتقال مقاله
 
+## It needs no permission, and its edits are deliberately UNFLAGGED
+
+The permission request was **declined as unnecessary** on ۹ اکتبر ۲۰۲۶. Huji:
+
+> «چنین رباتی مجوز نمی‌خواهد و **ویرایش‌هایش را بدون پرچم ربات انجام دهد بهتر است**. پرچم
+> ربات برای ویرایش‌های متعدد است تا از شلوغ شدن تغییرات اخیر و فهرست پی‌گیری جلوگیری کند.
+> رباتی که روزی یکبار یک صفحهٔ گزارش را به‌روز می‌کند نیازی به مجوز و پرچم ندارد.»
+
+So the bot flag is **flood control**, and a task that writes one page a day should not use
+it — the edit ought to be visible in recent changes and on watchlists, which is where
+someone who disagrees with a rule will see it.
+
+### This does NOT mean running as the operator's account
+
+The obvious reading is "use `--as-me`", which would mean putting `Mamouri`'s password on
+Toolforge. It is not necessary: **`bot=1` is a per-edit parameter, not a property of the
+account.** Verified on fa ۹ اکتبر ۲۰۲۶ with two consecutive edits from MamouriBot, which
+is in the `bot` group:
+
+| edit | `bot=1` sent | `list=recentchanges` reports |
+|---|---|---|
+| 44682766 | no | **`bot: false`** |
+| 44682767 | yes | `bot: true` |
+
+(Beware the measurement trap: with `formatversion=2` the `bot` key is *present and
+`false`* on an unflagged change, so `'bot' in change` is true either way. Read the value.)
+
+So the task stays on MamouriBot and passes `flagEdits: false`, which `RunOptions` now
+carries separately from `identity`. The two were conflated in `identityConfig()` —
+account, User-Agent and flag in one bundle — and this answer is what pulled them apart.
+
+**If a task ever genuinely does need the human account on Toolforge**, the mechanism
+already exists and needs no code: `core.ts` reads `WIKIPEDIA_USERNAME` /
+`WIKIPEDIA_PASSWORD` for `identity: 'human'`, and `toolforge/README.md` already lists both
+as expected names. It is `toolforge envvars create WIKIPEDIA_USERNAME` once, stored
+encrypted on the tool, never in a file in this repository. Prefer not to: one credential
+to rotate is better than two, and an unflagged bot edit is honest about who made it in a
+way an edit from the operator's account while he sleeps is not.
+
+
 Rebuilds the database report of article titles whose spelling or punctuation does not
 match fa.wikipedia convention. Rezabot published it daily until October 2021 and the
 page has been frozen since; Reza1615 has retired. Raised again on

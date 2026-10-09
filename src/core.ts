@@ -158,6 +158,27 @@ export interface RunOptions {
    * identity, not a flag on the same one — see `identityConfig()`.
    */
   identity?: 'bot' | 'human';
+  /**
+   * Whether writes carry `bot=1`, independent of WHICH account makes them.
+   *
+   * Defaults to the identity's own default (bot → flagged, human → not). Set it to
+   * `false` to have MamouriBot edit **visibly**, in recent changes and on watchlists.
+   *
+   * This exists because the two were conflated and a BAG member's answer pulled them
+   * apart. Rejecting the وظیفهٔ ۱۳ request, Huji wrote: «چنین رباتی مجوز نمی‌خواهد و
+   * ویرایش‌هایش را بدون پرچم ربات انجام دهد بهتر است. پرچم ربات برای ویرایش‌های متعدد
+   * است تا از شلوغ شدن تغییرات اخیر و فهرست پی‌گیری جلوگیری کند. رباتی که روزی یکبار یک
+   * صفحهٔ گزارش را به‌روز می‌کند نیازی به مجوز و پرچم ندارد.» — the flag is a
+   * flood-control device, so a task that writes one page a day should NOT use it.
+   *
+   * The flag is per-edit opt-in, not a property of the account: verified on fa
+   * ۹ اکتبر ۲۰۲۶ with two consecutive edits from MamouriBot, which is in the `bot`
+   * group. Without `bot=1`, `list=recentchanges` reports `bot: false`; with it,
+   * `bot: true`. So an unflagged task needs **no second credential** — a conclusion
+   * worth keeping, because the obvious reading of that answer is "run it as the human
+   * account" and that would mean putting the operator's password on Toolforge.
+   */
+  flagEdits?: boolean;
 }
 
 /** Everything that differs between the two identities, in one place. */
@@ -213,6 +234,8 @@ export class Bot {
     // field initializers, and getting the bot's identity from an evaluation-order
     // subtlety is not a thing to leave to chance.
     this.id = identityConfig(opts.identity);
+    // `flagEdits` overrides only the flag, never the account or the UA. See RunOptions.
+    if (opts.flagEdits !== undefined) this.id = { ...this.id, botFlag: opts.flagEdits };
     // The human account's 30-120s spread is a COVER requirement, not a performance one
     // (AGENTS.md), so its floor and ceiling are that range and the pacer may not shrink
     // it when the server is idle. The bot account's floor is --delay and it is free to

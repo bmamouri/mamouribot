@@ -84,5 +84,23 @@ console.log('\n== a maxlag rejection is obeyed centrally, and is fatal if it per
      'the fatal stop can be swallowed again');
 }
 
+
+console.log('\n== the bot flag is separable from the account ==');
+{
+  // A BAG member declined وظیفهٔ ۱۳ as needing no permission AND asked that its edits not
+  // be bot-flagged: the flag is flood control, and the task writes one page a day. The
+  // obvious reading — "run it as the human account" — would have put the operator's
+  // password on Toolforge. It is not needed: `bot=1` is per-edit opt-in, verified live on
+  // ۹ اکتبر ۲۰۲۶ (recentchanges reported bot:false without it, bot:true with it).
+  ok('RunOptions carries flagEdits', /flagEdits\?: boolean;/.test(core));
+  ok('it overrides only the flag, not the account',
+     /if \(opts\.flagEdits !== undefined\) this\.id = \{ \.\.\.this\.id, botFlag: opts\.flagEdits \};/.test(core));
+  ok('edit() still gates bot=1 on that one field', /this\.id\.botFlag \? \{ bot: '1' \}/.test(core));
+  const mr = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'tasks/task-13/move-report.ts'), 'utf8');
+  ok('وظیفهٔ ۱۳ asks for unflagged edits', /flagEdits: false/.test(mr));
+  ok('and still authenticates as the bot, not as the operator',
+     !/identity: 'human'/.test(mr), 'task 13 must not switch to the human account');
+}
+
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);
 if (fails.length) { console.error('failing:\n  - ' + fails.join('\n  - ')); process.exit(1); }

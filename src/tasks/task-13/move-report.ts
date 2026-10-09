@@ -444,7 +444,13 @@ export async function run() {
   const sampleArg = process.argv.indexOf('--sample');
   const sample = sampleArg >= 0 ? Number(process.argv[sampleArg + 1]) : 0;
 
-  const bot = new Bot({ dryRun: !live, delayMs: 0, limit: 0, maxlag: 5 });
+  // flagEdits: false — MamouriBot writes this page, but WITHOUT `bot=1`, so the edit
+  // shows up in recent changes and on watchlists. That is what the BAG asked for when
+  // it declined the permission request as unnecessary («ویرایش‌هایش را بدون پرچم ربات
+  // انجام دهد بهتر است … پرچم ربات برای ویرایش‌های متعدد است»): the flag is flood
+  // control, and this task writes one page a day. It stays on the bot account — the flag
+  // is per-edit opt-in, so nothing here needs the operator's own credentials.
+  const bot = new Bot({ dryRun: !live, delayMs: 0, limit: 0, maxlag: 5, flagEdits: false });
 
   const whitelist = await fetchWhitelist(bot);
   console.log(`فهرست سفید: ${fa(whitelist.size)} عنوان`);
