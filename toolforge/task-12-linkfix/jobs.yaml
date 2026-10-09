@@ -1,0 +1,32 @@
+# وظیفهٔ ۱۲ — linkfix.   toolforge jobs load jobs.yaml
+#
+# The candidate selector is inside run.sh, deliberately: a job command crosses two shells
+# and mangles Persian titles. See the comment there.
+#
+# `lf-trial` is the ۵۰-edit temporary permission granted on the request page on
+# ۹ اکتبر ۲۰۲۶. Do NOT create `lf-full` until the permanent permission is issued.
+---
+- name: lf-check
+  command: ./task-12-linkfix/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/lf-check.out
+  filelog-stderr: logs/lf-check.err
+
+- name: lf-dry
+  command: ./task-12-linkfix/run.sh
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/lf-dry.out
+  filelog-stderr: logs/lf-dry.err
+
+- name: lf-trial
+  command: ./task-12-linkfix/run.sh --live --limit 50 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0          # never silently re-run a partial edit batch
+  emails: all
+  filelog-stdout: logs/lf-trial.out
+  filelog-stderr: logs/lf-trial.err
