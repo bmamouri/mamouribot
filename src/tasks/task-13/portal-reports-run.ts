@@ -113,9 +113,13 @@ export async function runPortalReports(argv: string[]) {
     console.log(`  ${topic.size} موضوع مقالهٔ فارسی دارد`);
     const guess = new Map([...topic].map(([en, faName]) => [`درگاه:${faName}`, en]));
     const liveSet = await livePortals(bot, [...guess.keys()]);
-    const already = new Map<string, string>();
-    for (const [portal, en] of guess) if (liveSet.has(portal)) already.set(en, portal);
-    console.log(`  ${already.size} نامزد در فارسی از پیش هست`);
+    // Existing portals (redirects included: درگاه:زبان‌شناسی → درگاه:زبان) are dropped
+    // from the candidates and NOT listed. The old «no interwiki» section was removed on
+    // ۱۱ اکتبر ۲۰۲۶ once the operator linked them by hand. What it would keep finding
+    // is redirects, which Wikidata cannot link separately, so it is noise.
+    const already = new Set<string>();
+    for (const [portal, en] of guess) if (liveSet.has(portal)) already.add(en);
+    console.log(`  ${already.size} نامزد در فارسی از پیش هست (کنار گذاشته شد)`);
 
     const rows: CandidateRow[] = db
       .filter(r => !already.has(r.portal))
@@ -124,8 +128,6 @@ export async function runPortalReports(argv: string[]) {
         links: n(r.links_from_articles), subpages: n(r.subpages), bytes: n(r.bytes),
         interwikis: n(r.interwikis), lastEdit: r.last_edit }))
       .sort((a, b) => b.views - a.views);
-    const unlinked = [...already].map(([en, faPortal]) => ({ en, faPortal }))
-      .sort((a, b) => a.en.localeCompare(b.en));
-    await publish(bot, CANDIDATES_PAGE, buildCandidates(rows, unlinked, w.label), live);
+    await publish(bot, CANDIDATES_PAGE, buildCandidates(rows, w.label), live);
   }
 }

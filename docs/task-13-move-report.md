@@ -33,8 +33,14 @@ and traffic from the AQS API.
 carry a fa langlink while fa has ~200 portals, so filtering on the interwiki alone
 recommends creating portals that already exist. Every candidate is re-checked by
 resolving the topic's Persian name through the *article*'s langlink and asking fa whether
-درگاه:<name> exists. The ones that already exist get their own short section — they need
-an interwiki, not a translation.
+درگاه:<name> exists. Every portal that already exists is dropped from the candidates,
+redirects included. Example: درگاه:زبان‌شناسی redirects to درگاه:زبان, which is
+already linked to Portal:Language.
+
+The report used to list the existing portals in a section of their own, «در فارسی هست
+ولی پیوند میان‌ویکی ندارد». It was removed on ۱۱ اکتبر ۲۰۲۶. The operator had linked
+all of them on Wikidata except one: a redirect, which Wikidata cannot link separately.
+New cases will be rare, and redirects would make most of them false alarms.
 
 **The exclusion is by exact title.** `EXCLUDED_EN_PORTALS` holds «Erotica and
 pornography» and «Nudity», ranks 1 and 2 by traffic, on the operator's instruction.

@@ -163,9 +163,7 @@ export interface CandidateRow {
   links: number; subpages: number; bytes: number; interwikis: number; lastEdit: string;
 }
 
-export function buildCandidates(
-  rows: CandidateRow[], unlinked: { en: string; faPortal: string }[], window: string,
-): string {
+export function buildCandidates(rows: CandidateRow[], window: string): string {
   const out = [
     'درگاه‌هایی از ویکی‌پدیای انگلیسی که در فارسی برابری ندارند، بر پایهٔ شمار بازدید '
     + `خوانندگان انگلیسی‌زبان در بازهٔ ${window}، از پربازدیدترین. `
@@ -174,13 +172,6 @@ export function buildCandidates(
     `آخرین به‌روزرسانی: ~~~~~؛ ${fa(rows.length)} نامزد.`,
     '',
   ];
-  if (unlinked.length) {
-    out.push('== در فارسی هست ولی پیوند میان‌ویکی ندارد ==',
-      'ساختنشان لازم نیست؛ تنها باید پیوند میان‌ویکی‌شان افزوده شود:',
-      '');
-    for (const u of unlinked) out.push(`* [[:en:Portal:${u.en}|Portal:${u.en}]] ← [[${u.faPortal}]]`);
-    out.push('');
-  }
   out.push('== نامزدهای ترجمه ==',
     'نام پیشنهادی فارسی از مقالهٔ همان موضوع گرفته شده و پیشنهاد است، نه نام قطعی. ستون‌ها مرتب‌شدنی‌اند.',
     '',

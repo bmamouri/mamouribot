@@ -35,15 +35,15 @@ export function selfTest(): string {
   const cand = buildCandidates(
     [{ portal: 'Video games', views: 77270, perMonth: 5944, faTopic: 'بازی ویدئویی',
        links: 300, subpages: 12, bytes: 4000, interwikis: 20, lastEdit: '20260911000000' }],
-    [{ en: 'China', faPortal: 'درگاه:چین' }], w.label);
+    w.label);
   if (!cand.includes('[[:en:Portal:Video games|Video games]]')) return 'SELFTEST FAILED: en link missing';
   if (!cand.includes('درگاه:بازی ویدئویی')) return 'SELFTEST FAILED: suggested fa name missing';
-  if (!cand.includes('[[:en:Portal:China|Portal:China]] ← [[درگاه:چین]]')) return 'SELFTEST FAILED: unlinked section missing';
+  if (cand.includes('پیوند میان‌ویکی ندارد')) return 'SELFTEST FAILED: removed «no interwiki» section is back';
 
   // A topic with no fa article must render an em-dash, not «[[]]» or «درگاه:».
   const none = buildCandidates(
     [{ portal: 'Obscure', views: 1, perMonth: 0, faTopic: '', links: 0, subpages: 0,
-       bytes: 0, interwikis: 0, lastEdit: '' }], [], w.label);
+       bytes: 0, interwikis: 0, lastEdit: '' }], w.label);
   if (none.includes('[[]]') || none.includes('درگاه:\n')) return 'SELFTEST FAILED: empty topic leaked brackets';
   if (!none.includes('مقالهٔ فارسی ندارد')) return 'SELFTEST FAILED: empty topic must say so';
 
