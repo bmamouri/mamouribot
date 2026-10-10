@@ -31,7 +31,7 @@ console.log('== rules fire on what they are for ==');
 proposes('الكساندر ميلينكويچ', 'الکساندر میلینکویچ');
 proposes('سفيه', 'سفیه');
 proposes('رزكان', 'رزکان');
-proposes('اول آمدند ...', 'اول آمدند …');
+proposes('اول آمدند ...', 'اول آمدند…');
 proposes('...و عدالت برای همه', '…و عدالت برای همه');
 proposes('چه می‌شود اگر...؟ (مجموعه تلویزیونی)', 'چه می‌شود اگر…؟ (مجموعه تلویزیونی)');
 proposes('من می‌کشم‌، تو می‌کشی', 'من می‌کشم، تو می‌کشی');
@@ -115,7 +115,7 @@ silent('فرایند شل–پاک', 'از پیش درست است');
 console.log('\n== cumulative rules, and idempotence ==');
 {
   const s = suggest('الكساندر ميلينكويچ ...');
-  ok('two rules compose', s?.target === 'الکساندر میلینکویچ …', s ? `got «${s.target}»` : 'none');
+  ok('two rules compose', s?.target === 'الکساندر میلینکویچ…', s ? `got «${s.target}»` : 'none');
   ok('both rules are recorded', JSON.stringify(s?.rules) === '["arabic-letters","ellipsis"]',
      JSON.stringify(s?.rules));
 }
@@ -171,8 +171,8 @@ console.log('\n== report rendering ==');
   const rows: Row[] = [
     { title: 'سفيه', target: 'سفیه', rules: ['arabic-letters'], targetState: 'free' },
     { title: 'رزكان', target: 'رزکان', rules: ['arabic-letters'], targetState: 'redirect' },
-    { title: 'اول آمدند ...', target: 'اول آمدند …', rules: ['ellipsis'], targetState: 'free' },
-    { title: 'الكساندر ...', target: 'الکساندر …', rules: ['arabic-letters', 'ellipsis'], targetState: 'free' },
+    { title: 'اول آمدند ...', target: 'اول آمدند…', rules: ['ellipsis'], targetState: 'free' },
+    { title: 'الكساندر ...', target: 'الکساندر…', rules: ['arabic-letters', 'ellipsis'], targetState: 'free' },
   ];
   const text = buildReport(rows, { scanned: 1_070_000, whitelisted: 12, occupied: 3 },
                            new Date('2026-10-04T00:00:00Z'));
@@ -199,7 +199,7 @@ console.log('\n== report rendering ==');
   // An ASCII «?» inside a title would otherwise end the URL path and swallow the
   // wpNewTitleMain parameter, so the move link would open the wrong form.
   const ascii = buildReport(
-    [{ title: 'اگر? ...', target: 'اگر? …', rules: ['ellipsis'], targetState: 'free' }],
+    [{ title: 'اگر? ...', target: 'اگر?…', rules: ['ellipsis'], targetState: 'free' }],
     { scanned: 1, whitelisted: 0, occupied: 0 });
   ok('ASCII question mark is escaped', ascii.includes('%3F'));
   ok('only one real «?» in the URL', (ascii.match(/MovePage\/[^ ]+/)![0].match(/\?/g) ?? []).length === 1,
@@ -211,6 +211,50 @@ console.log('\n== report rendering ==');
        rules: ['ellipsis'], targetState: 'free' }],
     { scanned: 1, whitelisted: 0, occupied: 0 });
   ok('Persian question mark is percent-encoded', persian.includes('%D8%9F') && !persian.includes('؟_(الف)'));
+}
+
+
+console.log('\n== ellipsis spacing, the three rules Huji gave ==');
+{
+  // «سه‌نقطه‌ای که وسط یا پایان عبارت است باید به بخش قبلی بچسبد. سه‌نقطه که وسط عبارت
+  //  است باید بعدش فاصله باشد. سه‌نقطه‌ای که در ابتدای عبارت است نباید بعدش فاصله باشد.»
+  // وظیفهٔ ۱۳ request page, ۹ اکتبر ۲۰۲۶. His own two worked examples first.
+  proposes('... اما جداً', '…اما جداً');
+  proposes('دوستت دارم...آقای هنرمند!', 'دوستت دارم… آقای هنرمند!');
+
+  // start: nothing after it
+  proposes('... و عدالت برای همه', '…و عدالت برای همه');
+  silent('…عزیزم یک بار دیگر', 'already correct at the start');
+
+  // end: attaches, nothing after
+  proposes('تا نفس هست ...', 'تا نفس هست…');
+  silent('خانه‌ام ابری است…', 'already correct at the end');
+
+  // middle: attaches, exactly one space after
+  proposes('سکوت ... شب ترس', 'سکوت… شب ترس');
+  proposes('می‌ره...می‌ره...رفت!', 'می‌ره… می‌ره… رفت!');
+  silent('گاهی برمی‌گردند… دوباره', 'already correct in the middle');
+
+  // closing punctuation takes no space before it; an OPENING bracket does
+  proposes('من متهم می‌کنم...!', 'من متهم می‌کنم…!');
+  silent('چه می‌شود اگر…؟ (مجموعه تلویزیونی)', 'question mark closes, bracket opens');
+  silent('سکس (من یک…)', 'tight inside a bracket is correct');
+  silent('۱۹۸۳… (دریامردی که باید به آن تبدیل شوم)', 'space before an opening bracket stays');
+
+  // the character is already right but the spacing is not — invisible to the old rule,
+  // which only ever replaced three dots
+  proposes('سکوت … شب ترس', 'سکوت… شب ترس');
+  proposes('تا نفس هست …', 'تا نفس هست…');
+
+  // the comma rule must not push the ellipsis away from what it just attached to
+  proposes('یک، دو، سه،... پنج', 'یک، دو، سه،… پنج');
+
+  // four dots used to become «….» — an ellipsis plus a stray dot
+  proposes('قانون....', 'قانون…');
+
+  // a series ellipsis is a TERM, not punctuation: «+…» is wrong in maths typography
+  silent('۱ − ۲ + ۳ − ۴ + …', 'the ellipsis is a term in the series');
+  proposes('... + ۴ + ۳ + ۲ + ۱', '… + ۴ + ۳ + ۲ + ۱');   // dots fixed, spacing left alone
 }
 
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);

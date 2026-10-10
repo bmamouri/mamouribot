@@ -114,6 +114,59 @@ const CHEM_PREFIXES = ['پلی', 'بیس', 'تریس', 'تتراکیس', 'آزو
  *  «آدم‌کش(ها)» is the plural suffix, not a qualifier. */
 const NOT_A_QUALIFIER = new Set(['ها', 'های', 'ان']);
 
+/**
+ * After an ellipsis, these take no space before them. Closing punctuation only: an
+ * OPENING bracket does take one, so «۱۹۸۳… (دریامردی…)» keeps its space and the «…»
+ * tight inside the bracket keeps none.
+ */
+const CLOSES_AFTER_ELLIPSIS = /[)\]}»،؛:!؟?.…]/;
+
+/**
+ * An ellipsis that is a TERM IN A SERIES, not punctuation: «۱ − ۲ + ۳ − ۴ + …».
+ *
+ * Attaching it to the operator the way prose demands gives «+…», which is wrong in
+ * mathematical typography — the ellipsis stands for the remaining terms and is spaced
+ * like one. The rule would otherwise propose a title that is wrong in a new way, which
+ * is the thing every other guard in this file exists to prevent.
+ */
+const MATH_OPERATOR_BEFORE = /[+\-−–=×÷<>]$/;
+const MATH_OPERATOR_AFTER = /^[+\-−–=×÷<>]/;
+
+/**
+ * «...» → «…», then the spacing around every ellipsis in the title.
+ *
+ * The three rules are Huji's, on the وظیفهٔ ۱۳ request page (۹ اکتبر ۲۰۲۶):
+ *
+ *   «سه‌نقطه‌ای که وسط یا پایان عبارت است باید به بخش قبلی بچسبد. سه‌نقطه که وسط عبارت
+ *    است باید بعدش فاصله باشد. سه‌نقطه‌ای که در ابتدای عبارت است نباید بعدش فاصله باشد.»
+ *
+ * so «... اما جداً» → «…اما جداً» and «دوستت دارم...آقای هنرمند!» → «دوستت دارم… آقای
+ * هنرمند!». Because the pass works on the ellipsis CHARACTER, it also catches titles
+ * whose «…» was already correct but mis-spaced, which he asked for in the same note and
+ * which the old rule — a bare `replace(/\.{3}/g, '…')` — could not see at all.
+ *
+ * `{3,}` rather than `{3}`: four dots used to become «….», an ellipsis plus a stray dot,
+ * and that is a proposal that is wrong in a new way rather than a title left alone.
+ *
+ * The match deliberately swallows the whitespace on BOTH sides; re-emitting it is how
+ * "attach to the preceding part" is implemented.
+ */
+export function fixEllipsis(t: string): string {
+  return t
+    .replace(/\.{3,}/g, '…')
+    .replace(/[\s‌]*…[\s‌]*/g, (m, idx: number, full: string) => {
+      const head = full.slice(0, idx);
+      const tail0 = full.slice(idx + m.length);
+      // A term in a series, not punctuation — on either side: «۱ − ۲ + ۳ − ۴ + …» and
+      // «… + ۴ + ۳ + ۲ + ۱» are the same title read in two directions.
+      if (MATH_OPERATOR_BEFORE.test(head.trimEnd()) || MATH_OPERATOR_AFTER.test(tail0)) return m;
+      if (head.trim() === '') return '…';                 // starts the title: nothing after
+      const tail = full.slice(idx + m.length);
+      if (tail === '') return '…';                        // ends it: nothing after
+      return CLOSES_AFTER_ELLIPSIS.test(tail[0]) ? '…' : '… ';
+    });
+}
+
 export const RULES: Rule[] = [
   {
     id: 'arabic-letters',
@@ -130,8 +183,13 @@ export const RULES: Rule[] = [
   {
     id: 'ellipsis',
     heading: 'سه‌نقطه',
-    explain: 'سه نقطهٔ پیاپی («...») به نشانهٔ سه‌نقطه («…»).',
-    apply: t => t.replace(/\.{3}/g, '…'),
+    explain:
+      'سه نقطهٔ پیاپی («...») به نشانهٔ سه‌نقطه («…»)، و درست‌کردن فاصله‌گذاری آن: '
+      + 'سه‌نقطهٔ میانی یا پایانی به بخش پیش از خودش می‌چسبد؛ سه‌نقطهٔ میانی پس از خود یک فاصله می‌گیرد؛ '
+      + 'و سه‌نقطه‌ای که عنوان با آن آغاز می‌شود پس از خود فاصله نمی‌گیرد. '
+      + 'پیش از نشانه‌های پایانی («؟»، «!»، «)» و مانند آن) فاصله‌ای افزوده نمی‌شود. '
+      + 'عنوان‌هایی که نویسهٔ سه‌نقطه‌شان درست است ولی فاصله‌گذاری‌اش نادرست، هم در همین بخش می‌آیند.',
+    apply: fixEllipsis,
   },
   {
     id: 'space-before-comma',
@@ -154,8 +212,12 @@ export const RULES: Rule[] = [
     //   «اکسید نقره (I, III)» as titles editors settled on. Adding a space after a
     //   Persian comma there would propose a title that is wrong in a second way. Any
     //   Latin letter beside the comma means this is not Persian prose.
-    explain: 'افزودن فاصله پس از ویرگولی که میان دو واژهٔ فارسی آمده است. ویرگول میان رقم‌ها («۱،۵۰۰») و ویرگول درون نام‌های شیمیایی دست‌نخورده می‌ماند.',
-    apply: t => t.replace(new RegExp(`([^\\s${DIGITS}A-Za-z])،(?=[^\\s${DIGITS})A-Za-z])`, 'g'), '$1، '),
+    //   «یک، دو، سه،… پنج» — an ellipsis must stay tight against what precedes it, so a
+    //   comma followed by one does NOT get a space inserted between them. Without this
+    //   the two rules fight: the ellipsis rule attaches it and the comma rule pushes it
+    //   away again, and the loser is whichever runs second.
+    explain: 'افزودن فاصله پس از ویرگولی که میان دو واژهٔ فارسی آمده است. ویرگول میان رقم‌ها («۱،۵۰۰»)، ویرگول درون نام‌های شیمیایی، و ویرگولی که پس از آن سه‌نقطه آمده دست‌نخورده می‌ماند.',
+    apply: t => t.replace(new RegExp(`([^\\s${DIGITS}A-Za-z])،(?=[^\\s${DIGITS})A-Za-z…])`, 'g'), '$1، '),
   },
   {
     id: 'space-before-paren',
@@ -411,7 +473,7 @@ async function fetchWhitelist(bot: Bot): Promise<Set<string>> {
 export function selfTest(): string {
   const cases: [string, string | null][] = [
     ['سفيه', 'سفیه'],
-    ['اول آمدند ...', 'اول آمدند …'],
+    ['اول آمدند ...', 'اول آمدند…'],
     ['مارک(ناحیه)', 'مارک (ناحیه)'],
     ['پلی(متیل متاکریلات)', null],
     ['کی. پی. کانداسامی', null],
