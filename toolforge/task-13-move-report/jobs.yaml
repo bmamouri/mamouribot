@@ -1,7 +1,12 @@
 # وظیفهٔ ۱۳ jobs on Toolforge.   toolforge jobs load jobs.yaml
 #
-# This task writes exactly ONE page and never edits an article, so there is no trial
+# This task writes only report pages and never edits an article, so there is no trial
 # batch to audit: the whole output is the page, and a dry run shows all of it.
+#
+# `mr-daily` passes no --report and no --ns, which means «move» in all FIVE namespaces
+# (مقاله، رده، الگو، صفحهٔ ویکی‌پدیا، راهنما). That is five separate title enumerations
+# — 1.1M + 715k + 150k + 79k + 294 titles — hence 2Gi rather than the 1Gi that was
+# enough when it was one.
 #
 # NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in
 # the directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127 with
@@ -22,7 +27,7 @@
 - name: mr-dry
   command: ./task-13-move-report/run.sh --refresh
   image: node20
-  mem: 1Gi
+  mem: 2Gi
   emails: onfailure
   filelog-stdout: logs/dry.out
   filelog-stderr: logs/dry.err
@@ -31,7 +36,7 @@
 - name: mr-daily
   command: ./task-13-move-report/run.sh --live --refresh
   image: node20
-  mem: 1Gi
+  mem: 2Gi
   schedule: "17 3 * * *"
   emails: onfailure
   filelog-stdout: logs/daily.out

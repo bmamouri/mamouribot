@@ -1,7 +1,8 @@
 #!/bin/bash
-# Toolforge tool: (no tool yet — وظیفهٔ ۱۳ is not filed)   (see docs/TOOLFORGE.md for the full task/tool table)
-# Entry point for وظیفهٔ ۱۳ — every database report this bot publishes:
-# «مقاله‌های نیازمند تغییرنام» and the two درگاه reports. Pick with --report.
+# Toolforge tool: mamouribot   (see docs/TOOLFORGE.md for the full task/tool table)
+# Entry point for وظیفهٔ ۱۳ — every database report this bot publishes: the five
+# «نیازمند تغییرنام» reports, the two درگاه reports, the featured-content ranking and
+# the user-preferences report. Pick with --report, and a namespace with --ns.
 set -euo pipefail
 cd "$(dirname "$0")"
 

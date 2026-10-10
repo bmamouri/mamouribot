@@ -427,7 +427,12 @@ export class Bot {
     const note = this.id.requireBotGroup
       ? (flagged ? ' (پرچم‌دار)' : ' ⚠ بدون پرچم ربات')
       : ' (حساب انسانی؛ ویرایش‌ها پرچم ربات نمی‌خورند)';
-    console.log(`✓ ورود با حساب ${ui.name}${note}`);
+    // The group is the ACCOUNT's; `bot=1` is per edit. A task that deliberately publishes
+    // unflagged (وظیفهٔ ۱۳, so its reports show up in تغییرات اخیر) logged in as a
+    // flagged account and printed «(پرچم‌دار)», which reads as a promise about the edits
+    // it is about to make and is the opposite of the truth. Say both.
+    const edits = this.id.botFlag ? '' : '؛ این اجرا ویرایش‌ها را بی‌پرچم ثبت می‌کند';
+    console.log(`✓ ورود با حساب ${ui.name}${note}${edits}`);
   }
 
   /**

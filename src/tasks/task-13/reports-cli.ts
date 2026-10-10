@@ -3,6 +3,7 @@
  *
  *   npx tsx src/tasks/task-13/reports-cli.ts --selftest
  *   npx tsx src/tasks/task-13/reports-cli.ts --report move     [--live] [--refresh]
+ *        … --ns article|category|template|project|help   (default: every one)
  *   npx tsx src/tasks/task-13/reports-cli.ts --report portals  [--live] [--only popular|candidates]
  *   npx tsx src/tasks/task-13/reports-cli.ts --report featured [--live]
  *   npx tsx src/tasks/task-13/reports-cli.ts --report prefs    [--live]
@@ -22,7 +23,7 @@
  * having done nothing. Nothing imports this file; the library halves are
  * `move-report.ts` and `portal-reports.ts`, which the tests and the bundler gate load.
  */
-import { run as runMoveReport, selfTest as moveSelfTest } from './move-report.js';
+import { TARGETS, run as runMoveReport, selfTest as moveSelfTest } from './move-report.js';
 import { runPortalReports } from './portal-reports-run.js';
 import { runFeaturedReport } from './featured-report-run.js';
 import { runPrefsReport } from './prefs-report-run.js';
@@ -51,7 +52,15 @@ async function main() {
     console.error(`گزارش ناشناخته: ${report} (move | portals | featured | prefs | all)`);
     process.exit(1);
   }
-  if (report === 'move' || report === 'all') await runMoveReport();
+  if (report === 'move' || report === 'all') {
+    // One rules engine, five namespaces. --ns picks one; the default is all of them,
+    // so a scheduled run keeps every sibling report current without five job entries.
+    const only = arg('--ns');
+    for (const [name, t] of Object.entries(TARGETS)) {
+      if (only && only !== name) continue;
+      await runMoveReport(t);
+    }
+  }
   if (report === 'portals' || report === 'all') await runPortalReports(argv);
   if (report === 'featured' || report === 'all') await runFeaturedReport(argv);
   if (report === 'prefs' || report === 'all') await runPrefsReport(argv);

@@ -40,7 +40,7 @@
  */
 import { Bot } from '../../core.js';
 import { checkWikitext } from '../../lib/gates.js';
-import { articleTitles, type Backend } from '../../lib/replica.js';
+import { articleTitles, queryRows, type Backend } from '../../lib/replica.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
 
@@ -48,10 +48,76 @@ import { dirname } from 'path';
 // «انتقال» with «تغییرنام». The old title and all four subpages are redirects, so
 // nothing that pointed at them broke; this constant is what decides where the daily
 // run WRITES, and the whitelist path is derived from it.
-export const REPORT_PAGE = 'ویکی‌پدیا:گزارش دیتابیس/مقاله‌های نیازمند تغییرنام';
+/**
+ * One report per namespace. The rules are identical; only where they are applied and
+ * where the result is published differ.
+ *
+ * `colon` is not cosmetic. A bare `[[رده:X]]` **files the report page into that
+ * category** instead of linking to it, and the report would quietly join hundreds of
+ * categories — see lessons/template-porting/category-template-categorizes-not-links.md.
+ * Namespace 14 therefore links with a leading colon. Templates do not transclude from a
+ * link, so namespace 10 needs none.
+ *
+ * `ns` 0 keeps the historical behaviour exactly; everything else was added alongside.
+ *
+ * WHY PROJECT SPACE ONLY LOOKS AT TOP-LEVEL PAGES. The first dry run over namespace 4
+ * returned **3,312** suggestions, against 100 for categories and 15 for templates — on a
+ * namespace a tenth the size. None of them were real. In project space a subpage is
+ * almost never prose that someone chose: it is a record or a datum, and its title is
+ * load-bearing.
+ *
+ *   ویکی‌پدیا:آیا می‌دانستید که...؟/…            ۲۷۴۴  — DYK drafts and archives
+ *   ویکی‌پدیا:یادبودهای برگزیده/۱۱ شوّال/رویدادها  ۳۶۰  — transcluded by exact title
+ *   ویکی‌پدیا:نظرخواهی برای حذف/…                ۱۵۴  — a closed discussion keeps the
+ *                                                        title it was nominated under
+ *   ویکی‌پدیا:اشتباه‌یاب/موارد درست/…               ۴۴  — the typo-finder's whitelist, whose
+ *                                                        entries ARE article titles; a
+ *                                                        "fix" here breaks the tool
+ *
+ * Renaming any of those is wrong, and the harakat in «۱۱ شوّال» or the «...» in a
+ * fifteen-year-old DYK archive are not defects. Exactly **2** of the 3,312 were
+ * top-level pages. Rather than grow a list of excluded trees — which would need an entry
+ * for every project that ever archives by subpage, and would silently rot — namespaces
+ * flagged `topLevelOnly` consider only pages with no `/` in them. A genuine project page
+ * worth renaming is a top-level one; if a subpage ever needs a move, it needs a human
+ * reading the discussion, not a row on a report.
+ */
+export interface Target {
+  ns: number;
+  /** Namespace prefix as it appears in a title, '' for main space. */
+  prefix: string;
+  /** Leading ':' when a bare link would do something other than link. */
+  colon: string;
+  page: string;
+  what: string;
+  /** Skip subpages: their titles are records or transclusion keys. See above. */
+  topLevelOnly?: boolean;
+}
+
+export const TARGETS: Record<string, Target> = {
+  article:  { ns: 0,  prefix: '',          colon: '',  what: 'مقاله',
+              page: 'ویکی‌پدیا:گزارش دیتابیس/مقاله‌های نیازمند تغییرنام' },
+  category: { ns: 14, prefix: 'رده:',      colon: ':', what: 'رده',
+              page: 'ویکی‌پدیا:گزارش دیتابیس/رده‌های نیازمند تغییرنام' },
+  template: { ns: 10, prefix: 'الگو:',     colon: '',  what: 'الگو',
+              page: 'ویکی‌پدیا:گزارش دیتابیس/الگوهای نیازمند تغییرنام' },
+  project:  { ns: 4,  prefix: 'ویکی‌پدیا:', colon: '', what: 'صفحهٔ ویکی‌پدیا',
+              page: 'ویکی‌پدیا:گزارش دیتابیس/صفحه‌های ویکی‌پدیای نیازمند تغییرنام',
+              topLevelOnly: true },
+  help:     { ns: 12, prefix: 'راهنما:',   colon: '',  what: 'راهنما',
+              page: 'ویکی‌پدیا:گزارش دیتابیس/راهنماهای نیازمند تغییرنام' },
+};
+
+/** Whether a title in this namespace is in scope at all, before any rule runs. */
+export const considered = (t: Target, title: string) =>
+  !(t.topLevelOnly && title.includes('/'));
+
+export const REPORT_PAGE = TARGETS.article.page;
 export const WHITELIST_PAGE = `${REPORT_PAGE}/فهرست سفید`;
+export const whitelistPage = (t: Target) => `${t.page}/فهرست سفید`;
 /** Transcluded by {{گزارش دیتابیس}} on وپ:گد as the report's «آخرین به‌روزرسانی». */
 export const SIGNATURE_PAGE = `${REPORT_PAGE}/امضا`;
+export const signatureFor = (t: Target) => `${t.page}/امضا`;
 const HEADER_TEMPLATE = '{{گزارش دیتابیس/صفحه برای انتقال}}';
 
 /** Longest the page may get, in total and per section. Past this it stops being
@@ -400,17 +466,23 @@ export interface Stats {
   occupied: number;
 }
 
-export function buildReport(rows: Row[], stats: Stats, now = new Date()): string {
+export function buildReport(
+  rows: Row[], stats: Stats, now = new Date(), target: Target = TARGETS.article,
+): string {
+  // The rules run on the bare title — nothing should rewrite «رده:» itself — so the
+  // namespace prefix is put back here, for display, for the link and for the move URL.
+  const full = (t: string) => `${target.prefix}${t}`;
+  const link = (t: string) => `[[${target.colon}${full(t)}]]`;
   const listed = rows.filter(r => r.targetState !== 'article');
 
   const head = [
     HEADER_TEMPLATE,
     '',
-    'این فهرست عنوان‌هایی است که املا یا سجاوندی‌شان با شیوهٔ ویکی‌پدیای فارسی نمی‌خواند،',
-    'همراه با عنوان پیشنهادی و پیوند انتقال. فهرست خودکار ساخته می‌شود ولی انتقال با دست',
-    'انجام می‌گیرد؛ هیچ مقاله‌ای خودکار جابه‌جا نمی‌شود.',
+    `این فهرست ${target.what}‌هایی است که املا یا سجاوندی عنوانشان با شیوهٔ ویکی‌پدیای فارسی`,
+    'نمی‌خواند، همراه با عنوان پیشنهادی و پیوند تغییرنام. فهرست خودکار ساخته می‌شود ولی',
+    'تغییرنام با دست انجام می‌گیرد؛ هیچ صفحه‌ای خودکار جابه‌جا نمی‌شود.',
     '',
-    `اگر عنوانی درست است و نباید جابه‌جا شود، آن را به [[${WHITELIST_PAGE}|فهرست سفید]] بیفزایید؛`,
+    `اگر عنوانی درست است و نباید جابه‌جا شود، آن را به [[${whitelistPage(target)}|فهرست سفید]] بیفزایید؛`,
     'از آن پس در این گزارش نمی‌آید. هر قاعده زیر عنوان بخش خودش توضیح داده شده است، تا اگر',
     'با قاعده‌ای موافق نیستید بتوانید دربارهٔ همان بخش گفتگو کنید.',
     '',
@@ -433,7 +505,8 @@ export function buildReport(rows: Row[], stats: Stats, now = new Date()): string
       const redirect = r.targetState === 'redirect'
         ? ' <small>(مقصد تغییرمسیر است)</small>'
         : '';
-      body.push(`# [[${r.title}]] > [[${r.target}]] ${moveLink(r.title, r.target)}${extra}${redirect}`);
+      body.push(`# ${link(r.title)} > ${link(r.target)} `
+        + `${moveLink(full(r.title), full(r.target))}${extra}${redirect}`);
     }
     if (mine.length > shown.length) {
       body.push('', `(${fa(mine.length - shown.length)} مورد دیگر از این بخش در این اجرا نیامد.)`);
@@ -457,18 +530,25 @@ const CACHE = `${process.env.BOT_STATE_DIR ?? '.state'}/ns0-titles.json`;
  * the only expensive part of a run and the titles do not change much in an hour, so a
  * re-run while tuning a rule costs nothing.
  */
-export async function allTitles(refresh = false, backend: Backend = 'auto'): Promise<string[]> {
-  if (!refresh && existsSync(CACHE)) {
-    const c = JSON.parse(readFileSync(CACHE, 'utf8')) as { at: string; titles: string[] };
+export async function allTitles(
+  target: Target = TARGETS.article, refresh = false, backend: Backend = 'auto',
+): Promise<string[]> {
+  const cache = target.ns === 0 ? CACHE : CACHE.replace(/\.json$/, `-ns${target.ns}.json`);
+  if (!refresh && existsSync(cache)) {
+    const c = JSON.parse(readFileSync(cache, 'utf8')) as { at: string; titles: string[] };
     const ageHours = (Date.now() - Date.parse(c.at)) / 3_600_000;
     if (ageHours < 20) {
       console.log(`فهرست عنوان‌ها از حافظهٔ نهان: ${fa(c.titles.length)} عنوان (${ageHours.toFixed(1)} ساعت)`);
       return c.titles;
     }
   }
-  const titles = await articleTitles(backend);
-  mkdirSync(dirname(CACHE), { recursive: true });
-  writeFileSync(CACHE, JSON.stringify({ at: new Date().toISOString(), titles }));
+  const titles = target.ns === 0
+    ? await articleTitles(backend)
+    : (await queryRows(
+        `SELECT page_title FROM page WHERE page_namespace = ${target.ns} AND page_is_redirect = 0`,
+        { wiki: 'fa', mode: backend })).map(r => r.page_title.replace(/_/g, ' '));
+  mkdirSync(dirname(cache), { recursive: true });
+  writeFileSync(cache, JSON.stringify({ at: new Date().toISOString(), titles }));
   console.log(`فهرست عنوان‌ها: ${fa(titles.length)} عنوان`);
   return titles;
 }
@@ -493,8 +573,8 @@ export async function targetStates(bot: Bot, targets: string[]): Promise<Map<str
   return out;
 }
 
-async function fetchWhitelist(bot: Bot): Promise<Set<string>> {
-  const r = await bot.apiGet({ action: 'query', prop: 'revisions', titles: WHITELIST_PAGE,
+async function fetchWhitelist(bot: Bot, target: Target = TARGETS.article): Promise<Set<string>> {
+  const r = await bot.apiGet({ action: 'query', prop: 'revisions', titles: whitelistPage(target),
     rvprop: 'content', rvslots: 'main' });
   const p = r.query.pages[0];
   if (p.missing) return new Set();
@@ -522,6 +602,33 @@ export function selfTest(): string {
     const got = suggest(input)?.target ?? null;
     if (got !== want) return `SELFTEST FAILED: «${input}» → «${got}», expected «${want}»`;
   }
+  // A bare [[رده:X]] FILES this page into that category instead of linking to it, and
+  // the report would silently join every category it lists. Namespace 14 must link with
+  // a leading colon; namespace 10 must not grow one, because a template link is a link.
+  const catRow = buildReport(
+    [{ title: 'الف', target: 'ب', rules: ['arabic-letters'], targetState: 'free' }],
+    { scanned: 1, whitelisted: 0, occupied: 0 }, new Date(), TARGETS.category)
+    .split('\n').find(l => l.startsWith('# ')) ?? '';
+  if (!catRow.includes('[[:رده:الف]]')) return `SELFTEST FAILED: category link would categorise: ${catRow.slice(0, 60)}`;
+  const tplRow = buildReport(
+    [{ title: 'الف', target: 'ب', rules: ['arabic-letters'], targetState: 'free' }],
+    { scanned: 1, whitelisted: 0, occupied: 0 }, new Date(), TARGETS.template)
+    .split('\n').find(l => l.startsWith('# ')) ?? '';
+  if (!tplRow.includes('[[الگو:الف]]')) return `SELFTEST FAILED: template link wrong: ${tplRow.slice(0, 60)}`;
+
+  // The project-space subpage guard. Without it that report was 3,312 rows of DYK
+  // archives and transcluded date pages — see the TARGETS header. A real title with a
+  // real defect must still be reported, so both directions are asserted.
+  if (considered(TARGETS.project, 'آیا می‌دانستید که...؟/پیش‌نویس/الف')) {
+    return 'SELFTEST FAILED: project subpages are back in scope';
+  }
+  if (!considered(TARGETS.project, 'چرا ویکی‌پدیا دیگر دوزار نمی‌ارزد؟')) {
+    return 'SELFTEST FAILED: a top-level project page was skipped';
+  }
+  if (!considered(TARGETS.article, 'الف/ب')) {
+    return 'SELFTEST FAILED: the guard leaked into main space, where «/» is part of titles';
+  }
+
   // Prove the publish gate can actually run from wherever this is: it is a Python
   // file that cannot be bundled, and a bundle looks perfectly healthy until the gate
   // fires at the very end of a run and cannot find gates.py.
@@ -533,7 +640,7 @@ export function selfTest(): string {
   return `SELFTEST OK: ${cases.length} مورد، ${RULES.length} قاعده، دروازه در دسترس`;
 }
 
-export async function run() {
+export async function run(target: Target = TARGETS.article) {
   if (process.argv.includes('--selftest')) {
     const line = selfTest();
     console.log(line);
@@ -553,32 +660,41 @@ export async function run() {
   // is per-edit opt-in, so nothing here needs the operator's own credentials.
   const bot = new Bot({ dryRun: !live, delayMs: 0, limit: 0, maxlag: 5, flagEdits: false });
 
-  const whitelist = await fetchWhitelist(bot);
+  console.log(`گزارش: ${target.page}`);
+  const whitelist = await fetchWhitelist(bot, target);
   console.log(`فهرست سفید: ${fa(whitelist.size)} عنوان`);
 
   const backendArg = process.argv.indexOf('--backend');
   const backend = (backendArg >= 0 ? process.argv[backendArg + 1] : 'auto') as Backend;
-  let titles = await allTitles(refresh, backend);
+  let titles = await allTitles(target, refresh, backend);
   if (sample) titles = titles.slice(0, sample);
 
   const suggestions: Suggestion[] = [];
   let whitelisted = 0;
+  let subpages = 0;
   for (const t of titles) {
+    if (!considered(target, t)) { subpages++; continue; }
     const s = suggest(t);
     if (!s) continue;
     if (whitelist.has(s.title) || whitelist.has(s.target)) { whitelisted++; continue; }
     suggestions.push(s);
   }
+  if (subpages) console.log(`زیرصفحه‌های نادیده‌گرفته: ${fa(subpages)}`);
   console.log(`پیشنهادها پیش از بررسی مقصد: ${fa(suggestions.length)}`);
 
-  const states = await targetStates(bot, [...new Set(suggestions.map(s => s.target))]);
-  const rows: Row[] = suggestions.map(s => ({ ...s, targetState: states.get(s.target) ?? 'free' }));
+  // Existence is checked on the FULL title, prefix included, or every category target
+  // would come back «free» because «X» is not «رده:X».
+  const states = await targetStates(bot, [...new Set(suggestions.map(s => target.prefix + s.target))]);
+  const rows: Row[] = suggestions.map(s => ({ ...s, targetState: states.get(target.prefix + s.target) ?? 'free' }));
   const occupied = rows.filter(r => r.targetState === 'article').length;
 
   const capped = rows.filter(r => r.targetState !== 'article').slice(0, MAX_ROWS);
-  const text = buildReport(capped, { scanned: titles.length, whitelisted, occupied });
+  // `scanned` is what the rules actually looked at, not how big the namespace is: the
+  // report says «از N عنوان بررسی‌شده», and counting skipped subpages there would be a lie.
+  const text = buildReport(capped, { scanned: titles.length - subpages, whitelisted, occupied },
+    new Date(), target);
 
-  const problems = checkWikitext(REPORT_PAGE, text);
+  const problems = checkWikitext(target.page, text);
   if (problems.length) throw new Error('GATE FAILED:\n  - ' + problems.join('\n  - '));
 
   if (!live) {
@@ -586,13 +702,13 @@ export async function run() {
     console.log(`\n--- آزمایشی. برای انتشار: --live`);
     return;
   }
-  const cur = await bot.apiGet({ action: 'query', prop: 'revisions', titles: REPORT_PAGE,
+  const cur = await bot.apiGet({ action: 'query', prop: 'revisions', titles: target.page,
     rvprop: 'content|ids|timestamp', rvslots: 'main' });
   const p = cur.query.pages[0];
-  await bot.edit(REPORT_PAGE, text, 'به‌روزرسانی گزارش عنوان‌های نیازمند تغییرنام',
+  await bot.edit(target.page, text, 'به‌روزرسانی گزارش عنوان‌های نیازمند تغییرنام',
     p.missing ? 0 : p.revisions[0].revid, p.missing ? '' : p.revisions[0].timestamp,
     { allowCreate: true });
-  console.log(`منتشر شد: ${REPORT_PAGE}`);
+  console.log(`منتشر شد: ${target.page}`);
 
   // The «آخرین به‌روزرسانی» column on وپ:گد is not derived from the page history — the
   // {{گزارش دیتابیس}} row TRANSCLUDES `<report>/امضا`, so the index shows whatever that
@@ -600,11 +716,12 @@ export async function run() {
   // a daily report as last updated five years ago. Five tildes: MediaWiki substitutes a
   // bare timestamp, which is all the cell may contain. The RLM keeps the date from
   // rendering backwards inside an RTL table cell.
-  const sig = await bot.apiGet({ action: 'query', prop: 'revisions', titles: SIGNATURE_PAGE,
+  const sigPage = signatureFor(target);
+  const sig = await bot.apiGet({ action: 'query', prop: 'revisions', titles: sigPage,
     rvprop: 'ids|timestamp', rvslots: 'main' });
   const sp = sig.query.pages[0];
-  await bot.edit(SIGNATURE_PAGE, '\u200f~~~~~', 'به‌روزرسانی زمان آخرین اجرا',
+  await bot.edit(sigPage, '\u200f~~~~~', 'به‌روزرسانی زمان آخرین اجرا',
     sp.missing ? 0 : sp.revisions[0].revid, sp.missing ? '' : sp.revisions[0].timestamp,
     { allowCreate: true });
-  console.log(`زمان به‌روزرسانی ثبت شد: ${SIGNATURE_PAGE}`);
+  console.log(`زمان به‌روزرسانی ثبت شد: ${sigPage}`);
 }
