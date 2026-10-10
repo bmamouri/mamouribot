@@ -1,0 +1,380 @@
+{
+ "brfa": [
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۰",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۱",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۲",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۳",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۴",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۲",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۳",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۴",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۵",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۶",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۷",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۸",
+  "ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۹"
+ ],
+ "templates": {
+  "بدون منبع": {
+   "exists": true,
+   "redirects": [
+    "الگو:درخواست یادکرد منبع",
+    "الگو:ذکر منبع",
+    "الگو:بدون مرجع",
+    "الگو:نیاز به منبع",
+    "الگو:بی منبع",
+    "الگو:درخواست یادکرد منابع",
+    "الگو:منبع کم",
+    "الگو:Unreferenced",
+    "الگو:بی‌منبع",
+    "الگو:منبع",
+    "الگو:فاقد منبع"
+   ],
+   "en": [
+    "Template:Unreferenced"
+   ],
+   "protection": [
+    {
+     "type": "edit",
+     "level": "sysop",
+     "expiry": "infinity"
+    },
+    {
+     "type": "move",
+     "level": "sysop",
+     "expiry": "infinity"
+    }
+   ]
+  },
+  "بهبود منبع": {
+   "exists": true,
+   "redirects": [
+    "الگو:منبع بیشتر",
+    "الگو:بهبود منابع",
+    "الگو:Refimprove",
+    "الگو:منابع بیشتر",
+    "الگو:Citations missing",
+    "الگو:Verify",
+    "الگو:Ref improve",
+    "الگو:منبع معتبر",
+    "الگو:More citations needed",
+    "الگو:تأییدپذیری"
+   ],
+   "en": [
+    "Template:More citations needed"
+   ],
+   "protection": [
+    {
+     "type": "edit",
+     "level": "sysop",
+     "expiry": "infinity"
+    },
+    {
+     "type": "move",
+     "level": "sysop",
+     "expiry": "infinity"
+    }
+   ]
+  },
+  "بخش بدون منبع": {
+   "exists": true,
+   "redirects": [
+    "الگو:درخواست یادکرد منابع بخش",
+    "الگو:بدون منبع بخش",
+    "الگو:منبع-بخش",
+    "الگو:Unreferenced section",
+    "الگو:بدون منبع-بخش",
+    "الگو:بخش بی‌منبع",
+    "الگو:منبع بخش",
+    "الگو:بخش منبع",
+    "الگو:بخش نیازمند منبع",
+    "الگو:Unrefsect",
+    "الگو:بخش بی منبع"
+   ],
+   "en": [
+    "Template:Unreferenced section"
+   ],
+   "protection": []
+  },
+  "یادکرد-ویکی": {
+   "exists": true,
+   "redirects": [
+    "الگو:یادکرد ویکی‌پدیا",
+    "الگو:یادکرد وپ",
+    "الگو:یادکرد ویکی",
+    "الگو:یادکرد-ویکی۲"
+   ],
+   "en": [],
+   "protection": [
+    {
+     "type": "edit",
+     "level": "sysop",
+     "expiry": "infinity"
+    },
+    {
+     "type": "move",
+     "level": "sysop",
+     "expiry": "infinity"
+    }
+   ]
+  },
+  "بدون منبع زنده": {
+   "exists": true,
+   "redirects": [
+    "الگو:BLP unsourced"
+   ],
+   "en": [
+    "Template:BLP unreferenced"
+   ],
+   "protection": []
+  },
+  "یک منبع": {
+   "exists": true,
+   "redirects": [
+    "الگو:One source"
+   ],
+   "en": [
+    "Template:One source"
+   ],
+   "protection": []
+  },
+  "منبع زنده": {
+   "exists": true,
+   "redirects": [
+    "الگو:BLP sources"
+   ],
+   "en": [
+    "Template:BLP sources"
+   ],
+   "protection": []
+  },
+  "اصلاح ترجمه": {
+   "exists": true,
+   "redirects": [
+    "الگو:ترجمه",
+    "الگو:نیازمند ترجمه",
+    "الگو:ترجمه بدون ویرایش",
+    "الگو:اصلاح ترجمه بخش",
+    "الگو:ترجمه بخش-نیاز",
+    "الگو:ترجمه-نیاز",
+    "الگو:اصلاح ترجمه (تلفظ)",
+    "الگو:نیازمند-ترجمه",
+    "الگو:اصلاح ترجمه(تلفظ)",
+    "الگو:نیاز ترجمه",
+    "الگو:ترجمه کنید",
+    "الگو:ترجمه شود",
+    "الگو:بهبود ترجمه",
+    "الگو:ترجمه ناقص",
+    "الگو:Not English"
+   ],
+   "en": [
+    "Template:Not English"
+   ],
+   "protection": [
+    {
+     "type": "edit",
+     "level": "sysop",
+     "expiry": "infinity"
+    },
+    {
+     "type": "move",
+     "level": "sysop",
+     "expiry": "infinity"
+    }
+   ]
+  },
+  "گسترش از زبان": {
+   "exists": true,
+   "redirects": [
+    "الگو:Expand language"
+   ],
+   "en": [
+    "Template:Expand language"
+   ],
+   "protection": []
+  },
+  "گسترش از زبان انگلیسی": {
+   "exists": true,
+   "redirects": [],
+   "en": [],
+   "protection": []
+  },
+  "بدون پانویس": {
+   "exists": true,
+   "redirects": [
+    "الگو:یادکرد دقیق",
+    "الگو:یادکرد نادقیق",
+    "الگو:ارجاع دقیق",
+    "الگو:منبع دقیق",
+    "الگو:No footnotes",
+    "الگو:منبع نادقیق",
+    "الگو:منابع نادقیق",
+    "الگو:Inline",
+    "الگو:یادکرددقیق",
+    "الگو:منبع درخط",
+    "الگو:Nofootnotes",
+    "الگو:بدون منبع درون خطی",
+    "الگو:بدون یادکرد درون خطی",
+    "الگو:بدون یادکرد درون خط",
+    "الگو:بدون منبع درون خط",
+    "الگو:فاقد یادکرد در خط",
+    "الگو:فاقد یادکرد درخط"
+   ],
+   "en": [
+    "Template:No footnotes"
+   ],
+   "protection": []
+  },
+  "مدرک": {
+   "exists": true,
+   "redirects": [],
+   "en": [],
+   "protection": [
+    {
+     "type": "edit",
+     "level": "sysop",
+     "expiry": "infinity"
+    },
+    {
+     "type": "move",
+     "level": "sysop",
+     "expiry": "infinity"
+    }
+   ]
+  },
+  "منابع اولیه": {
+   "exists": true,
+   "redirects": [
+    "الگو:Primary sources",
+    "الگو:منابع دست اول"
+   ],
+   "en": [
+    "Template:Primary sources"
+   ],
+   "protection": []
+  },
+  "زندگی‌نامه زندگان تأییدنشده": {
+   "exists": true,
+   "redirects": [
+    "الگو:BLP unverified"
+   ],
+   "en": [
+    "Template:BLP unverified"
+   ],
+   "protection": []
+  },
+  "بهبود منبع بخش": {
+   "exists": true,
+   "redirects": [
+    "الگو:بهبود منبع-بخش",
+    "الگو:منابع بیشتر بخش",
+    "الگو:More citations needed section"
+   ],
+   "en": [
+    "Template:More citations needed section"
+   ],
+   "protection": []
+  },
+  "ترجمه تقریبی": {
+   "exists": true,
+   "redirects": [
+    "الگو:ترجمه ماشینی",
+    "الگو:Machinetranslate",
+    "الگو:Machine translate",
+    "الگو:Rough translation"
+   ],
+   "en": [
+    "Template:Rough translation"
+   ],
+   "protection": []
+  },
+  "ترجمه ماشینی": {
+   "exists": true,
+   "redirects": [],
+   "en": [
+    "Template:Machine translate"
+   ],
+   "protection": []
+  }
+ },
+ "cats": {
+  "رده:مقاله‌های بدون منبع زنده": null,
+  "رده:همه مقاله‌های احتمالاً بدون منبع": null,
+  "رده:مقاله‌های با منابع ناقص": null,
+  "رده:همه مقاله‌ها با پیوندهای خارجی مرده": null,
+  "رده:مقاله‌های دارای پیوندهای خارجی مرده": null,
+  "رده:همه مقاله‌های دارای پیوند مرده": null,
+  "رده:مقاله‌های دارای پیوند مرده": null,
+  "رده:افراد زنده": {
+   "size": 187762,
+   "pages": 187754,
+   "files": 1,
+   "subcats": 7,
+   "hidden": false
+  },
+  "رده:مقاله‌های بدون منبع": {
+   "size": 3741,
+   "pages": 3554,
+   "files": 0,
+   "subcats": 187,
+   "hidden": true
+  },
+  "رده:همه مقاله‌های بدون منبع": {
+   "size": 5165,
+   "pages": 5165,
+   "files": 0,
+   "subcats": 0,
+   "hidden": true
+  },
+  "رده:همه مقاله‌های نیازمند ارجاع‌های اضافی": {
+   "size": 7885,
+   "pages": 7885,
+   "files": 0,
+   "subcats": 0,
+   "hidden": true
+  },
+  "رده:مقاله‌های نیازمند ارجاع‌های اضافی": {
+   "size": 4591,
+   "pages": 4390,
+   "files": 0,
+   "subcats": 201,
+   "hidden": true
+  },
+  "رده:مقاله‌های زندگی‌نامه زندگان بدون منبع": {
+   "size": 74,
+   "pages": 9,
+   "files": 0,
+   "subcats": 65,
+   "hidden": true
+  },
+  "رده:همه مقاله‌های زندگی‌نامه زندگان بدون منبع": {
+   "size": 118,
+   "pages": 118,
+   "files": 0,
+   "subcats": 0,
+   "hidden": true
+  },
+  "رده:مقاله‌های دارای الگوی یادکرد-ویکی": {
+   "size": 502966,
+   "pages": 502966,
+   "files": 0,
+   "subcats": 0,
+   "hidden": true
+  },
+  "رده:زندگی‌نامه زندگان بدون منبع": {
+   "size": 24,
+   "pages": 2,
+   "files": 0,
+   "subcats": 22,
+   "hidden": true
+  },
+  "رده:مقاله‌های نیازمند ترجمه ویکی‌پدیا": {
+   "size": 1451,
+   "pages": 1451,
+   "files": 0,
+   "subcats": 0,
+   "hidden": true
+  }
+ }
+}

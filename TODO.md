@@ -238,3 +238,23 @@ insource:"چگونگی پیوند=مرده" insource:"url-status=dead"
 broken — but the pointer is only meaningful once the parent is pushed. The operator asked
 for it to stay local for now (۹ اکتبر ۲۰۲۶); this entry exists so the consequence is not
 rediscovered as a bug.
+
+---
+
+## 11. وظیفهٔ ۱۵ — build it (source maintenance banners)
+
+**Status, ۱۰ اکتبر ۲۰۲۶.** Researched and planned; the operator answered every design
+question. **No code yet**, nothing run, nothing filed. Everything needed to pick it up is
+in `docs/task-15-source-tags.md` — start at its §0 (decisions, build steps, target
+queries), and §12 (the source-detection rules, so the git-ignored research scripts are
+not needed).
+
+**Trigger.** The operator says to continue.
+
+**Check.** `ls src/tasks/task-15/` — absent means not started.
+
+**Then.** Follow §0.4 of the doc: write `src/tasks/task-15/source-tags.ts` + tests,
+register `source-tags` in `src/run.ts`, dry-run, then a ~1000-edit trial under the
+operator's own account (`--as-me`), audited between runs. **No قهوه‌خانه thread and no
+BRFA** until the operator decides after the trial. One question is still open: ask before
+tagging یک منبع / بخش بدون منبع / اصلاح ترجمه (planned report-only).
