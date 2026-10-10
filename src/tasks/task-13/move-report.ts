@@ -259,6 +259,39 @@ export const RULES: Rule[] = [
     },
   },
   {
+    id: 'latin-year',
+    heading: 'رقم لاتین در سال',
+    // Anchored on the word, never on the digits. Measured over ns0 on ۱۱ اکتبر ۲۰۲۶:
+    // 1,219 titles carry a Latin digit but only 152 also carry Persian letters, and
+    // nearly all of THOSE are identifiers where the Latin digit is correct —
+    // «افلاتوکسین B1», «ویروس آنفلوانزای نوع A زیرگروه H5N1», «ژن TCOF1»,
+    // «پرلود و فوگ در دو ماژور (BWV 870)», «نوکیا X2-02», «الگوریتم C4.5». A blanket
+    // "Persianise every Latin digit" rule would be wrong far more often than right.
+    // «سال», «زاده» and «متولد» pin it to a year in running Persian: 8, 2 and 1 titles,
+    // every one a real case. «متولد» was missed on the first pass and the gap showed up
+    // in the published output — «ژائو پدرو (بازیکن فوتبال, متولد 1993)» had its comma
+    // fixed while the year stayed Latin, i.e. the report proposed a title that was still
+    // wrong. Measured and deliberately absent: «درگذشته», «دههٔ», «زادهٔ», «مرگ» and
+    // «قرن» match nothing, and a rule with no members is a liability.
+    explain: 'رقم لاتین سالی که پس از «سال»، «زاده» یا «متولد» آمده، به رقم فارسی. رقم‌های لاتینِ درونِ نام‌ها و شناسه‌ها (مانند «افلاتوکسین B1» یا «ژن TCOF1») دست‌نخورده می‌مانند.',
+    apply: t => t.replace(/((?:سال|زاده|متولد)\s+)([0-9]{3,4})(?![0-9])/g,
+      (_, w, y) => w + y.replace(/[0-9]/g, (d: string) => '۰۱۲۳۴۵۶۷۸۹'[+d])),
+  },
+  {
+    id: 'latin-comma',
+    heading: 'ویرگول لاتین',
+    // Same shape of guard as «نبود فاصله پس از ویرگول», and for the same reason: a
+    // Latin comma is CORRECT inside a chemical name, where it separates locants or
+    // oxidation states — «N,N-دی‌ایزوپروپیل‌آمینو اتانول», «(R,R)-تترا هیدروکریزن»,
+    // «سولفید آهن (II, III)», «(۸z,۶z,۴z,۲z)-تیونین». Every one of those has a LATIN
+    // letter immediately before the comma, which is what distinguishes them from a
+    // disambiguator comma written with the wrong key: «(بازیکن فوتبال, زاده ۱۹۹۲)».
+    // Of 21 titles with a Latin comma beside Persian text, those two shapes are the
+    // whole population.
+    explain: 'ویرگول لاتین («,») میان دو واژهٔ فارسی به ویرگول فارسی («،»). ویرگول درون نام‌های شیمیایی، که پیش از آن حرف لاتین است، دست‌نخورده می‌ماند.',
+    apply: t => t.replace(/([آ-ی۰-۹]),\s*(?=[آ-ی])/g, '$1، '),
+  },
+  {
     id: 'alef-words',
     heading: 'آ و ا',
     explain: 'واژه‌هایی که با «آ» نوشته شده‌اند و املای پذیرفته‌شده‌شان با «ا» است.',

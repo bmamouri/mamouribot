@@ -257,5 +257,41 @@ console.log('\n== ellipsis spacing, the three rules Huji gave ==');
   proposes('... + ۴ + ۳ + ۲ + ۱', '… + ۴ + ۳ + ۲ + ۱');   // dots fixed, spacing left alone
 }
 
+console.log('\n== Latin digits and commas, measured against the live corpus ==');
+{
+  // Asked for on the report's talk page. The population was measured before any rule was
+  // written: 1,219 ns0 titles carry a Latin digit, only 152 also carry Persian letters,
+  // and nearly all of those are identifiers where the Latin digit IS the name. So the
+  // rule is anchored on «سال»/«زاده», never on the digits.
+  proposes('فهرست فروش فیلم‌های ایرانی در سال 1368', 'فهرست فروش فیلم‌های ایرانی در سال ۱۳۶۸');
+  proposes('برایان مک لاولین (بازیکن فوتبال, زاده 1974)', 'برایان مک لاولین (بازیکن فوتبال، زاده ۱۹۷۴)');
+
+  silent('افلاتوکسین B1', 'a chemical designator');
+  silent('ویروس آنفلوانزای نوع A زیرگروه H5N1', 'a virus subtype');
+  silent('ژن TCOF1', 'a gene symbol');
+  silent('پرلود و فوگ در دو ماژور (BWV 870)', 'a catalogue number');
+  silent('نوکیا X2-02', 'a model number');
+  silent('الگوریتم C4.5', 'an algorithm name');
+  silent('مسیر SEA-ME-WE-3', 'a cable name');
+  // «متولد» was missing at first and the live report proposed a title that still had a
+  // Latin year in it. Both halves must fire on the same title.
+  proposes('ژائو پدرو (بازیکن فوتبال, متولد 1993)', 'ژائو پدرو (بازیکن فوتبال، متولد ۱۹۹۳)');
+
+  // A Latin comma is correct inside a chemical name, and every such title has a LATIN
+  // letter immediately before it — which is what separates them from a disambiguator
+  // comma typed on the wrong keyboard.
+  proposes('چارلی دیکسون (زاده ۱۸۹۱, بازیکن فوتبال اهل انگلستان)',
+           'چارلی دیکسون (زاده ۱۸۹۱، بازیکن فوتبال اهل انگلستان)');
+  silent('N,N-دی‌ایزوپروپیل‌آمینو اتانول', 'locants in a chemical name');
+  silent('(R,R)-تترا هیدروکریزن', 'stereodescriptors');
+  silent('سولفید آهن (II, III)', 'oxidation states');
+  silent('(۸z,۶z,۴z,۲z)-تیونین', 'locants: Persian digits but Latin letters');
+
+  // Measured and deliberately given NO rule: «درگذشته», «دهه» and «قرن» match no title,
+  // and the only Latin «?» and «;» titles are intentional.
+  silent('¿¡انقلاب!?', 'Spanish punctuation, deliberate');
+  silent('اموتیکون ;)', 'an emoticon article');
+}
+
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);
 if (fails.length) { console.error('failing:\n  - ' + fails.join('\n  - ')); process.exit(1); }

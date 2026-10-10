@@ -18,6 +18,30 @@ something on a page, never touch an article, need no permission, go out unflagge
 people see them. Splitting them across task numbers would have meant a second permission
 conversation about work the BAG has already said needs none.
 
+### Latin digits and commas: anchored on words, never on the character
+
+Asked for on the report's talk page. A blanket "Persianise every Latin digit" rule would
+have been wrong far more often than right, and the measurement is why it was not written:
+**1,219** ns0 titles carry a Latin digit, only **152** also carry Persian letters, and
+nearly all of those are identifiers where the Latin digit *is* the name — «افلاتوکسین B1»,
+«ویروس آنفلوانزای نوع A زیرگروه H5N1», «ژن TCOF1», «(BWV 870)», «نوکیا X2-02»,
+«الگوریتم C4.5», «مسیر SEA-ME-WE-3».
+
+So `latin-year` is anchored on the word: a year following «سال», «زاده» or «متولد».
+«درگذشته», «دههٔ», «زادهٔ», «مرگ» and «قرن» were measured too and match **nothing**, so
+they have no rule — a rule with no members is a liability, not caution.
+
+`latin-comma` came out of the same sample. A Latin comma is *correct* inside a chemical
+name, and every such title has a **Latin letter immediately before it** — «N,N-…»,
+«(R,R)-…», «سولفید آهن (II, III)», «(۸z,۶z,۴z,۲z)-تیونین». That is exactly what separates
+them from a disambiguator comma typed on the wrong keyboard, «(بازیکن فوتبال, زاده ۱۹۹۲)».
+
+**A gap worth remembering:** «متولد» was missed on the first pass, and the published
+report then proposed «ژائو پدرو (بازیکن فوتبال، متولد 1993)» — comma fixed, year still
+Latin. The fixed-point check did not catch it, because a rule that never fires is
+trivially stable. Checking the *output* for titles that are still wrong is a different
+test from checking that the rules have settled.
+
 ### The user-preferences report
 
 **Its empty table was not a dead bot.** «منطقه زمانی» had been blank since بهمن ۱۴۰۲ and
