@@ -11,11 +11,35 @@ bundle (`toolforge/task-13-reports.mjs`):
 | پربازدیدترین درگاه‌ها | fawiki replica + AQS pageviews | weekly, `pr-weekly` |
 | درگاه‌های انگلیسی برای ترجمه | **enwiki** replica + AQS + fa existence check | weekly, `pr-weekly` |
 | کاربران بر پایه تعداد محتوای برگزیده | three hand-maintained گزیدن pages | weekly, `fc-weekly` |
+| ترجیحات کاربران | fawiki replica, `user_properties` | weekly, `up-weekly` |
 
 They have almost nothing in common in their data. They are the same **job**: propose
 something on a page, never touch an article, need no permission, go out unflagged so
 people see them. Splitting them across task numbers would have meant a second permission
 conversation about work the BAG has already said needs none.
+
+### The user-preferences report
+
+**Its empty table was not a dead bot.** «منطقه زمانی» had been blank since بهمن ۱۴۰۲ and
+looked like a job that had stopped. The query still runs and still returns nothing:
+`timecorrection` is no longer in the public replicas. Measured ۱۱ اکتبر ۱۴۰۵,
+`user_properties` exposes exactly **four** properties — `gender`, `nickname`, `fancysig`,
+`disablemail` — while `timecorrection`, `skin`, `language`, `variant` and `thumbsize` all
+return **0 rows**. Timezone, skin and interface language cannot be reported from the
+replicas by anyone. The section now says so instead of rendering an empty table, so the
+next person does not re-investigate it.
+
+Two things make the remaining numbers mean something:
+
+- `user_properties` stores a row only when a preference is changed **away from its
+  default**, so every count is "users who changed this", never a total.
+- 1.57M accounts exist against 536k with a single edit, so a bare count is mostly dormant
+  registrations. Each property is split by activity, which is the report's actual
+  content: *29,507 set a gender; 627 of them have a thousand edits.*
+
+«جنسیت» stays a transclusion of `/جنسیت`, which **another operator's bot maintains** and
+updated as recently as ۱۷ مهر ۱۴۰۵. Generating it here too would put two bots on the same
+numbers.
 
 ### The featured-content report
 
