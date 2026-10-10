@@ -26,8 +26,10 @@ looked like a job that had stopped. The query still runs and still returns nothi
 `user_properties` exposes exactly **four** properties — `gender`, `nickname`, `fancysig`,
 `disablemail` — while `timecorrection`, `skin`, `language`, `variant` and `thumbsize` all
 return **0 rows**. Timezone, skin and interface language cannot be reported from the
-replicas by anyone. The section now says so instead of rendering an empty table, so the
-next person does not re-investigate it.
+replicas by anyone. The section was **removed**, not kept with a note explaining itself:
+a heading whose only content is "we cannot report this" is noise on a report page. This
+paragraph is the record instead, and the selftest asserts the section does not come
+back.
 
 Two things make the remaining numbers mean something:
 

@@ -15,11 +15,17 @@ export function selfTest(): string {
   if (!text.includes('<code dir="ltr">gender</code>')) return 'SELFTEST FAILED: property column missing';
   if (!text.includes(PROPERTIES.nickname)) return 'SELFTEST FAILED: meaning column missing';
   if (!text.includes('{{formatnum:29507}}')) return 'SELFTEST FAILED: numbers not formatted';
+  // The prose totals must group thousands too, not just convert the digits.
+  if (!text.includes('{{formatnum:1573226}}') || !text.includes('{{formatnum:536391}}')) {
+    return 'SELFTEST FAILED: the intro totals are not run through formatnum';
+  }
+  if (/۱۵۷۳۲۲۶|۵۳۶۳۹۱/.test(text)) return 'SELFTEST FAILED: ungrouped digits in the intro';
   if (!text.includes('data-sort-value="29507"')) return 'SELFTEST FAILED: numbers not sortable';
   // The gender section belongs to another operator's bot and must stay a transclusion.
   if (!text.includes('{{/جنسیت}}')) return 'SELFTEST FAILED: the gender subpage must stay transcluded';
-  // The timezone section must explain itself rather than render an empty table again.
-  if (!text.includes('== منطقه زمانی ==')) return 'SELFTEST FAILED: timezone section missing';
+  // The timezone section is gone for good: the data is not in the replicas, and a
+  // heading that only explains its own absence is noise.
+  if (text.includes('منطقه زمانی')) return 'SELFTEST FAILED: the timezone section is back';
   if (text.includes('!اختلاف ساعت')) return 'SELFTEST FAILED: the empty timezone table is back';
   if (!text.includes('[[رده:گزارش‌های دیتابیس ویکی‌پدیا]]')) return 'SELFTEST FAILED: category missing';
   const problems = checkWikitext('ویکی‌پدیا:گزارش دیتابیس/آزمایش', text)

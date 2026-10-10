@@ -115,8 +115,11 @@ export const fa = (n: number | string) => String(n).replace(/\d/g, d => '۰۱۲�
  *
  * `data-sort-value` carries the ASCII number because the reader sees Persian digits and
  * the table's sort would otherwise order them as text — ۹ before ۱۰.
+ *
+ * The visible half goes through `{{formatnum:}}`, which groups thousands as well as
+ * converting the digits. A bare conversion printed view counts as ۳۴۳۹۹۲.
  */
-export const num = (v: number, shown = fa(v)) => `data-sort-value="${v}" | ${shown}`;
+export const num = (v: number) => `data-sort-value="${v}" | {{formatnum:${v}}}`;
 
 /** `20260530123000` → `۲۰۲۶-۰۵-۳۰`, sortable as the raw stamp. */
 export function when(stamp: string): string {

@@ -13,6 +13,8 @@ import { checkWikitext } from '../../lib/gates.js';
 export function selfTest(): string {
   if (fa(1403) !== '۱۴۰۳') return `SELFTEST FAILED: digits → ${fa(1403)}`;
   if (!num(9).startsWith('data-sort-value="9"')) return 'SELFTEST FAILED: sort value missing';
+  // Grouped, not just transliterated: a view count of 343992 must not print as ۳۴۳۹۹۲.
+  if (!num(343992).includes('{{formatnum:343992}}')) return `SELFTEST FAILED: ungrouped number ${num(343992)}`;
   if (!when('20260530123000').includes('۲۰۲۶-۰۵-۳۰')) return `SELFTEST FAILED: date → ${when('20260530123000')}`;
   if (!when('').includes('ناشناخته')) return 'SELFTEST FAILED: empty timestamp must not crash';
 

@@ -7,8 +7,9 @@
  * the public replicas. Measured ۱۱ اکتبر ۲۰۲۶, `user_properties` exposes exactly four
  * properties — gender, nickname, fancysig, disablemail — and `timecorrection`, `skin`,
  * `language`, `variant` and `thumbsize` all return **0 rows**. Timezone, skin and
- * interface language cannot be reported from here at all, by anyone. Do not "fix" that
- * section by rewriting the SQL; the data is gone.
+ * interface language cannot be reported from here at all, by anyone. The section was
+ * removed rather than left with a note explaining itself. Do not add it back and do not
+ * rewrite its SQL: the data is gone, and this paragraph is the record of that.
  *
  * TWO THINGS THE RAW COUNTS GET WRONG ON THEIR OWN:
  *
@@ -29,7 +30,6 @@
  */
 export const PREFS_PAGE = 'ویکی‌پدیا:گزارش دیتابیس/ترجیحات کاربران';
 
-export const faDigits = (n: number | string) => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
 const num = (v: number) => `data-sort-value="${v}" | {{formatnum:${v}}}`;
 
 /** The four properties the replica actually exposes, with what each one means. */
@@ -54,7 +54,9 @@ export function buildPrefs(rows: PrefRow[], totals: Totals): string {
     + 'پایگاه داده تنها زمانی ردیفی می‌سازد که کاربر مقدار پیش‌فرض را عوض کرده باشد، پس '
     + 'ترجیحی که دست‌نخورده مانده اصلاً دیده نمی‌شود.',
     '',
-    `از ${faDigits(totals.accounts)} حساب ثبت‌شده، ${faDigits(totals.edited)} حساب دست‌کم یک `
+    // {{formatnum:}}, not faDigits: it groups thousands as well as converting the
+    // digits, and the table cells already use it. Plain conversion printed ۱۵۷۳۲۲۷.
+    `از {{formatnum:${totals.accounts}}} حساب ثبت‌شده، {{formatnum:${totals.edited}}} حساب دست‌کم یک `
     + 'ویرایش دارند. چون بیشتر حساب‌ها هرگز ویرایش نمی‌کنند، شمار خام بیشتر بازتاب حساب‌های '
     + 'بی‌کار است؛ به همین دلیل هر ترجیح بر پایهٔ میزان فعالیت حساب هم شکسته شده است.',
     '',
@@ -72,15 +74,12 @@ export function buildPrefs(rows: PrefRow[], totals: Totals): string {
       `| ${num(r.ge100)}`,
       `| ${num(r.ge1000)}`);
   }
+  // No «منطقه زمانی» section. It was dropped rather than kept with an explanation: a
+  // heading whose only content is "we cannot report this" is noise on the page. Why the
+  // data is gone is in this file's header, where a maintainer looks, not on the report.
   out.push('|}', '',
     '== جنسیت ==',
     '{{/جنسیت}}',
-    '',
-    '== منطقه زمانی ==',
-    'این بخش دیگر ساخته نمی‌شود. ترجیح منطقهٔ زمانی («timecorrection») در پایگاه‌های بدل '
-    + 'عمومی در دسترس نیست و پرس‌وجو روی آن هیچ ردیفی برنمی‌گرداند؛ همین‌طور پوسته، زبان '
-    + 'رابط و اندازهٔ بندانگشتی. جدول خالی این بخش نشانهٔ از کار افتادن ربات نبود، بلکه '
-    + 'نبودِ داده بود.',
     '',
     '[[رده:گزارش‌های دیتابیس ویکی‌پدیا]]');
   return out.join('\n');
