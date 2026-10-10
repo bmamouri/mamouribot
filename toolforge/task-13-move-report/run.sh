@@ -1,6 +1,6 @@
 #!/bin/bash
 # Toolforge tool: (no tool yet — وظیفهٔ ۱۳ is not filed)   (see docs/TOOLFORGE.md for the full task/tool table)
-# Entry point for وظیفهٔ ۱۳ — the «برای انتقال مقاله» database report.
+# Entry point for وظیفهٔ ۱۳ — the «مقاله‌های نیازمند تغییرنام» database report.
 set -euo pipefail
 cd "$(dirname "$0")"
 

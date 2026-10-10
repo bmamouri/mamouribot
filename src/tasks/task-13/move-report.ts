@@ -1,5 +1,5 @@
 /**
- * وظیفهٔ ۱۳ — ویکی‌پدیا:گزارش دیتابیس/برای انتقال مقاله
+ * وظیفهٔ ۱۳ — ویکی‌پدیا:گزارش دیتابیس/مقاله‌های نیازمند تغییرنام
  *
  *   npx tsx src/tasks/task-13/move-report-cli.ts              # dry run: prints the wikitext
  *   npx tsx src/tasks/task-13/move-report-cli.ts --live       # publishes the report page
@@ -44,8 +44,14 @@ import { articleTitles, type Backend } from '../../lib/replica.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
 
-export const REPORT_PAGE = 'ویکی‌پدیا:گزارش دیتابیس/برای انتقال مقاله';
+// Renamed ۱۰ اکتبر ۲۰۲۶ at Huji's request, part of fa.wikipedia replacing the word
+// «انتقال» with «تغییرنام». The old title and all four subpages are redirects, so
+// nothing that pointed at them broke; this constant is what decides where the daily
+// run WRITES, and the whitelist path is derived from it.
+export const REPORT_PAGE = 'ویکی‌پدیا:گزارش دیتابیس/مقاله‌های نیازمند تغییرنام';
 export const WHITELIST_PAGE = `${REPORT_PAGE}/فهرست سفید`;
+/** Transcluded by {{گزارش دیتابیس}} on وپ:گد as the report's «آخرین به‌روزرسانی». */
+export const SIGNATURE_PAGE = `${REPORT_PAGE}/امضا`;
 const HEADER_TEMPLATE = '{{گزارش دیتابیس/صفحه برای انتقال}}';
 
 /** Longest the page may get, in total and per section. Past this it stops being
@@ -550,8 +556,22 @@ export async function run() {
   const cur = await bot.apiGet({ action: 'query', prop: 'revisions', titles: REPORT_PAGE,
     rvprop: 'content|ids|timestamp', rvslots: 'main' });
   const p = cur.query.pages[0];
-  await bot.edit(REPORT_PAGE, text, 'به‌روزرسانی گزارش عنوان‌های نیازمند انتقال',
+  await bot.edit(REPORT_PAGE, text, 'به‌روزرسانی گزارش عنوان‌های نیازمند تغییرنام',
     p.missing ? 0 : p.revisions[0].revid, p.missing ? '' : p.revisions[0].timestamp,
     { allowCreate: true });
   console.log(`منتشر شد: ${REPORT_PAGE}`);
+
+  // The «آخرین به‌روزرسانی» column on وپ:گد is not derived from the page history — the
+  // {{گزارش دیتابیس}} row TRANSCLUDES `<report>/امضا`, so the index shows whatever that
+  // subpage says. Rezabot last wrote it in 2021, and until this ran the index advertised
+  // a daily report as last updated five years ago. Five tildes: MediaWiki substitutes a
+  // bare timestamp, which is all the cell may contain. The RLM keeps the date from
+  // rendering backwards inside an RTL table cell.
+  const sig = await bot.apiGet({ action: 'query', prop: 'revisions', titles: SIGNATURE_PAGE,
+    rvprop: 'ids|timestamp', rvslots: 'main' });
+  const sp = sig.query.pages[0];
+  await bot.edit(SIGNATURE_PAGE, '\u200f~~~~~', 'به‌روزرسانی زمان آخرین اجرا',
+    sp.missing ? 0 : sp.revisions[0].revid, sp.missing ? '' : sp.revisions[0].timestamp,
+    { allowCreate: true });
+  console.log(`زمان به‌روزرسانی ثبت شد: ${SIGNATURE_PAGE}`);
 }

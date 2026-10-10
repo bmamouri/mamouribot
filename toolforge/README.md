@@ -16,7 +16,7 @@ them.
 | path | purpose |
 |---|---|
 | `mamouribot.mjs` | every registered `BotTask`, bundled from `src/run.ts` |
-| `move-report.mjs` | وظیفهٔ ۱۳, the «برای انتقال مقاله» report (`src/tasks/task-13/move-report-cli.ts`) |
+| `move-report.mjs` | وظیفهٔ ۱۳, the «مقاله‌های نیازمند تغییرنام» report (`src/tasks/task-13/move-report-cli.ts`) |
 | `cite-scan-conflicts.mjs` | وظیفهٔ ۳'s review-page scanner (`src/tasks/task-03/scan-conflicts-cli.ts`) |
 | `gates.py` | the publish gate battery. Python, so it cannot be bundled; it ships beside the bundles |
 | `task-03-cite-params/` | وظیفهٔ ۳ — `run.sh`, `scan.sh`, `jobs.yaml` |

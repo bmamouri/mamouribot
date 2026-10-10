@@ -1,4 +1,40 @@
-# وظیفهٔ ۱۳ — ویکی‌پدیا:گزارش دیتابیس/برای انتقال مقاله
+# وظیفهٔ ۱۳ — ویکی‌پدیا:گزارش دیتابیس/مقاله‌های نیازمند تغییرنام
+
+## Renamed ۱۰ اکتبر ۲۰۲۶ — «برای انتقال مقاله» → «مقاله‌های نیازمند تغییرنام»
+
+fa.wikipedia has been replacing the word «انتقال» with «تغییرنام», and Huji asked for this
+report to follow: «لطفاً تغییرمسیر را در زمان تغییرنام حفظ کنید، سپس وپ:گد را ویرایش کنید و
+ربات‌تان را هم اصلاح کنید که در نشانی جدید تغییراتش را ثبت کند».
+
+Everything that moved, each leaving a redirect, because he asked for them and because
+other editors link these:
+
+| | |
+|---|---|
+| the report | `…/برای انتقال مقاله` → `…/مقاله‌های نیازمند تغییرنام` |
+| 4 subpages | `/فهرست سفید`, `/تغییرمسیر`, `/پرانتز`, `/امضا` |
+
+**Each subpage was moved by its own `action=move`.** `movesubpages=1` is not available to
+this bot password and fails *silently* — see
+`lessons/api-and-permissions/bot-password-move-not-subpages.md`. Two of those subpages,
+`/تغییرمسیر` and `/پرانتز`, are Sunfyre's own working lists rather than anything this task
+writes; they moved so nothing is orphaned under a redirect title, and the redirects mean a
+script of his that writes by the old name still lands.
+
+Also updated, since a rename nobody can find is not finished:
+
+- `الگو:گزارش دیتابیس/صفحه برای انتقال` — the nav bar: our link retargeted and its label
+  changed to «تغییرنام مقاله». The four sibling reports still read «انتقال …», so the bar
+  is briefly inconsistent; that is Huji's call, not ours, and is flagged to him.
+- `ویکی‌پدیا:گزارش دیتابیس` (وپ:گد) — the row still credited **rezabot**, **هفتگی** and
+  `{{خیر|غیرفعال}}`, all three untrue since this task took the report over. Now MamouriBot,
+  روزانه, `{{بله|فعال}}`. The section heading lost its `({{قرمز|غیرفعال}})` marker and its
+  stat line went from «کاملاً غیرفعال» to `{{/الگوی آمار|۱|بخش|فعال}}`, matching how every
+  other partially-active section on that page is written.
+
+`REPORT_PAGE` is the single constant that decides where the daily run writes;
+`WHITELIST_PAGE` derives from it, so both moved together.
+
 
 ## It needs no permission, and its edits are deliberately UNFLAGGED
 
