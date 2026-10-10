@@ -21,6 +21,19 @@ this bot password and fails *silently* — see
 writes; they moved so nothing is orphaned under a redirect title, and the redirects mean a
 script of his that writes by the old name still lands.
 
+**The four sibling reports were renamed the same way** on the operator's instruction, so
+the nav bar is not half one wording and half the other: `الگوهای نیازمند تغییرنام`,
+`رده‌های نیازمند تغییرنام`, `راهنماهای نیازمند تغییرنام`,
+`صفحه‌های ویکی‌پدیای نیازمند تغییرنام` — 12 more moves with their `/فهرست سفید` and
+`/امضا`, all leaving redirects. None of them is this task's; all four have been dead since
+2017–2020. `Mamouri` is **not** `noratelimit`, unlike the bot, and the move throttle bites
+after about eight in a minute — the mover sleeps 65s on `ratelimited` and skips a target
+that already exists, so it is re-runnable from wherever it stopped.
+
+The وپ:گد section heading became «نیازمند تغییرنام» too. That is safe because the
+`وپ:برای انتقال` shortcut targets an anchor emitted by `{{میان‌بر}}`, not the heading
+text — check that before renaming a section someone links to.
+
 Also updated, since a rename nobody can find is not finished:
 
 - `الگو:گزارش دیتابیس/صفحه برای انتقال` — the nav bar: our link retargeted and its label
