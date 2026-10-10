@@ -4,6 +4,7 @@
  *   npx tsx src/tasks/task-13/reports-cli.ts --selftest
  *   npx tsx src/tasks/task-13/reports-cli.ts --report move     [--live] [--refresh]
  *   npx tsx src/tasks/task-13/reports-cli.ts --report portals  [--live] [--only popular|candidates]
+ *   npx tsx src/tasks/task-13/reports-cli.ts --report featured [--live]
  *   npx tsx src/tasks/task-13/reports-cli.ts --report all      [--live]
  *
  * One task, one entry, one bundle. The reports have nothing in common in their data —
@@ -22,7 +23,9 @@
  */
 import { run as runMoveReport, selfTest as moveSelfTest } from './move-report.js';
 import { runPortalReports } from './portal-reports-run.js';
+import { runFeaturedReport } from './featured-report-run.js';
 import { selfTest as portalSelfTest } from './portal-reports.selftest.js';
+import { selfTest as featuredSelfTest } from './featured-report.selftest.js';
 
 const argv = process.argv.slice(2);
 const arg = (name: string) => {
@@ -34,19 +37,20 @@ async function main() {
   if (argv.includes('--selftest')) {
     // Both halves, so the bundler's gate covers every report in the bundle. A single
     // line is printed because build-bundle.ts matches on it.
-    for (const t of [moveSelfTest(), portalSelfTest()]) {
+    for (const t of [moveSelfTest(), portalSelfTest(), featuredSelfTest()]) {
       if (!t.startsWith('SELFTEST OK')) { console.error(t); process.exit(1); }
     }
-    console.log('SELFTEST OK: هر دو گزارش‌ساز');
+    console.log('SELFTEST OK: هر سه گزارش‌ساز');
     return;
   }
   const report = arg('--report') ?? 'move';
-  if (report !== 'move' && report !== 'portals' && report !== 'all') {
-    console.error(`گزارش ناشناخته: ${report} (move | portals | all)`);
+  if (!['move', 'portals', 'featured', 'all'].includes(report)) {
+    console.error(`گزارش ناشناخته: ${report} (move | portals | featured | all)`);
     process.exit(1);
   }
   if (report === 'move' || report === 'all') await runMoveReport();
   if (report === 'portals' || report === 'all') await runPortalReports(argv);
+  if (report === 'featured' || report === 'all') await runFeaturedReport(argv);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

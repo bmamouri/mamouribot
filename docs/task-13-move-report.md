@@ -10,11 +10,35 @@ bundle (`toolforge/task-13-reports.mjs`):
 | مقاله‌های نیازمند تغییرنام | fawiki replica | daily, `mr-daily` |
 | پربازدیدترین درگاه‌ها | fawiki replica + AQS pageviews | weekly, `pr-weekly` |
 | درگاه‌های انگلیسی برای ترجمه | **enwiki** replica + AQS + fa existence check | weekly, `pr-weekly` |
+| کاربران بر پایه تعداد محتوای برگزیده | three hand-maintained گزیدن pages | weekly, `fc-weekly` |
 
 They have almost nothing in common in their data. They are the same **job**: propose
 something on a page, never touch an article, need no permission, go out unflagged so
 people see them. Splitting them across task numbers would have meant a second permission
 conversation about work the BAG has already said needs none.
+
+### The featured-content report
+
+Users ranked by featured articles, good articles and featured lists they brought through
+review. The previous maintainer's run had stopped and the page had not moved since
+شهریور ۱۴۰۴.
+
+**The database cannot answer this.** The category says an article is featured; it does not
+say whose work it was. That attribution exists only on three hand-maintained pages, one
+per content type, so those are the source. Only ★ counts — ☆ is content demoted at
+review, and a report titled "by amount of featured content" that counted demoted work
+answers a different question.
+
+**The parsing trap.** A user's entries are not one table row. The good-article page wraps
+at twenty per row and continues on rows whose first cell is empty, so the obvious
+`split('|-')` truncates every prolific contributor to exactly 20 — and looks entirely
+plausible doing it. Entries are accumulated from a user's line until the NEXT user line.
+That bug was caught, not reasoned about: the featured-list page states each user's own
+total in a «تعداد» column, which is a free positive control, and parsed against it **64 of
+65 rows agree**. The one that does not is the source being stale about itself.
+
+The run refuses to publish if it finds fewer than 50 users, because a broken parser
+returns a short list rather than an error, and this writes over a live page.
 
 ### The two portal reports
 

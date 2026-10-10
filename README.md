@@ -40,7 +40,7 @@ waits what it waits, and `docs/task-NN-*.md` for each task's own decisions.
 | ۱۰ | `task-10/` | `destub` | Removes stub tags from articles that are demonstrably no longer stubs |
 | ۱۱ | `task-11/` | `taxonomy-create-missing` | Creates missing taxonomy templates that task ۹ depends on |
 | ۱۲ | `task-12/` | `linkfix` | Repairs links the mass imports left in English: fa article if one exists, else an interwiki with a Persian label, else plain Persian text. Never invents a Persian name. Permission withheld pending three requests from the review, all now done. See `docs/task-12-linkfix.md` |
-| ۱۳ | `task-13/` | `reports-cli` | **Every database report this bot publishes**: «مقاله‌های نیازمند تغییرنام» daily, and the two درگاه reports weekly. Proposes only; writes pages and never edits an article. **Needs no permission and runs UNFLAGGED** (`flagEdits: false`) — see `docs/task-13-move-report.md` |
+| ۱۳ | `task-13/` | `reports-cli` | **Every database report this bot publishes**: «مقاله‌های نیازمند تغییرنام» daily, and the two درگاه reports plus the featured-content ranking weekly. Proposes only; writes pages and never edits an article. **Needs no permission and runs UNFLAGGED** (`flagEdits: false`) — see `docs/task-13-move-report.md` |
 | ۱۴ | `task-14/` | `population-box` | Places `{{جمعیت ایران}}`, the Wikidata-fed census trend box, on Iranian village articles. No number travels in the edit; replacing a hand-written box carries a deletion proof. See `docs/task-14-population.md` |
 
 **The directory name is the BRFA number**, zero-padded so it sorts, and it is the index
