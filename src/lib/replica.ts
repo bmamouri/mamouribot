@@ -45,8 +45,12 @@ export type Backend = 'auto' | 'direct' | 'ssh';
 const CREDENTIALS = join(homedir(), 'replica.my.cnf');
 const SSH_HOST = process.env.TOOLFORGE_SSH ?? 'mamouri@login.toolforge.org';
 const SSH_TOOL = process.env.TOOLFORGE_TOOL ?? 'mamouribot';
-const DB = 'fawiki_p';
-const HOST = 'fawiki.analytics.db.svc.wikimedia.cloud';
+/** Which wiki's replica to read. Each has its own host and database. */
+export type Wiki = 'fa' | 'en';
+const WIKIS: Record<Wiki, { db: string; host: string }> = {
+  fa: { db: 'fawiki_p', host: 'fawiki.analytics.db.svc.wikimedia.cloud' },
+  en: { db: 'enwiki_p', host: 'enwiki.analytics.db.svc.wikimedia.cloud' },
+};
 
 export function chooseBackend(mode: Backend = 'auto'): Exclude<Backend, 'auto'> {
   if (mode !== 'auto') return mode;
@@ -90,14 +94,32 @@ function run(cmd: string, args: string[], stdin: string, timeoutMs: number): Pro
  * lessons/verification-and-gates/a-zero-needs-a-positive-control.md.
  */
 export async function articleTitles(mode: Backend = 'auto'): Promise<string[]> {
-  const backend = chooseBackend(mode);
-  const sql = 'SELECT page_title FROM page WHERE page_namespace = 0 AND page_is_redirect = 0';
-  const rows = backend === 'direct' ? await viaMysql(sql) : await viaSsh(sql);
-  if (!rows.length) throw new Error(`replica returned no titles over ${backend} — refusing to treat that as an empty wiki`);
-  return rows.map(t => t.replace(/_/g, ' '));
+  const rows = await queryRows(
+    'SELECT page_title FROM page WHERE page_namespace = 0 AND page_is_redirect = 0',
+    { mode });
+  return rows.map(r => r.page_title.replace(/_/g, ' '));
 }
 
-async function viaSsh(sql: string): Promise<string[]> {
+/**
+ * Any SELECT, as rows of strings, from either wiki's replica.
+ *
+ * Everything is a string: the ssh backend goes through `mysql --batch`, which has no
+ * types to give, so the direct backend is coerced to match rather than the two
+ * disagreeing depending on where the bot happens to be running. Callers parse.
+ *
+ * Same zero rule as above — an empty result is a failure, not a clean run.
+ */
+export async function queryRows(
+  sql: string, opts: { wiki?: Wiki; mode?: Backend } = {},
+): Promise<Record<string, string>[]> {
+  const wiki = opts.wiki ?? 'fa';
+  const backend = chooseBackend(opts.mode ?? 'auto');
+  const rows = backend === 'direct' ? await rowsViaMysql(sql, wiki) : await rowsViaSsh(sql, wiki);
+  if (!rows.length) throw new Error(`replica returned no rows over ${backend} (${wiki}) — refusing to treat that as an empty wiki`);
+  return rows;
+}
+
+async function rowsViaSsh(sql: string, wiki: Wiki): Promise<Record<string, string>[]> {
   // `mysql` directly, not the `sql` wrapper: the wrapper treats any argument after the
   // database name as part of the query ("More than one argument given; joining SQL
   // query words with spaces") and so silently swallows --batch, producing no output
@@ -109,31 +131,38 @@ async function viaSsh(sql: string): Promise<string[]> {
   // The credentials path is spelled out rather than written as $HOME: the variable
   // would be expanded by the login shell, as the `mamouri` user, before `become`
   // switches to the tool, and point at the wrong home.
+  const { db, host } = WIKIS[wiki];
   const home = `/data/project/${SSH_TOOL}`;
-  const remote = `cat > ${home}/.movereport.sql && mysql --defaults-file=${home}/replica.my.cnf `
-    + `-h ${HOST} ${DB} --batch --raw < ${home}/.movereport.sql`;
+  const remote = `cat > ${home}/.replica.sql && mysql --defaults-file=${home}/replica.my.cnf `
+    + `-h ${host} ${db} --batch --raw < ${home}/.replica.sql`;
   const out = await run('ssh', ['-o', 'BatchMode=yes', SSH_HOST,
     `become ${SSH_TOOL} bash -c ${JSON.stringify(remote)}`], sql, 10 * 60_000);
-  const lines = out.split('\n');
-  if (!lines.length || lines[0].trim() !== 'page_title') {
-    throw new Error(`unexpected output from the replica over ssh: ${out.slice(0, 200)}`);
-  }
-  return lines.slice(1).filter(l => l.length > 0);
+  const lines = out.split('\n').filter(l => l.length > 0);
+  if (!lines.length) throw new Error(`no output from the replica over ssh: ${out.slice(0, 200)}`);
+  const cols = lines[0].split('\t');
+  return lines.slice(1).map(l => {
+    const cells = l.split('\t');
+    return Object.fromEntries(cols.map((c, i) => [c, cells[i] ?? ''])) as Record<string, string>;
+  });
 }
 
-async function viaMysql(sql: string): Promise<string[]> {
+async function rowsViaMysql(sql: string, wiki: Wiki): Promise<Record<string, string>[]> {
   const { user, password } = parseCredentials(readFileSync(CREDENTIALS, 'utf8'));
   // Imported lazily so a developer machine, which uses the ssh backend, does not need
   // the driver installed at all.
   const mysql = await import('mysql2/promise');
+  const { db, host } = WIKIS[wiki];
   const conn = await mysql.createConnection({
-    host: HOST, user, password, database: DB,
+    host, user, password, database: db,
     // page_title is binary; without this the driver hands back Buffers.
     charset: 'utf8mb4', connectTimeout: 30_000,
   });
   try {
-    const [rows] = await conn.query(sql) as unknown as [{ page_title: string | Buffer }[]];
-    return rows.map(r => (Buffer.isBuffer(r.page_title) ? r.page_title.toString('utf8') : r.page_title));
+    const [rows] = await conn.query(sql) as unknown as [Record<string, unknown>[]];
+    // Coerced to strings so this backend and the ssh one return the same shape; several
+    // of these columns are binary and would otherwise arrive as Buffers.
+    return rows.map(r => Object.fromEntries(Object.entries(r).map(
+      ([k, v]) => [k, Buffer.isBuffer(v) ? v.toString('utf8') : v === null ? '' : String(v)])));
   } finally {
     await conn.end();
   }

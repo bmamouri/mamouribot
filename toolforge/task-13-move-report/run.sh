@@ -1,6 +1,7 @@
 #!/bin/bash
 # Toolforge tool: (no tool yet — وظیفهٔ ۱۳ is not filed)   (see docs/TOOLFORGE.md for the full task/tool table)
-# Entry point for وظیفهٔ ۱۳ — the «مقاله‌های نیازمند تغییرنام» database report.
+# Entry point for وظیفهٔ ۱۳ — every database report this bot publishes:
+# «مقاله‌های نیازمند تغییرنام» and the two درگاه reports. Pick with --report.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -26,4 +27,4 @@ if [ ! -f "$HOME/replica.my.cnf" ]; then
   exit 1
 fi
 
-exec node ../move-report.mjs "$@"
+exec node ../task-13-reports.mjs "$@"

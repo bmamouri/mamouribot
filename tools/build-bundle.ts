@@ -158,25 +158,27 @@ copyFileSync('dist/bot-run.mjs', 'toolforge/mamouribot.mjs');
 shipGates('toolforge');
 console.log('ساخته شد: toolforge/mamouribot.mjs (رونوشت از dist/bot-run.mjs)');
 
-// ---- dist/move-report.mjs ----
-await buildOne('src/tasks/task-13/move-report-cli.ts', 'dist/move-report.mjs');
+// ---- dist/task-13-reports.mjs ----
+// Every وظیفهٔ ۱۳ report in one bundle: «مقاله‌های نیازمند تغییرنام» and the two
+// درگاه reports. One task, one entry, one job family.
+await buildOne('src/tasks/task-13/reports-cli.ts', 'dist/task-13-reports.mjs');
 {
   // gate 2: the rule engine itself, with no network and no database. An entry that
   // imported cleanly but whose rules were folded wrong by bundling would otherwise
   // look healthy right up to the moment it published a page of wrong proposals.
-  const r = spawnSync('node', ['dist/move-report.mjs', '--selftest'], {
+  const r = spawnSync('node', ['dist/task-13-reports.mjs', '--selftest'], {
     encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
   });
   const out = `${r.stdout ?? ''}${r.stderr ?? ''}`.trim();
   if (!out.startsWith('SELFTEST OK')) {
-    console.error('\nGATE 2 FAILED (dist/move-report.mjs) — the rules did not survive bundling:');
+    console.error('\nGATE 2 FAILED (dist/task-13-reports.mjs) — the rules did not survive bundling:');
     console.error(out.slice(0, 2000));
     process.exit(1);
   }
-  console.log(`  گیت ۲: ${out} ✓  (dist/move-report.mjs)`);
+  console.log(`  گیت ۲: ${out} ✓  (dist/task-13-reports.mjs)`);
 }
-copyFileSync('dist/move-report.mjs', 'toolforge/move-report.mjs');
-console.log('ساخته شد: toolforge/move-report.mjs (رونوشت از dist/move-report.mjs)');
+copyFileSync('dist/task-13-reports.mjs', 'toolforge/task-13-reports.mjs');
+console.log('ساخته شد: toolforge/task-13-reports.mjs (رونوشت از dist/task-13-reports.mjs)');
 
 // ---- dist/destub-watch.mjs ----
 await buildOne('src/tasks/task-10/destub-watch.ts', 'dist/destub-watch.mjs');
