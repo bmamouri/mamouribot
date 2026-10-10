@@ -1,5 +1,52 @@
 # وظیفهٔ ۱۳ — ویکی‌پدیا:گزارش دیتابیس/مقاله‌های نیازمند تغییرنام
 
+## This task owns every database report, not just one
+
+Three pages, one task, one entry (`reports-cli.ts --report move|portals|all`), one
+bundle (`toolforge/task-13-reports.mjs`):
+
+| report | source | frequency |
+|---|---|---|
+| مقاله‌های نیازمند تغییرنام | fawiki replica | daily, `mr-daily` |
+| پربازدیدترین درگاه‌ها | fawiki replica + AQS pageviews | weekly, `pr-weekly` |
+| درگاه‌های انگلیسی برای ترجمه | **enwiki** replica + AQS + fa existence check | weekly, `pr-weekly` |
+
+They have almost nothing in common in their data. They are the same **job**: propose
+something on a page, never touch an article, need no permission, go out unflagged so
+people see them. Splitting them across task numbers would have meant a second permission
+conversation about work the BAG has already said needs none.
+
+### The two portal reports
+
+Ported from `scripts/archive/portal-popularity/`, which produced the hand-run versions
+from a Quarry run plus a local script. The Quarry queries are now inlined as
+`FA_PORTALS_SQL` and `EN_PORTALS_SQL`, so no human has to press run, and the report no
+longer links Quarry — a reader of a report does not need the plumbing.
+
+**Pageviews, not inbound links.** The two disagree and that is the point: درگاه:جغرافیا
+has the most inbound article links of any fa portal and little traffic. Inbound links
+measure how thoroughly *editors* wired a portal up; the question is which portal a
+*reader* opens. Pageviews are not in the replicas, so structure comes from the database
+and traffic from the AQS API.
+
+**«No fa interwiki» is not «fa does not have it».** Only ~90 of ~590 en portal roots
+carry a fa langlink while fa has ~200 portals, so filtering on the interwiki alone
+recommends creating portals that already exist. Every candidate is re-checked by
+resolving the topic's Persian name through the *article*'s langlink and asking fa whether
+درگاه:<name> exists. The ones that already exist get their own short section — they need
+an interwiki, not a translation.
+
+**The exclusion is by exact title.** `EXCLUDED_EN_PORTALS` holds «Erotica and
+pornography» and «Nudity», ranks 1 and 2 by traffic, on the operator's instruction.
+Never match «sex» as a substring: it is inside **East Sussex** and **West Sussex**, and
+such a filter would drop two geography portals while appearing to work. «Sex work» is
+deliberately not excluded.
+
+`queryRows()` in `src/lib/replica.ts` was added for these — multi-column rows, and a
+per-wiki host, because the candidates report reads enwiki. `articleTitles()` became a
+thin wrapper over it so the move report's behaviour did not move.
+
+
 ## Renamed ۱۰ اکتبر ۲۰۲۶ — «برای انتقال مقاله» → «مقاله‌های نیازمند تغییرنام»
 
 fa.wikipedia has been replacing the word «انتقال» with «تغییرنام», and Huji asked for this
