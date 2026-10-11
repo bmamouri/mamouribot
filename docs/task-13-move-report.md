@@ -340,6 +340,79 @@ renders only four cells. It is a fifth cell written by hand on the line *after* 
 Updating the row alone left all four reading «غیرفعال» next to a timestamp from minutes
 earlier. `scripts/archive/db-index-rename-report-runners.py` takes both lines.
 
+## The ZWNJ rules (۱۱ اکتبر ۲۰۲۶) — four sections, and six rules deliberately absent
+
+Titles written with a space where Persian wants a نیم‌فاصله: «زینت السادات» →
+«زینت‌السادات», «خامنه ای» → «خامنه‌ای», «می شود» → «می‌شود». The report went from 88
+rows to 478. Word lists come from fa.wikipedia's own **ابرابزار** rather than from
+memory (`src/tasks/task-13/zwnj-lists.ts` names the three gadget pages); hand-picking
+verb stems produced a rule that fired on «میس می آی», the band Miss May I.
+
+**Binding a suffix is not "insert a ZWNJ".** After «ا آ د ذ ر ز ژ و» the gap is already
+there, the ZWNJ is unnecessary, and **AbuseFilter 27 refuses to create a title
+containing an unnecessary one** — so after those letters the space is simply deleted:
+«استاندارد های» → «استانداردهای», but «آزمون های» → «آزمون‌های». That is a blocked move
+rather than a bad suggestion, so it is asserted in the bundler-gated `selfTest()` and not
+only in the unit tests. See
+`lessons/api-and-permissions/zwnj-acronym-title-abusefilter-27.md`.
+
+| section | hits | the guard that makes it usable |
+|---|---|---|
+| نیم‌فاصله پیش از «ها» | 219 | «های»/«هایی» may not END a title; East-Asian syllables |
+| نیم‌فاصله پیش از «ای» | 57 | only after a word ending in «ه» |
+| نیم‌فاصله در فعل | 10 | «می» + a *conjugated* verb |
+| نیم‌فاصله در لقب‌های عربی | 136 | first element from a list; Arabic-phrase guard |
+
+Each guard was measured over all 1,096,968 ns0 titles, and each exists because the
+unguarded version was read and found wrong:
+
+- **«های» cannot end a title.** It is plural + ezafe and requires a following noun. Every
+  ns0 title that ended in one was a transliterated English «High» or Vietnamese «Hai»:
+  «رینبو های» (Rainbow High), «مانستر های», «پایونیر های», «ناوچه کلاس-نینگ های»,
+  «اپیک های». Bare «ها» *is* a complete plural and may end a title («گلوتامات ها»), so the
+  restriction is on the ezafe forms only. **Restricting the rule to end-of-title — the
+  obvious first guess — makes precision worse, not better**, because that position is
+  where the false positives live.
+- **«ای» only after «ه».** Unrestricted it fires on 365 titles, essentially all English
+  middle initials: «مایکل ای مان» is Michael A. Mann. The nisba attaches to ه-final stems
+  (منطقه‌ای، هسته‌ای، حرفه‌ای), and requiring that cuts 365 → 57 and takes precision from
+  near zero to ~۹۶٪. The ابرابزار dropped «ای» from its own suffix list for the same
+  reason, in a comment: «به دلیل تشابه با حرف ندا «اِی» و ام انگلیسی».
+- **Present stems need a personal ending, past stems do not.** A bare past stem is the
+  third person singular («چه می شد اگر…»); a bare present stem after «می» is never a verb.
+  This is the whole precision story for the verb rule — 187 raw hits down to 10, all real
+  — and the gadget draws the line the same way.
+- **The honorific first element is enumerated, not inferred.** Matching any word before
+  «الله» fires on 378 titles whose commonest first elements are all wrong: «موتور الله»
+  ×۱۰، «تپه الله» ×۶، «چاه الله» ×۶، «قنات الله» ×۵. In those, «الله» *begins* the next
+  name (الله‌یار، الله‌وردی، الله‌نظر) and must stay separate from the well or hill before
+  it; binding them yields «چاه موتورالله یار». «ناحیه الدین» ×۵ is Dean, Hand County.
+  The gadget has no generic «ال» rule either.
+
+**Measured, read, and given no rule at all.** These are absent rather than guarded,
+because separating them needs to know the title is a transliterated foreign name and
+nothing in the title says so:
+
+| suffix | hits | what they actually are |
+|---|---|---|
+| اند | 463 | English "and" — «پرت اند ویتنی», «گلف اند وسترن» |
+| ام | 430 | German "am" — «فرانکفورت ام ماین» |
+| ای (unrestricted) | 365 | English middle initials |
+| تر / ترین | 45 | Dutch «ter» — «فریتس تر مر»; «چاه تر» is a wet well |
+| اش | 39 | "Ash" — «میک اش» |
+| بی | 314 | Azerbaijani «بی باغلی», German «bei» |
+| هایش | 1 | Bernard Haisch |
+
+The gadget does have «تر»/«ترین» rules, gated on a curated adjective list, and a bare
+«ها» rule with no name guard at all. Neither is ported: the gadget edits article text,
+where a wrong join is one edit to undo, while this report publishes a public proposal to
+rename a page.
+
+Residual false positives, left to the whitelist: the vocative «ای» («مژده ای دل که…» —
+telling it apart needs to know the line is a poem), «لیتنستون های رود» (High Road, where
+«های» is not final), and a handful of East-Asian names whose syllables are also ordinary
+Persian words and so cannot be listed — «یون» is an ion, «مین» is a landmine.
+
 ## Where the titles come from
 
 The replica (`fawiki_p`), one query, about sixteen seconds for 1,095,979 titles. The

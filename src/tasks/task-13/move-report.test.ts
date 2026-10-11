@@ -291,6 +291,65 @@ console.log('\n== Latin digits and commas, measured against the live corpus ==')
   // and the only Latin «?» and «;» titles are intentional.
   silent('¿¡انقلاب!?', 'Spanish punctuation, deliberate');
   silent('اموتیکون ;)', 'an emoticon article');
+
+  // ---- نیم‌فاصله: the ZWNJ rules. Every case below is a real ns0 title, and the
+  // silent() ones are false positives the measurement actually produced.
+
+  // A ZWNJ is only inserted after a letter that joins forward. After «ا آ د ذ ر ز ژ و»
+  // the space is simply deleted, because AbuseFilter 27 refuses a title with an
+  // unnecessary ZWNJ in it — see zwnj-acronym-title-abusefilter-27.
+  proposes('آزمون های استعداد', 'آزمون‌های استعداد');
+  proposes('استاندارد های امنیت سایبری', 'استانداردهای امنیت سایبری');
+  proposes('نبرد نینجا ها', 'نبرد نینجاها');
+  proposes('گلوتامات ها', 'گلوتامات‌ها');
+  proposes('جام ملت های آسیا', 'جام ملت‌های آسیا');
+
+  // «های»/«هایی» are plural + ezafe and require a following noun, so a Persian title
+  // cannot end in one. These are English «High» and a ship class, not plurals.
+  silent('رینبو های', 'Rainbow High: a title cannot end in plural+ezafe');
+  silent('مانستر های', 'Munster High');
+  silent('ناوچه کلاس-نینگ های', 'Ninghai-class');
+  // …while bare «ها» is a complete plural and may end a title, so the guard is on the
+  // ezafe forms only and must not swallow the case above.
+  proposes('فرانسیس ها', 'فرانسیس‌ها');
+
+  // Transliterated East-Asian names where «ها» is part of the name. The syllable may be
+  // anywhere in the title, not just next to the «ها».
+  silent('کیم ها یون', 'Kim Ha-yoon');
+  silent('پارک یونگ ها', 'Park Yong-ha');
+  silent('کیم مین ها', 'Kim Min-ha: the neighbour is «مین», which is also a landmine');
+
+  // «ای» is the nisba suffix only after a word ending in «ه». Unrestricted it fires on
+  // 365 titles, essentially all English middle initials — which is why the ابرابزار
+  // dropped «ای» from its own suffix list too.
+  proposes('نیروگاه هسته ای آق‌قویو', 'نیروگاه هسته‌ای آق‌قویو');
+  proposes('رفتار حرفه ای', 'رفتار حرفه‌ای');
+  silent('مایکل ای مان', 'Michael A. Mann');
+  silent('جی ای راتکلیف', 'G. A. Ratcliffe');
+
+  // «می»/«نمی» need a conjugated verb after them. A bare PRESENT stem is not one.
+  proposes('وو-تنگ کلن وارد می شود (۳۶ ایوان)', 'وو-تنگ کلن وارد می‌شود (۳۶ ایوان)');
+  proposes('هرگز دوباره نمی رقصم (آلبوم)', 'هرگز دوباره نمی‌رقصم (آلبوم)');
+  proposes('در باکو باد می وزد', 'در باکو باد می‌وزد');
+  silent('میس می آی', 'the band Miss May I: «آی» is a bare present stem');
+  silent('می خواه و گل افشان کن از دهر چه می‌جویی', 'Hafez: «می» is wine, «خواه» is bare');
+  silent('کیم می سوک', 'Kim Mi-sook');
+  silent('رزا می بیلینگ‌هرست', 'Rosa May Billinghurst');
+
+  // Arabic honorifics, first element from a list. Note «عبد الله» → «عبدالله» with no
+  // ZWNJ, because «د» does not join forward.
+  proposes('زین العابدین شاهمیری', 'زین‌العابدین شاهمیری');
+  proposes('خانه شیخ الاسلام', 'خانه شیخ‌الاسلام');
+  proposes('آدم عبد الله عثمان دار', 'آدم عبدالله عثمان دار');
+  // The false-positive class the list exists to exclude: «الله» BEGINS the next name and
+  // must stay apart from the well, hill or qanat before it.
+  silent('چاه موتور الله یار', '«الله یار» is the name; «موتور» is a pump');
+  silent('کلاته الله‌نظر', '«الله‌نظر» is the name; «کلاته» is a hamlet');
+  silent('ناحیه الدین، شهرستان هند، داکوتای جنوبی', 'Dean, Hand County, South Dakota');
+  // An Arabic-language title keeps «ال» as a separate article throughout.
+  silent('المسالک و الممالک', 'an Arabic book title');
+  silent('بسم الله الرحمن الرحیم', 'two «ال…» words in a row');
+  silent('عقد الجمان فی تاریخ اهل الزمان', 'Arabic: «فی»');
 }
 
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);

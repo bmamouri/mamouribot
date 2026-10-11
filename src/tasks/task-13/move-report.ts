@@ -41,6 +41,10 @@
 import { Bot } from '../../core.js';
 import { checkWikitext } from '../../lib/gates.js';
 import { articleTitles, queryRows, type Backend } from '../../lib/replica.js';
+import {
+  PAST_STEMS, PRESENT_STEMS, DAN_ENDINGS, NOT_MI_VERBS,
+  ALLAH_FIRST, HONORIFIC_FIRST, HONORIFIC_SECOND,
+} from './zwnj-lists.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
 
@@ -171,6 +175,122 @@ const ALEF_WORDS: [string, string][] = [
 ];
 
 const ZWNJ = '‌';
+
+/**
+ * Letters that never join to the LEFT. A ZWNJ after one of these is unnecessary — the
+ * gap is already there — and **AbuseFilter 27 («ایجاد صفحه با فاصلهٔ مجازی نالازم»)
+ * refuses to create a title containing one.** So binding a suffix is not "insert a
+ * ZWNJ": after these letters the space is simply deleted.
+ *
+ *   کتاب + ها → کتاب‌ها   (ب joins forward, ZWNJ needed)
+ *   خودرو + ها → خودروها  (و does not, ZWNJ would be rejected)
+ *
+ * See lessons/api-and-permissions/zwnj-acronym-title-abusefilter-27.md, where a page
+ * creation was disallowed outright for exactly this.
+ */
+const NON_JOINING_LEFT = 'اآدذرزژوءؤأإ';
+
+/** Attach `right` to `left` with a ZWNJ only where one is actually needed. */
+export const bind = (left: string, right: string) =>
+  NON_JOINING_LEFT.includes(left.slice(-1)) ? left + right : left + ZWNJ + right;
+
+/**
+ * Suffixes that bind to the word before them. MEASURED over all 1,096,968 ns0 titles on
+ * ۱۱ اکتبر ۲۰۲۶; the counts below are hits, and the judgement is on reading them.
+ *
+ * KEPT (precision ~۹۰٪ or better):
+ *   ها / های / هایی   ۲۵۲  plural — «جام ملت های آسیا», «سلول های گانگلیونی»
+ *   ای                 ۵۷  nisba, but ONLY after a word ending in «ه»; see below
+ *
+ * REJECTED, every one of them measured and read:
+ *   ای  (unrestricted)  ۳۶۵ — an English middle initial. «مایکل ای مان» is Michael A.
+ *                             Mann, «جی ای راتکلیف» is G. A. Ratcliffe. Requiring the
+ *                             preceding word to end in «ه» cuts 365 → 57 and takes the
+ *                             precision from near zero to ~۹۶٪, because the nisba
+ *                             attaches to ه-final stems: منطقه‌ای، هسته‌ای، حرفه‌ای.
+ *   اند                 ۴۶۳ — English "and": «پرت اند ویتنی», «گلف اند وسترن».
+ *   ام                  ۴۳۰ — German "am": «فرانکفورت ام ماین», «زاسباخ ام کایزرشتوهل».
+ *   اش                   ۳۹ — "Ash": «یواس‌اس اش», «میک اش».
+ *   تر / ترین            ۴۵ — Dutch/German «ter»: «فریتس تر مر», «کارین تر بیک»; and
+ *                             «چاه تر» is a wet well. Christine is «کریس ترین».
+ *   هایش                  ۱ — Bernard Haisch.
+ *
+ * Those six are not guarded, they are ABSENT. A suffix rule for them would need to know
+ * that a title is a transliterated foreign name, which nothing in the title says.
+ */
+const BINDING_SUFFIXES = ['ها', 'های', 'هایی'];
+
+/**
+ * Transliterated East-Asian name syllables that sit next to «ها» and are not the plural
+ * suffix: «کیم ها یون», «پارک یونگ ها», «جونگ جون ها», «انگوین های لونگ». 17 of the 252
+ * «ها» hits are this, and nothing else in the title distinguishes them.
+ *
+ * Deliberately excludes syllables that are also ordinary Persian words — «یون» is an
+ * ion, «روی» is zinc or "on", «مین» is a mine, «سان» and «آن» are Persian — because a
+ * guard entry only ever SUPPRESSES a suggestion, and suppressing «یون ها» → «یون‌ها»
+ * would cost a real one.
+ */
+const EAST_ASIAN_SYLLABLES = new Set([
+  'کیم', 'پارک', 'چوی', 'جونگ', 'کانگ', 'سونگ', 'هیون', 'نگوین', 'انگوین', 'فام',
+  'نول', 'اون', 'یونگ', 'لونگ', 'بک', 'سوک', 'کیونگ', 'ووک',
+]);
+
+/**
+ * Every form that counts as a conjugated verb after «می»/«نمی».
+ *
+ * «می» alone is NOT a usable signal: of 187 ns0 titles with a standalone «می», most are
+ * Korean («کیم می سوک», «چا می کیونگ») or English May («رزا می بیلینگ‌هرست»), and «می» is
+ * also Persian for wine — «می خواه و گل افشان کن» is Hafez asking for wine, not a verb.
+ * Requiring a conjugated verb after it takes 187 hits down to 9, all real.
+ *
+ * The present/past asymmetry is the guard that earns the precision, and the ابرابزار
+ * draws it the same way: a PRESENT stem must carry a personal ending, a PAST stem may
+ * stand bare because bare past = third person singular («چه می شد اگر…»). Without it
+ * «میس می آی» — the band Miss May I — reads as «می» + a bare present stem.
+ */
+const MI_VERBS = new Set<string>();
+for (const st of PAST_STEMS) for (const e of ['', 'م', 'ی', 'یم', 'ید', 'ند', 'ه']) MI_VERBS.add(st + e);
+for (const st of PRESENT_STEMS) for (const e of ['م', 'ی', 'د', 'یم', 'ید', 'ند']) MI_VERBS.add(st + e);
+for (const e of DAN_ENDINGS) MI_VERBS.add('دان' + e);
+for (const w of NOT_MI_VERBS) MI_VERBS.delete(w);
+
+/**
+ * First elements of the Arabic honorific compounds, from `zwnj-lists.ts`.
+ *
+ * CURATED, BECAUSE THE GENERATIVE VERSION IS WRONG MORE OFTEN THAN RIGHT. Matching any
+ * word before «الله» fires on 378 ns0 titles whose commonest first elements are all
+ * false: «موتور الله» ×۱۰، «تپه الله» ×۶، «چاه الله» ×۶، «قنات الله» ×۵، «حاجی الله» ×۴،
+ * «کلاته الله» ×۳، «کاروانسرای الله» ×۳، and «ناحیه الدین» ×۵ — which is Dean, Hand
+ * County, South Dakota. In every one of those «الله» *begins* the following name
+ * (الله‌یار، الله‌وردی، الله‌کرم، الله‌نظر، الله‌آباد) and must stay separate from the word
+ * before it, which is a well, a hill, a qanat or a caravanserai. Binding them yields
+ * «چاه موتورالله یار» and «کلاته‌الله‌نظر».
+ *
+ * The ابرابزار reached the same conclusion: it has no generic «ال» rule either, only an
+ * explicit first-element list, which is the one in `ALLAH_FIRST`.
+ */
+const HONORIFIC_PAIRS: [string[], string[]][] = [
+  [ALLAH_FIRST, ['الله', 'اللهی']],
+  [HONORIFIC_FIRST, HONORIFIC_SECOND],
+];
+
+/**
+ * An Arabic-LANGUAGE title keeps «ال» as a separate definite article all the way
+ * through, and must be left alone: «المسالک و الممالک», «کتاب التاجی فی اخبار الدوله
+ * الدیلمیه», «بسم الله الرحمن الرحیم», «الاحکام الدینیة فی تکفیر قزلباش». Any Arabic
+ * function word, or two «ال…» words in a row, is enough to say so — 58 titles.
+ *
+ * It over-fires slightly on Persian names containing «بن» («علی بن شمس الدین لاهیجی»),
+ * which costs a suggestion rather than publishing a wrong one.
+ *
+ * «علی» and «و» are deliberately NOT in the list even though they are Arabic function
+ * words, because they are also an extremely common Persian name and the Persian "and":
+ * «شیخ الاسلام علی اکبر» and «شپش و راه های مقابله با آن» are Persian. Nothing is lost —
+ * every Arabic title measured is already caught by «فی», «من», «الی» or by the
+ * two-«ال…»-words clause, which is what «المسالک و الممالک» and «بسم الله الرحمن
+ * الرحیم» trip on.
+ */
+const ARABIC_PHRASE = /(^| )(فی|لـ|من|عن|ابن|بن|الی)( |$)|(^|[ (])ال[آ-ی]+ ال[آ-ی]+/;
 
 /** ASCII, Persian (۰-۹) and Arabic-Indic (٠-٩) digits. `\d` is only the first set. */
 const DIGITS = '0-9۰-۹٠-٩';
@@ -368,6 +488,65 @@ export const RULES: Rule[] = [
     heading: 'نیم‌فاصله',
     explain: 'ترکیب‌های مشخصی که با فاصله نوشته شده‌اند و نیم‌فاصله می‌خواهند. این یک فهرست معین است، نه قاعده‌ای که از خود واژه حدس زده شود.',
     apply: t => ZWNJ_COMPOUNDS.reduce((s, [from, to]) => s.split(from).join(to), t),
+  },
+  {
+    id: 'zwnj-plural',
+    heading: 'نیم‌فاصله پیش از «ها»',
+    explain: 'پسوند جمع («ها»، «های»، «هایی») که با فاصله نوشته شده، به واژهٔ پیش از خود می‌چسبد. '
+      + 'اگر واژه به حرفی پایان یابد که از چپ نمی‌چسبد («ا آ د ذ ر ز ژ و»)، تنها فاصله برداشته '
+      + 'می‌شود و نیم‌فاصله‌ای نمی‌آید، چون نیم‌فاصلهٔ نالازم در عنوان پذیرفته نمی‌شود. '
+      + 'نام‌های آوانویسی‌شدهٔ خاور دور که در آنها «ها» بخشی از نام است («کیم ها یون») گزارش نمی‌شوند.',
+    apply: t => t.replace(
+      new RegExp(`([آ-ی]{3,}) (${BINDING_SUFFIXES.join('|')})(?=[ )]|$)`, 'g'),
+      (m, left, suffix, offset: number) => {
+        // The syllable before, and the one after, decide whether this is a plural at all.
+        const rest = t.slice(offset + m.length);
+        // Any such syllable ANYWHERE in the title, not just beside the «ها»: «کیم مین ها»
+        // and «پارک مین ها» are Kim Min-ha and Park Min-ha, and the neighbour there is
+        // «مین», which is also the Persian for a landmine and so cannot be listed.
+        if (t.split(/[ ()]/).some(w => EAST_ASIAN_SYLLABLES.has(w))) return m;
+        // «های» and «هایی» are the plural plus ezafe: they REQUIRE a following noun, so a
+        // Persian title cannot end in one. Every ns0 title that did was a transliterated
+        // English «High» or Vietnamese «Hai» — «رینبو های» (Rainbow High), «مانستر های»,
+        // «پایونیر های», «ناوچه کلاس-نینگ های» (Ninghai class), «اپیک های», «جانی های».
+        // Bare «ها» is a complete plural and may end a title («گلوتامات ها», «نبرد نینجا
+        // ها»), so the restriction is on the ezafe forms only.
+        if (suffix !== 'ها' && !rest.replace(/[)\s]/g, '')) return m;
+        return bind(left, suffix);
+      }),
+  },
+  {
+    id: 'zwnj-nisba',
+    heading: 'نیم‌فاصله پیش از «ای»',
+    explain: 'پسوند نسبت («ای») پس از واژه‌ای که به «ه» پایان می‌یابد، به آن واژه می‌چسبد: '
+      + '«منطقه ای» → «منطقه‌ای». تنها پس از «ه» اعمال می‌شود، چون «ای» تنها در جاهای دیگر '
+      + 'بیشتر حرف نخست نام لاتین است («مایکل ای مان») و نه پسوند.',
+    // The vocative «ای» («ای آینه ای آینه», «مژده ای دل») is the residual false positive
+    // and is left to the whitelist: it is two titles, and telling it apart needs to know
+    // the line is a poem.
+    apply: t => t.replace(/([آ-ی]{2,}ه) ای(?=[ )]|$)/g, (_, left) => bind(left, 'ای')),
+  },
+  {
+    id: 'zwnj-verb',
+    heading: 'نیم‌فاصله در فعل',
+    explain: 'پیشوند «می» و «نمی» به فعل پس از خود می‌چسبد: «می شود» → «می‌شود». '
+      + 'تنها زمانی اعمال می‌شود که واژهٔ پس از آن فعلی صرف‌شده باشد، چون «می» خودش هم '
+      + 'واژه است («می خواه و گل افشان کن») و هم در نام‌های آوانویسی‌شده می‌آید («کیم می سوک»).',
+    apply: t => t.replace(/(^|[ (])(ن?می) ([آ-ی]+)/g,
+      (m, before, prefix, word) => MI_VERBS.has(word) ? before + prefix + ZWNJ + word : m),
+  },
+  {
+    id: 'zwnj-honorific',
+    heading: 'نیم‌فاصله در لقب‌های عربی',
+    explain: 'لقب‌های دوپارهٔ عربی («زین العابدین»، «شیخ الاسلام»، «آیت الله») که با فاصله '
+      + 'نوشته شده‌اند. پارهٔ نخست از فهرستی معین خوانده می‌شود، نه از خود عنوان حدس زده '
+      + 'می‌شود؛ و عنوان‌های عربی‌زبان، که در آنها «ال» حرف تعریف جداست، دست‌نخورده می‌مانند.',
+    apply: t => {
+      if (ARABIC_PHRASE.test(t)) return t;
+      return HONORIFIC_PAIRS.reduce((s, [firsts, seconds]) => s.replace(
+        new RegExp(`(^|[ (])(${firsts.join('|')}) (${seconds.join('|')})(?![آ-ی])`, 'g'),
+        (_, before, first, second) => before + bind(first, second)), t);
+    },
   },
 ];
 
@@ -615,6 +794,16 @@ export function selfTest(): string {
     { scanned: 1, whitelisted: 0, occupied: 0 }, new Date(), TARGETS.template)
     .split('\n').find(l => l.startsWith('# ')) ?? '';
   if (!tplRow.includes('[[الگو:الف]]')) return `SELFTEST FAILED: template link wrong: ${tplRow.slice(0, 60)}`;
+
+  // A ZWNJ after a letter that does not join forward is UNNECESSARY, and AbuseFilter 27
+  // disallows a title containing one — so this is a blocked move, not a bad suggestion,
+  // and it belongs in the gated selftest rather than only in the unit tests.
+  if (bind('استاندارد', 'های') !== 'استانداردهای') {
+    return `SELFTEST FAILED: ZWNJ after «د» would be rejected by AbuseFilter 27: ${bind('استاندارد', 'های')}`;
+  }
+  if (bind('آزمون', 'های') !== `آزمون${ZWNJ}های`) {
+    return 'SELFTEST FAILED: «ن» joins forward and needs the ZWNJ';
+  }
 
   // The project-space subpage guard. Without it that report was 3,312 rows of DYK
   // archives and transcluded date pages — see the TARGETS header. A real title with a
