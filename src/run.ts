@@ -25,6 +25,7 @@ import { destubTask } from './tasks/task-10/destub.js';
 import { task as taxonomyCreateMissingTask } from './tasks/task-11/taxonomy-create-missing.js';
 import { linkfixTask } from './tasks/task-12/linkfix.js';
 import { populationBoxTask } from './tasks/task-14/population-box.js';
+import { sourceTagsTask } from './tasks/task-15/source-tags.js';
 
 const TASKS: Record<string, BotTask> = {
   [useDmyDatesTask.id]: useDmyDatesTask,
@@ -39,6 +40,7 @@ const TASKS: Record<string, BotTask> = {
   [taxonomyCreateMissingTask.id]: taxonomyCreateMissingTask,
   [linkfixTask.id]: linkfixTask,
   [populationBoxTask.id]: populationBoxTask,
+  [sourceTagsTask.id]: sourceTagsTask,
 };
 
 function parseArgs(argv: string[]) {

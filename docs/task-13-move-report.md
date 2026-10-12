@@ -12,8 +12,8 @@ bundle (`toolforge/task-13-reports.mjs`):
 | الگوهای نیازمند تغییرنام | fawiki replica, ns 10 | daily, `mr-daily` |
 | صفحه‌های ویکی‌پدیای نیازمند تغییرنام | fawiki replica, ns 4 | daily, `mr-daily` |
 | راهنماهای نیازمند تغییرنام | fawiki replica, ns 12 | daily, `mr-daily` |
-| پربازدیدترین درگاه‌ها | fawiki replica + AQS pageviews | weekly, `pr-weekly` |
-| درگاه‌های انگلیسی برای ترجمه | **enwiki** replica + AQS + fa existence check | weekly, `pr-weekly` |
+| پربازدیدترین درگاه‌ها | fawiki replica + AQS pageviews | daily, `pr-daily` |
+| درگاه‌های انگلیسی برای ترجمه | **enwiki** replica + AQS + fa existence check | daily, `pr-daily` |
 | کاربران بر پایه تعداد محتوای برگزیده | three hand-maintained گزیدن pages | weekly, `fc-weekly` |
 | ترجیحات کاربران | fawiki replica, `user_properties` | weekly, `up-weekly` |
 

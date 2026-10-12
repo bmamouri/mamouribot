@@ -7,7 +7,7 @@
  * wrong about. A rule engine for this job is judged by what it declines to suggest,
  * because a wrong row here becomes a wrong page move that someone has to undo.
  */
-import { suggest, parseWhitelist, buildReport, RULES, type Row } from './move-report.js';
+import { NAME_SENSITIVE, TARGETS, withDiff, suggest, parseWhitelist, buildReport, RULES, type Row } from './move-report.js';
 
 let pass = 0;
 const fails: string[] = [];
@@ -350,6 +350,81 @@ console.log('\n== Latin digits and commas, measured against the live corpus ==')
   silent('المسالک و الممالک', 'an Arabic book title');
   silent('بسم الله الرحمن الرحیم', 'two «ال…» words in a row');
   silent('عقد الجمان فی تاریخ اهل الزمان', 'Arabic: «فی»');
+
+  // ---- The origin guard is network-bound and lives in run(), but the rule-skipping it
+  // depends on is not: a foreign-named title must keep every OTHER fix it had earned.
+  // «مصلاي بزرگ...ها» would otherwise lose its Arabic letters along with its «ها».
+  const both = suggest('مصلاي بزرگ خانه ها');
+  if (!both || !both.rules.includes('arabic-letters') || !both.rules.includes('zwnj-plural')) {
+    fails.push('expected both arabic-letters and zwnj-plural on «مصلاي بزرگ خانه ها»');
+  } else { pass++; console.log('  ✓ دو قاعده با هم: مصلاي بزرگ خانه ها'); }
+
+  const reduced = suggest('مصلاي بزرگ خانه ها', NAME_SENSITIVE);
+  if (!reduced || reduced.target !== 'مصلای بزرگ خانه ها') {
+    fails.push(`skipping the suffix rules must keep the rest: ${reduced?.target}`);
+  } else { pass++; console.log('  ✓ با رد قاعده‌های پسوند، بقیه می‌مانند'); }
+
+  if (suggest('خانه ها', NAME_SENSITIVE) !== null) {
+    fails.push('a title whose ONLY rule was a suffix rule must drop out entirely');
+  } else { pass++; console.log('  ✓ عنوانی که تنها قاعده‌اش پسوند بود، کنار می‌رود'); }
+
+  // ---- The row diff. Emphasis is token-level because most of what this report
+  // proposes has no glyph: bolding the one changed CHARACTER of a ZWNJ fix shows
+  // nothing. These assert where the bold lands, and where it declines to appear.
+  const diffCase = (title: string, target: string, from: string, to: string) => {
+    const d = withDiff(title, target);
+    if (d.from === from && d.to === to) {
+      pass++; console.log(`  ✓ تفاوت: ${title} ← ${target}`);
+    } else {
+      fails.push(`withDiff(«${title}», «${target}») = «${d.from}» / «${d.to}»`);
+    }
+  };
+
+  // The plural fix merges two words into one, so the token lists are different lengths.
+  diffCase('جام ملت های آسیا', 'جام ملت‌های آسیا',
+           "جام '''ملت های''' آسیا", "جام '''ملت‌های''' آسیا");
+  // One word in four, mid-title: only that word is bold.
+  diffCase('ماه در فرهنگ ايران باستان', 'ماه در فرهنگ ایران باستان',
+           "ماه در فرهنگ '''ايران''' باستان", "ماه در فرهنگ '''ایران''' باستان");
+  // Adjacent changed words share a single pair of quotes rather than one pair each.
+  diffCase('الف ب ج د', 'الف ۱ ۲ د', "الف '''ب ج''' د", "الف '''۱ ۲''' د");
+
+  // Edge punctuation stays outside the bold: a bolded bracket reads as part of the fix.
+  diffCase('اندیس خاک صنعتی (حجت الله منصوری)', 'اندیس خاک صنعتی (حجت‌الله منصوری)',
+           "اندیس خاک صنعتی ('''حجت الله''' منصوری)",
+           "اندیس خاک صنعتی ('''حجت‌الله''' منصوری)");
+
+  // Two of three words changed: «لری» survives as context, so emphasis is meaningful.
+  diffCase('لری بالاگریوه ای', 'لری بالاگریوه‌ای',
+           "لری '''بالاگریوه ای'''", "لری '''بالاگریوه‌ای'''");
+  // Nothing survives — the whole title was rewritten — so there is nothing to contrast
+  // against and the row stays plain.
+  diffCase('مکل ها', 'مکل‌ها', 'مکل ها', 'مکل‌ها');
+
+  // DECLINES to emphasise: a single-word title would be bolded end to end, which is
+  // noise, and «فرآیند» → «فرایند» needs no highlight to be read.
+  diffCase('فرآیند', 'فرایند', 'فرآیند', 'فرایند');
+  // More than half the words changed — bolding it all is shouting, not a diff.
+  diffCase('الف ب', 'ج د', 'الف ب', 'ج د');
+
+  // The arrow must not be «>». U+003E is Bidi_Mirrored, so in RTL it renders as «<»,
+  // pointing back at the title being replaced.
+  const row = buildReport(
+    [{ title: 'جام ملت های آسیا', target: 'جام ملت‌های آسیا', rules: ['zwnj-plural'], targetState: 'free' }],
+    { scanned: 1, whitelisted: 0, occupied: 0 }, new Date(), TARGETS.article)
+    .split('\n').find(l => l.startsWith('# ')) ?? '';
+  // Tags have to come out first: the arrow's own <span> is full of «>».
+  const visible = row.replace(/<[^>]+>/g, '');
+  if (visible.includes('>')) {
+    fails.push(`the row still shows a mirrored «>»: ${visible.slice(0, 80)}`);
+  } else { pass++; console.log('  ✓ پیکان، نه نشانهٔ بزرگ‌تر'); }
+  if (!row.includes('←')) {
+    fails.push('the row has no arrow at all');
+  } else { pass++; console.log('  ✓ پیکان «←» در ردیف هست'); }
+  // The link TARGET must stay the exact title even though the label carries markup.
+  if (!row.includes('[[جام ملت‌های آسیا|')) {
+    fails.push(`piped link target is not the bare title: ${row.slice(0, 120)}`);
+  } else { pass++; console.log('  ✓ هدف پیوند دست‌نخورده است'); }
 }
 
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);

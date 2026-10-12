@@ -1,7 +1,10 @@
 # وظیفهٔ ۱۵: source maintenance banners (add, and remove when stale)
 
-> **Status (۱۰ اکتبر ۲۰۲۶): plan approved by the operator, ready to build. No code yet,
-> no edits made, nothing filed.**
+> **Status (۱۲ اکتبر ۲۰۲۶): BUILT. Code, tests and a differential replay are in;
+> dry-run only so far. No live edit has been made and nothing is filed.**
+>
+> Next step is §0.4 step 7: the `--as-me` trial, 10 → 50 → a few hundred, auditing the
+> diffs and renders between runs. Log each run in §13.
 >
 > **Start with §0 (handover).** It lists every decision the operator made and the build
 > steps in order. §1–§2 are the research behind those decisions. §3–§6 are the rules,
@@ -10,7 +13,7 @@
 
 | | |
 |---|---|
-| Code (to write) | `src/tasks/task-15/source-tags.ts` (+ `.test.ts`) |
+| Code | `src/tasks/task-15/`: `source-detect.ts` (the §3.0 detector), `banners.ts` (placement and removal), `decide.ts` (the §3 rules), `source-tags.ts` (the `BotTask`), plus `source-detect.test.ts`, `source-tags.test.ts` and `source-detect.replay.ts` |
 | Task id | `source-tags` |
 | Task number | **۱۵** (confirmed by the operator) |
 | Measurements | `docs/data/task-15/random-2000.json`, `strict-unsourced-rendered.json`, `template-survey.json` |
@@ -597,9 +600,10 @@ operator decides.
 
 ## 9. Open questions
 
-Answered ۱۰ اکتبر ۲۰۲۶; the answers are in §0.2. One question is still open:
-- Should یک منبع / بخش بدون منبع / اصلاح ترجمه be **tagged**, or stay report-only?
-  The plan says report-only. Ask the operator; do not infer it from "everything at once".
+None. The last one was answered ۱۲ اکتبر ۲۰۲۶:
+- **یک منبع / بخش بدون منبع / اصلاح ترجمه stay report-only.** The operator confirmed
+  this explicitly rather than it being inferred from "everything at once". So the task
+  edits for §3.1, §3.2, §3.3, §3.4 and §3.9 only.
 
 ## 10. Out of scope
 
@@ -639,6 +643,71 @@ Answered ۱۰ اکتبر ۲۰۲۶; the answers are in §0.2. One question is sti
   - an existing banner under a redirect name: refused;
   - stale removal, both standalone and inside مشکلات متعدد;
   - date written vs omitted, depending on category existence.
+
+### Run 2 — ۱۲ اکتبر ۲۰۲۶, `--as-me --live --limit 12`, after the fixes
+
+**8 edits, 8 correct**, audited individually. 2 removals («شوشتر», 40 sourcing
+references; «حزب خلق اتریش», 2 `{{یادکرد وب}}` citing ISNA) and 6 adds, every one of
+them genuinely unsourced — four carried only a `{{یادکرد-ویکی}}`. 1 deferred for review.
+
+Both fixes are visible in the output: «سیاستمدار مستقل» was refused as "banner crowding"
+in run 1 and is correctly tagged here, and no فرهنگستان-only page was touched.
+
+Trial total so far: **16 edits, 1 wrong** (reverted by the operator, cause fixed and
+pinned by tests). Next batch: 50.
+
+### Run 3 — ۱۲ اکتبر ۲۰۲۶, `--as-me --live --limit 100`
+
+**118 edits** (102 adds, 16 removals) at the operator's request, bringing the trial to
+**134 edits** in total. Every one was audited individually against the live wikitext.
+
+| | adds | removals | wrong |
+|---|---|---|---|
+| runs 1–2, before the فرهنگستان fix | 11 | 5 | 1 («مولکول», reverted) |
+| runs 3, after it | 102 | 16 | **17 — see below** |
+
+**Defect found by auditing, not by any test: Hijri day pages.** fa has day pages in three
+calendars and `DATE_PAGE` covered only two, so «۱ محرم», «۲۷ رمضان», «۱۶ شعبان» and 14
+others were tagged — the same class §3.1 excludes because HujiBot وظیفهٔ ۷ *removed* this
+banner from date pages. All 17 were reverted
+(`scripts/archive/task15-revert-hijri-date-tags.py`, which refuses any page whose top
+line is no longer the banner it added) and the months are now in the rule and in the
+tests. Nothing in the unit tests could have caught it: the title pattern is the only
+thing that distinguishes a date page, and I had enumerated two calendars out of three.
+
+**Everything else held.** The 113 adds were checked against the rebuilt source features:
+0 false "unsourced". The 21 removals: 0 wrong apart from the already-reverted «مولکول».
+Renders spot-checked: no errors, and **no page landed in
+`رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو`** — the undated banners behaved as
+decision 7 intends. The report page carries 23 items in three kinds
+(ناسازگاری متن و نمایش ۲۰، شلوغی بنر ۲، یک منبع ۱).
+
+One audit false alarm worth recording: «چه کسی یهودی است؟» looked like a wrongly-tagged
+sourced page, but the edit was `{{بهبود منبع}}` — a §3.3 tier tag, where having 3 sources
+for 2,318 words is the precondition, not a contradiction. The audit script had stripped
+only `{{بدون منبع}}` and judged it against the wrong rule.
+
+### Pacing, measured ۱۲ اکتبر ۲۰۲۶
+
+The operator asked for 4 edits/minute for the trial. `PACE_LO` / `PACE_HI` (seconds)
+override the human account's 30–120s range for one run; with neither set the documented
+default still applies. The default is a COVER requirement, not a performance one, and
+relaxing it is the operator's call because it is his account —
+`lessons/api-and-permissions/pacing-is-the-users-call-not-a-constant.md`.
+
+**The configured gap is the sleep, not the cycle time.** `PACE_LO=12 PACE_HI=18` measured
+**2.5 edits/min**, with observed gaps of 21–32 s: each edit also costs roughly 9 s of API
+work — the pre-save render guard, `verify`'s own `action=parse`, the stop-page check
+before every write, and the post-save verification. For 4/min set `PACE_LO=4 PACE_HI=8`.
+
+`Mamouri` does not hold `noratelimit`, so a faster pace can still draw a server-side
+throttle; core sleeps and retries on `ratelimited`, so that costs a pause rather than a
+lost edit.
+
+**`getTargets` costs ~20 minutes before the first edit** at `--limit 100`, because it
+renders candidates until it has enough. That is why restarting a run to change the pace
+is usually slower than letting it finish. A frozen candidate list on disk, as وظیفهٔ ۱۴
+keeps, would remove it.
 
 ## 12. Reference for the implementer
 
@@ -723,5 +792,78 @@ this table.
 
 ## 13. Trial log
 
-Empty. Append one line per live run: date, `--limit`, edits made, kinds (add / remove /
-tier), refusals by reason, bugs found and fixed.
+Append one line per live run: date, `--limit`, edits made, kinds (add / remove / tier),
+refusals by reason, bugs found and fixed.
+
+### Run 1 — ۱۲ اکتبر ۲۰۲۶, `--as-me --live --limit 10`
+
+8 edits: **5 adds** ({{بدون منبع}}: مس سرچشمه، زمان استاندارد هند، ساعت رسمی پاکستان،
+کدهای پرواز، روستا (ایالات متحده آمریکا)) and **3 removals** (زبان تامیلی، نوگرایی،
+مولکول). 2 deferred for review.
+
+**One edit in eight was wrong, and the operator reverted it.** «مولکول» had exactly one
+reference, `{{یادکرد فرهنگستان}}` — the Academy's approved-terms dictionary. That is a
+source for what the Persian word should be, not for anything the article says, so the
+article was still unsourced and the tag should have stayed. The other two removals were
+audited and are correct: «زبان تامیلی» has 12 sourcing references (Stein, Zvelebil,
+Ethnologue, Hart) and «نوگرایی» has 18. All five adds were audited and are genuinely
+unsourced; four of them carried only a `{{یادکرد-ویکی}}`.
+
+**Fixed, with the operator's rule:** a reference that cites only the فرهنگستان word
+list, or only another Wikipedia, does not source the article's content. The detector now
+carries a second set of fields (`refs_sourcing`, `cite_outside_sourcing`,
+`http_external`, `genref_sourcing`) used by every decision and every tier threshold,
+while the original fields stay as they were so `source-detect.replay.ts` remains a real
+check against the research prototype. Consequence on the measured sample: 421 of 1,987
+pages are now strictly unsourced that the prototype called sourced, and sampling them
+confirms they are all pages whose only «source» is a `{{یادکرد-ویکی}}` holding an
+`en.wikipedia.org` URL. They do not change the live volume, because the add query
+already carries `-insource:"http"` — but they would if that prefilter were ever relaxed.
+
+**A second defect, found by the fixtures rather than the wiki:** `bannerCount` counted
+every template in the opening 600 characters, so an article whose first sentence carried
+two `<ref>{{یادکرد کتاب}}</ref>` citations was read as having two maintenance banners and
+refused as "crowded" instead of being tagged. That was **12 of the first dry run's 22
+refusals**. It now counts only the leading run of templates, stopping at the infobox and
+skipping hatnotes and توصیف کوتاه.
+
+### Build log
+
+**۱۲ اکتبر ۲۰۲۶ — built, dry runs only.** `npm test` 29 suites green, bundler gates
+green, `source-detect.replay.ts` green over 1,988 of the 2,000 measured pages (12 were
+edited after the fixture was taken and are skipped by timestamp).
+
+Four defects the build found, each of which would have shipped silently:
+
+1. **JavaScript's `\b` is ASCII-only**, so `/^یادکرد\b/`, `/\bشابک\b/`, `/^فهرست\b/` and
+   `=بخش\b` all match **nothing** in Persian, while the Python prototype they were ported
+   from matched correctly. The first of those made every Persian citation template
+   invisible, i.e. a fully sourced article read as having zero sources — a false
+   {{بدون منبع}} on exactly the pages that would most embarrass the bot. It recurred
+   three times in this task; grep for `\b` beside a Persian literal before trusting any
+   regex here.
+2. **`id="cite_note-` counts zero on every page.** MediaWiki escapes the underscore in id
+   attributes, so the real markup is `id="cite&#95;note-1"`. §12.1 specifies the naive
+   pattern and it is wrong. «جنگ کره» renders 46 references and matched none. The damage
+   was one-directional and therefore quiet: stale removals were merely refused, but on
+   the add path it disabled the render's second opinion about references — the check that
+   exists to catch a reference the wikitext scan missed — while the external-link half
+   kept working and made the guard look alive. `countRenderedRefs()` now decodes first.
+3. **A `<ref>` whose body is `<nowiki>`-escaped was read as empty**, dropping a real
+   source. «پری» cites `<ref><nowiki>https://sid.ir/…</nowiki></ref>`. The detector now
+   keeps two length-aligned views of the text: tags are located in the escaped-blanked
+   view, so `<nowiki><ref>…</ref></nowiki>` correctly cites nothing, while bodies are read
+   from the comment-blanked view. `refs_real` feeds the §3.3/§3.4 thresholds, so an
+   undercount there is a wrong {{بهبود منبع}} on a properly cited article.
+4. **Date pages are not just bare numbers.** The first dry run proposed tagging «۴ تیر»
+   and «سده پنجم (میلادی)». HujiBot وظیفهٔ ۷ *removed* this banner from date pages, so
+   adding it back reverts a community decision. Day, month, century, decade and
+   millennium forms are now all excluded, with the ordinal requirement keeping real
+   places such as «سده لنجان» out of the pattern.
+
+Deliberate differences from the research prototype, each verified page by page rather
+than assumed: the prototype counted see-also wikilinks as general references, counted
+citation templates inside `<ref>` a second time as "outside", missed a `{{شابک}}` inside
+a ref body, and used a case-sensitive URL regex that missed `Http://`. The replay gates
+on the DECISION — no page may be called unsourced that the prototype called sourced —
+rather than on the intermediate counts.

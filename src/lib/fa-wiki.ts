@@ -92,8 +92,29 @@ export async function apiPost(p: Record<string, string>) {
   );
 }
 
-/** Logs in and returns the CSRF token, hard-gated on the expected identity. */
-export async function login(expected = 'Mamouri') {
+/**
+ * Logs in and returns the CSRF token, hard-gated on the expected identity.
+ *
+ * A bot-password session cannot log in on top of itself: SUL shares a
+ * centralauth_* cookie across WMF domains, so switching wikis with useWiki()
+ * and calling login() again often finds the target domain already
+ * authenticated (via the cookie jar built on the first login) and
+ * action=login then fails with "Cannot log in when using
+ * MediaWiki\Session\BotPasswordSessionProvider sessions." Check userinfo
+ * first and only authenticate when not already the expected user.
+ *
+ * `reauthenticate` is NOT an override of a safety check — the identity gate below
+ * still runs either way. It only says "do not reuse the session you already have",
+ * which is what a caller wants after deliberately dropping the cookie jar or when
+ * switching to a different account. The default path is the safe one.
+ */
+export async function login(expected = 'Mamouri', reauthenticate = false) {
+  if (!reauthenticate) {
+    const who = await apiGet({ action: 'query', meta: 'userinfo' });
+    if (who.query.userinfo.name === expected) {
+      return (await apiGet({ action: 'query', meta: 'tokens' })).query.tokens.csrftoken;
+    }
+  }
   const lt = (await apiGet({ action: 'query', meta: 'tokens', type: 'login' })).query.tokens
     .logintoken;
   const li = await apiPost({

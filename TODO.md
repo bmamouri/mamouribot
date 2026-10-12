@@ -243,15 +243,19 @@ rediscovered as a bug.
 
 ## 11. وظیفهٔ ۱۵ — build it (source maintenance banners)
 
-**Status, ۱۰ اکتبر ۲۰۲۶.** Researched and planned; the operator answered every design
-question. **No code yet**, nothing run, nothing filed. Everything needed to pick it up is
+**Status, ۱۲ اکتبر ۲۰۲۶.** **Built**: code, tests and a differential replay are in and
+green, dry runs read. Nothing live, nothing filed. The remaining work is the `--as-me`
+trial (§0.4 step 7): 10 → 50 → a few hundred, auditing diffs and renders between runs,
+logging each in §13 of the doc. Toolforge deployment is deliberately not set up: the
+trial runs from the operator's machine under his own account. Everything needed to pick it up is
 in `docs/task-15-source-tags.md` — start at its §0 (decisions, build steps, target
 queries), and §12 (the source-detection rules, so the git-ignored research scripts are
 not needed).
 
 **Trigger.** The operator says to continue.
 
-**Check.** `ls src/tasks/task-15/` — absent means not started.
+**Check.** `grep -c . docs/task-15-source-tags.md` §13 — an empty trial log means no
+live run has happened yet.
 
 **Then.** Follow §0.4 of the doc: write `src/tasks/task-15/source-tags.ts` + tests,
 register `source-tags` in `src/run.ts`, dry-run, then a ~1000-edit trial under the

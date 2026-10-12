@@ -106,6 +106,20 @@ export interface BotTask {
    *  task can create it. Off by default: for an ordinary cleanup task a missing
    *  page is nothing to do, and silently creating pages would be a surprise. */
   createsMissing?: boolean;
+  /**
+   * Optional per-page edit summary, overriding `summary` for that one page.
+   *
+   * For a task that does several different things, one summary for the whole run is a
+   * worse statement than no summary: وظیفهٔ ۱۵ adds four different banners and removes a
+   * fifth, and «نشان‌گذاری وضعیت منابع» on all of them tells a reader nothing about what
+   * changed on THEIR article. Returning undefined falls back to `summary`, so no existing
+   * task is affected.
+   *
+   * It is read at WRITE time, not transform time: `prepare()` for the next page is
+   * pipelined against the current page's write, so anything stashed by `transform` in a
+   * single variable belongs to the wrong page by the time the edit goes out.
+   */
+  perPageSummary?(title: string): string | undefined;
   /** list of page titles to process */
   getTargets(bot: Bot): Promise<string[]>;
   /** pure transform: given current wikitext return new text + whether it changed.
@@ -240,8 +254,23 @@ export class Bot {
     // (AGENTS.md), so its floor and ceiling are that range and the pacer may not shrink
     // it when the server is idle. The bot account's floor is --delay and it is free to
     // slow down on lag.
+    // …but the trade is the OPERATOR'S to make, because it is his account and his
+    // reputation that the cover protects. `PACE_LO`/`PACE_HI` (seconds) override the
+    // range for one run; with neither set the documented 30–120s still applies, and a
+    // `--delay` above the floor still raises it.
+    // See lessons/api-and-permissions/pacing-is-the-users-call-not-a-constant.md.
+    const paceLo = Number(process.env.PACE_LO ?? 0) * 1000;
+    const paceHi = Number(process.env.PACE_HI ?? 0) * 1000;
+    // PACE_LO wins outright: `--delay` defaults to 30 for a human run, so taking the
+    // max of the two would silently ignore any override below 30s.
+    const humanFloor = paceLo > 0 ? paceLo : Math.max(30_000, opts.delayMs);
+    const humanCeil = paceHi > 0 ? Math.max(paceHi, humanFloor) : 120_000;
+    if (opts.identity === 'human' && (paceLo > 0 || paceHi > 0)) {
+      console.log(`⚠️  گام نوشتن دستی تنظیم شد: ${Math.round(humanFloor / 1000)}–` +
+        `${Math.round(humanCeil / 1000)} ثانیه (پیش‌فرض ۳۰–۱۲۰)`);
+    }
     this.pacer = opts.identity === 'human'
-      ? new Pacer({ floorMs: Math.max(30_000, opts.delayMs), ceilMs: 120_000,
+      ? new Pacer({ floorMs: humanFloor, ceilMs: humanCeil,
                     busyLagS: opts.maxlag, spread: 'uniform-to-ceiling' })
       : new Pacer({ floorMs: opts.delayMs, ceilMs: Math.max(opts.delayMs * 6, 60_000),
                     busyLagS: opts.maxlag, jitter: 0.1 });
@@ -476,8 +505,9 @@ export class Bot {
    *    for the scope yet. Claiming a permission on them would be a false statement about
    *    who made the edit and under what authority.
    */
-  async summaryFor(task: BotTask): Promise<string> {
-    if (this.opts.identity === 'human') return task.summary;
+  async summaryFor(task: BotTask, title?: string): Promise<string> {
+    const base = (title ? task.perPageSummary?.(title) : undefined) || task.summary;
+    if (this.opts.identity === 'human') return base;
     if (this.brfaLinkable === null) {
       const page = brfaPage(task.taskNumber);
       try {
@@ -488,11 +518,11 @@ export class Bot {
         console.warn(`  ⚠ «${page}» وجود ندارد — خلاصهٔ ویرایش بدون پیوند مجوز می‌رود`);
       }
     }
-    if (!this.brfaLinkable) return task.summary;
-    const full = withBrfaLink(task.taskNumber, task.summary);
+    if (!this.brfaLinkable) return base;
+    const full = withBrfaLink(task.taskNumber, base);
     if (!fitsSummaryLimit(full)) {
       console.warn('  ⚠ خلاصه با پیوند از ۵۰۰ نویسه بیشتر می‌شود — بدون پیوند فرستاده شد');
-      return task.summary;
+      return base;
     }
     return full;
   }
@@ -819,7 +849,7 @@ export class Bot {
         if (ms.stop) { console.log(`⏹  توقف: ${ms.why}`); break; }
 
         try {
-          const res = await this.edit(item.title, item.newText, await this.summaryFor(task), item.revid, item.basetimestamp,
+          const res = await this.edit(item.title, item.newText, await this.summaryFor(task, item.title), item.revid, item.basetimestamp,
                                       { allowCreate: !!task.createsMissing });
           const newrevid: number = res.edit?.newrevid ?? 0;
           // Verify the SAVED revision, not the preview. See savedErrorCount.

@@ -570,10 +570,17 @@ const ILLEGAL = /[#<>[\]{}|]|%[0-9A-Fa-f]{2}/;
  * it again, the rule set disagrees with itself about where the title should end up, and
  * publishing the first step would invite a move that the next run proposes moving again.
  */
-export function suggest(title: string): Suggestion | null {
+/**
+ * Rules that depend on a word being a Persian SUFFIX rather than a syllable of a
+ * transliterated name, and so cannot be trusted on a foreign name. See `foreignNamed`.
+ */
+export const NAME_SENSITIVE = new Set(['zwnj-plural', 'zwnj-nisba']);
+
+export function suggest(title: string, skip?: Set<string>): Suggestion | null {
+  const rulesInPlay = skip ? RULES.filter(r => !skip.has(r.id)) : RULES;
   let target = title;
   const rules: string[] = [];
-  for (const r of RULES) {
+  for (const r of rulesInPlay) {
     const next = r.apply(target);
     if (next !== target) { rules.push(r.id); target = next; }
   }
@@ -585,7 +592,7 @@ export function suggest(title: string): Suggestion | null {
 
   // idempotence: the proposal must be a fixed point of the same rules
   let settled = target;
-  for (const r of RULES) settled = r.apply(settled);
+  for (const r of rulesInPlay) settled = r.apply(settled);
   if (settled.replace(/\s+/g, ' ').trim() !== target) return null;
 
   return { title, target, rules };
@@ -632,6 +639,92 @@ function today(d = new Date()): string {
   return `${fa(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${fa(d.getUTCFullYear())}`;
 }
 
+/**
+ * The arrow between the current title and the proposal.
+ *
+ * NOT «>», which the report used until ۱۲ اکتبر ۲۰۲۶. U+003E GREATER-THAN SIGN has
+ * **Bidi_Mirrored=Yes**, so inside an RTL paragraph the browser draws it mirrored and the
+ * reader sees «<» — an arrow pointing back at the title being replaced, which is the
+ * opposite of what the row says. U+2190 LEFTWARDS ARROW is not mirrored, and in RTL
+ * reading order (source on the right, proposal on the left) it points at the proposal.
+ *
+ * The padding is a margin on an inline span rather than `&nbsp;`: both sides are links,
+ * and a single space left the arrow crowded against two blue runs. No colour is set, so
+ * the row is unaffected by dark mode.
+ */
+const ARROW = '<span style="margin:0 0.45em">←</span>';
+
+/**
+ * Which words differ, by a longest-common-subsequence alignment of the two token lists.
+ * `[changedInA, changedInB]`, one flag per token.
+ *
+ * Token-level, not character-level, and that is the point: most of what this report
+ * proposes is **invisible or near-invisible**. A ZWNJ has no glyph, so bolding the one
+ * changed character shows the reader nothing at all; «ي»→«ی» and a dropped harakat are
+ * barely a pixel. Bolding the whole word that moved puts the eye on the right spot and
+ * lets the reader see «ملت های» against «ملت‌های», which *is* visibly different.
+ */
+export function diffFlags(a: string[], b: string[]): [boolean[], boolean[]] {
+  const n = a.length, m = b.length;
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const ca = new Array<boolean>(n).fill(true), cb = new Array<boolean>(m).fill(true);
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { ca[i] = false; cb[j] = false; i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) i++;
+    else j++;
+  }
+  return [ca, cb];
+}
+
+/**
+ * Bold the changed runs, merging neighbours so two adjacent words share one pair of
+ * quotes, and leaving edge punctuation outside the bold.
+ *
+ * Without the trim, a disambiguator came out as «'''(حجت‌الله''' منصوری)» — the opening
+ * bracket set in bold, which reads as though the bracket were part of the correction.
+ */
+function emphasise(tokens: string[], changed: boolean[]): string {
+  const EDGES = /^([^\p{L}\p{N}]*)([\s\S]*?)([^\p{L}\p{N}]*)$/u;
+  const out: string[] = [];
+  for (let i = 0; i < tokens.length;) {
+    if (!changed[i]) { out.push(tokens[i]); i++; continue; }
+    const run: string[] = [];
+    while (i < tokens.length && changed[i]) run.push(tokens[i++]);
+    const m = EDGES.exec(run.join(' '));
+    // A run of pure punctuation has no core to emphasise; leave it as it is.
+    out.push(m && m[2] ? `${m[1]}'''${m[2]}'''${m[3]}` : run.join(' '));
+  }
+  return out.join(' ');
+}
+
+/**
+ * The two titles with the changed words in bold, or plain when emphasis would not help.
+ *
+ * Bold is deliberately the only device. A background colour is the obvious "diff" look
+ * and is the wrong choice here: fa.wikipedia has a dark mode, and a hardcoded light
+ * highlight with no foreground colour set renders as dark-on-dark for those readers.
+ *
+ * It also gives up rather than shouting, and the threshold is two thirds rather than a
+ * half because emphasis only means anything against something unemphasised. A title
+ * where every word changed has no context left to contrast with — «فرآیند» → «فرایند»
+ * and «مکل ها» → «مکل‌ها» are both whole-title rewrites — and bolding the lot says
+ * nothing a reader could not already see. Those rows stay plain. At the other end,
+ * «لری بالاگریوه ای» keeps «لری» plain and emphasises the rest, which is the point.
+ */
+export function withDiff(title: string, target: string): { from: string; to: string } {
+  const a = title.split(' '), b = target.split(' ');
+  const [ca, cb] = diffFlags(a, b);
+  const tooMuch = (flags: boolean[]) => flags.filter(Boolean).length * 3 > flags.length * 2;
+  if (tooMuch(ca) || tooMuch(cb)) return { from: title, to: target };
+  return { from: emphasise(a, ca), to: emphasise(b, cb) };
+}
+
 /** The move link the old report used, kept byte-for-byte in shape so the page reads the same. */
 function moveLink(from: string, to: string): string {
   const u = (s: string) => encodeURI(s.replace(/ /g, '_')).replace(/\?/g, '%3F');
@@ -652,6 +745,10 @@ export function buildReport(
   // namespace prefix is put back here, for display, for the link and for the move URL.
   const full = (t: string) => `${target.prefix}${t}`;
   const link = (t: string) => `[[${target.colon}${full(t)}]]`;
+  // A piped link whose label is the prefixed title plus bold markup. The namespace
+  // prefix is never emphasised — «رده:» is not part of what changed.
+  const shownAs = (t: string, label: string) =>
+    label === t ? link(t) : `[[${target.colon}${full(t)}|${target.prefix}${label}]]`;
   const listed = rows.filter(r => r.targetState !== 'article');
 
   const head = [
@@ -684,7 +781,11 @@ export function buildReport(
       const redirect = r.targetState === 'redirect'
         ? ' <small>(مقصد تغییرمسیر است)</small>'
         : '';
-      body.push(`# ${link(r.title)} > ${link(r.target)} `
+      // The label carries the emphasis, so the link target stays the exact title. When
+      // withDiff() declines to emphasise, the label equals the title and the pipe is
+      // dropped, keeping those rows as plain as they were before.
+      const d = withDiff(r.title, r.target);
+      body.push(`# ${shownAs(r.title, d.from)}${ARROW}${shownAs(r.target, d.to)} `
         + `${moveLink(full(r.title), full(r.target))}${extra}${redirect}`);
     }
     if (mine.length > shown.length) {
@@ -748,6 +849,69 @@ export async function targetStates(bot: Bot, targets: string[]): Promise<Map<str
       out.set(p.title, state);
     }
     for (const t of batch) if (!out.has(t)) out.set(t, 'free');
+  }
+  return out;
+}
+
+/**
+ * Persianate origins. A title whose «اهل …» categories include one of these is a Persian,
+ * Afghan or Tajik subject, where «ها» and «ای» really are suffixes.
+ *
+ * The city names are not decoration. «محمدرضا شجریان» carries «خوانندگان اهل مشهد» as well
+ * as «آموزگاران موسیقی اهل ایران», and a subject whose only «اهل …» category named a city
+ * would otherwise be read as foreign and silently dropped from the report.
+ */
+const PERSIANATE_ORIGIN = /ایران|افغانستان|تاجیکستان|تهران|مشهد|اصفهان|تبریز|شیراز|کرمان|یزد|اهواز|رشت|قم|کرج|همدان|اردبیل|زنجان|ارومیه|کرمانشاه|بوشهر|ساری|گرگان|سنندج|خرم‌آباد|بندرعباس|قزوین|کابل|هرات|مزار شریف|قندهار|دوشنبه|خجند/;
+
+/**
+ * Titles whose subject is a person or place from outside the Persian-speaking world, so
+ * that a «ها» or «ای» in the title is a syllable of a transliterated name rather than a
+ * Persian suffix.
+ *
+ * WHY THIS IS NOT "IS IT A BIOGRAPHY". Sunfyre asked for people and companies to be left
+ * out of the «ها» and «ای» sections. Measured over the 272 hits on ۱۱ اکتبر ۲۰۲۶: 15 are
+ * people, **0 are companies**, and all 15 of the people are false positives — «شین ها
+ * کیون», «سانگ های ریم», «دونگ ها (بازیگر)», «نو هنگ ها», «یه‌رین ها». So the request is
+ * right about the symptom. But excluding people as such would be wrong, because a Persian
+ * surname takes these suffixes too: «خامنه ای» → «خامنه‌ای» is a person, and the day
+ * somebody creates it misspelled a biography-shaped exclusion would skip it for good,
+ * with no whitelist entry to rescue it. The discriminator is ORIGIN, not entity type —
+ * measured: Persianate people among all 272 hits = 0.
+ *
+ * THE POLARITY IS THE WHOLE DESIGN, AND A POSITIVE CONTROL SET IT. Suppress only on
+ * positive evidence of a foreign origin: the title must have at least one «اهل …»
+ * category and none of them Persianate. The obvious inverse — "keep only what is proven
+ * Persianate" — was tried against real Persian biographies first and **would have dropped
+ * «سید علی خامنه‌ای», which carries no «اهل …» category at all** (nor does «شهاب
+ * حسینی»). An article with no origin categories is therefore kept, not dropped.
+ *
+ * Wikidata was the other candidate and cannot do this job: only 64 of the 272 hits have
+ * an item at all, because a badly-titled article is usually also an unconnected one.
+ * fawiki's own categories covered 272 of 272.
+ */
+export async function foreignNamed(bot: Bot, titles: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (let i = 0; i < titles.length; i += 20) {
+    const batch = titles.slice(i, i + 20);
+    const cats = new Map<string, string[]>();
+    let cont: Record<string, string> = {};
+    for (;;) {
+      const r = await bot.apiGet({ action: 'query', prop: 'categories',
+        titles: batch.join('|'), cllimit: 'max', ...cont });
+      for (const p of r.query.pages ?? []) {
+        // Strip the namespace prefix at the colon. «رده:» is four characters, and
+        // slicing a fixed five ate the first letter of every category name.
+        const names = (p.categories ?? []).map((c: { title: string }) =>
+          c.title.slice(c.title.indexOf(':') + 1));
+        cats.set(p.title, [...(cats.get(p.title) ?? []), ...names]);
+      }
+      if (!r.continue) break;
+      cont = r.continue;
+    }
+    for (const t of batch) {
+      const origin = (cats.get(t) ?? []).filter(c => c.includes('اهل'));
+      if (origin.length && !origin.some(c => PERSIANATE_ORIGIN.test(c))) out.add(t);
+    }
   }
   return out;
 }
@@ -870,6 +1034,26 @@ export async function run(target: Target = TARGETS.article) {
   }
   if (subpages) console.log(`زیرصفحه‌های نادیده‌گرفته: ${fa(subpages)}`);
   console.log(`پیشنهادها پیش از بررسی مقصد: ${fa(suggestions.length)}`);
+
+  // The two suffix rules cannot be trusted on a transliterated foreign name, so the
+  // candidates that rely on them get an origin check. Only the candidates — a few hundred
+  // titles, one batched query each twenty — never the million that were scanned.
+  //
+  // A row is RE-DERIVED rather than deleted: a title can be caught by a suffix rule and
+  // by something else at the same time, and «مصلاي بزرگ امام خميني تهران» still needs its
+  // Arabic letters fixed whatever we decide about its «ها».
+  const sensitive = suggestions.filter(s => s.rules.some(r => NAME_SENSITIVE.has(r)));
+  if (sensitive.length) {
+    const foreign = await foreignNamed(bot, sensitive.map(s => target.prefix + s.title));
+    let dropped = 0, reduced = 0;
+    for (let i = suggestions.length - 1; i >= 0; i--) {
+      const s = suggestions[i];
+      if (!foreign.has(target.prefix + s.title)) continue;
+      const again = suggest(s.title, NAME_SENSITIVE);
+      if (again) { suggestions[i] = again; reduced++; } else { suggestions.splice(i, 1); dropped++; }
+    }
+    console.log(`نام‌های غیرفارسی: ${fa(dropped)} حذف، ${fa(reduced)} بازمحاسبه`);
+  }
 
   // Existence is checked on the FULL title, prefix included, or every category target
   // would come back «free» because «X» is not «رده:X».

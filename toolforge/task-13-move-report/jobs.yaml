@@ -12,6 +12,14 @@
 # the directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127 with
 # «./run.sh: not found». run.sh itself does `cd "$(dirname "$0")"`, so the relative
 # paths inside it still resolve.
+#
+# ⚠️ `toolforge jobs load` SYNCS: it also deletes scheduled jobs that are not in the file
+# it is given. The three report jobs below ran for days without being recorded here —
+# they were created by hand with `toolforge jobs run` — so a load of this file would have
+# silently deleted them. If you change one of these, change it here too, and prefer
+# `toolforge jobs delete X && toolforge jobs run X …` over a load when other tasks' jobs
+# are live in the same tool. Jobs belonging to OTHER tasks are in their own jobs.yaml and
+# are not protected by this file.
 ---
 # Step 0 — the rule engine and the publish gate, with no network and no database.
 - name: mr-selftest
@@ -41,3 +49,40 @@
   emails: onfailure
   filelog-stdout: logs/daily.out
   filelog-stderr: logs/daily.err
+
+# The two درگاه reports. DAILY since ۱۲ اکتبر ۲۰۲۶ (was «40 4 * * 1», Mondays), at the
+# user's request; the job was renamed pr-weekly → pr-daily so the name does not lie.
+#
+# Both pages do change day to day — the fa portal list and whether a candidate already
+# has a fa article both move — but the pageview window is whole-month
+# («20251001..20260930»), so the VIEW COUNTS in «پربازدیدترین درگاه‌ها» only change when
+# the month rolls over. Daily is still useful for the translation-candidate half.
+- name: pr-daily
+  command: ./task-13-move-report/run.sh --report portals --live
+  image: node20
+  mem: 2Gi
+  schedule: "40 4 * * *"
+  emails: onfailure
+  filelog-stdout: logs/pr-daily.out
+  filelog-stderr: logs/pr-daily.err
+
+# Users ranked by featured content. Weekly: its three source pages are hand-maintained
+# and move slowly.
+- name: fc-weekly
+  command: ./task-13-move-report/run.sh --report featured --live
+  image: node20
+  mem: 1Gi
+  schedule: "50 4 * * 1"
+  emails: onfailure
+  filelog-stdout: logs/fc-weekly.out
+  filelog-stderr: logs/fc-weekly.err
+
+# The user-preferences overview. Weekly: four counts off `user_properties`.
+- name: up-weekly
+  command: ./task-13-move-report/run.sh --report prefs --live
+  image: node20
+  mem: 1Gi
+  schedule: "55 4 * * 1"
+  emails: onfailure
+  filelog-stdout: logs/up-weekly.out
+  filelog-stderr: logs/up-weekly.err
