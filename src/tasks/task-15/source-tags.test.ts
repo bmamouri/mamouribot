@@ -221,5 +221,13 @@ check('six of them count six',
 check('a scribunto error counts', errorMarkers('<p class="scribunto-error">x</p>') === 1);
 check('a clean render counts zero', errorMarkers('<p>متن</p><div class="errorless">x</div>') === 0);
 
+// A hand-written category, not the banner, is what keeps «عدسی (خوراکی)» in the rede.
+check('a hand-placed unsourced category is reported, not edited',
+  act('{{بدون منبع}}\n' + sourced + '\n[[رده:مقاله‌های بدون منبع]]', 'الف',
+      { renderedRefs: 2 }).act === 'report');
+check('…while an unrelated category does not block the removal',
+  act('{{بدون منبع}}\n' + sourced + '\n[[رده:غذاها]]', 'الف',
+      { renderedRefs: 2 }).act === 'remove');
+
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);
 if (fails.length) { console.error('failing:\n  - ' + fails.join('\n  - ')); process.exit(1); }

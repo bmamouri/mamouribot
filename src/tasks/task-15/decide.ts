@@ -51,7 +51,7 @@ export type Decision =
 export type ReportKind =
   | 'یک منبع' | 'بخش بدون منبع' | 'اصلاح ترجمه'
   | 'شلوغی بنر' | 'بسته‌بندی تک‌بنری' | 'ناسازگاری متن و نمایش'
-  | 'چند برچسب بدون منبع';
+  | 'چند برچسب بدون منبع' | 'ردهٔ دستی بدون منبع';
 
 /** Titles that are lists, years or dates — explicitly out (§3.1). */
 // `\b` would be wrong here for the third time in this task: JavaScript's word
@@ -196,6 +196,15 @@ export function decide(text: string, title: string, f: PageFacts): Decision {
     if (copies > 1 || sectionTag) {
       return { act: 'report', kind: 'چند برچسب بدون منبع',
         why: 'بیش از یک برچسب بی‌منبعی دارد؛ برداشتن یکی صفحه را از رده بیرون نمی‌آورد' };
+    }
+    // The category written by hand at the bottom of the page, rather than by the banner.
+    // «عدسی (خوراکی)» has both; taking the banner out leaves `[[رده:مقاله‌های بدون منبع]]`
+    // behind and the page in the category, which `verify` then refused. Removing a
+    // hand-placed category is a different edit from removing a banner and is not in the
+    // approved scope, so this is a report.
+    if (/\[\[\s*رده\s*:\s*[^\]]*بدون منبع[^\]]*\]\]/.test(text)) {
+      return { act: 'report', kind: 'ردهٔ دستی بدون منبع',
+        why: 'ردهٔ بی‌منبعی به‌دست در صفحه نوشته شده، نه با برچسب؛ برداشتن برچسب بس نیست' };
     }
     return { act: 'remove', why: `${feats.refs_sourcing + feats.cite_outside_sourcing + feats.sfn} منبع واقعی دارد` };
   }
