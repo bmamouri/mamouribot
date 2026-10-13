@@ -207,9 +207,19 @@ export function removeStaleTag(text: string, names: Set<string>): Removal | null
     if (!f) continue;
     if (isSectionUse(f.body)) return null;
     // Take the trailing newline with it so the page does not gain a blank line.
+    //
+    // ONE newline, not the whole run: mid-page, `A\n{{tag}}\n\nB` must stay `A\n\nB`, and
+    // eating every newline would silently join two paragraphs.
+    //
+    // But that leaves `{{tag}}\n\nB` at the very top as `\nB` — a page beginning with a
+    // blank line, which renders identically and so is invisible, while showing up in
+    // every diff. `check_wikitext` has a rule for it («صفحه با سطر خالی آغاز می‌شود») and
+    // it refused three removals in the first day's third batch. Trim the head instead of
+    // widening the newline rule, so the mid-page case is untouched.
     let end = f.end;
     if (text[end] === '\n') end++;
-    return { text: text.slice(0, f.start) + text.slice(end), how: 'standalone' };
+    const out = text.slice(0, f.start) + text.slice(end);
+    return { text: out.replace(/^[^\S\n]*\n+/, ''), how: 'standalone' };
   }
   return null;
 }

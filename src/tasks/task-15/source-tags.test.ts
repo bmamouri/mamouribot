@@ -229,5 +229,18 @@ check('…while an unrelated category does not block the removal',
   act('{{بدون منبع}}\n' + sourced + '\n[[رده:غذاها]]', 'الف',
       { renderedRefs: 2 }).act === 'remove');
 
+// Removing a tag must not leave the page starting with a blank line — invisible in the
+// render, in every diff, and caught by check_wikitext after it refused three removals.
+const rm = (s: string) => removeStaleTag(s, STALE_NAMES)?.text;
+check('a blank line after the tag is not left at the top',
+  rm('{{بدون منبع}}\n\nمتن.') === 'متن.', JSON.stringify(rm('{{بدون منبع}}\n\nمتن.')));
+check('several blank lines are not left either',
+  rm('{{بدون منبع}}\n\n\nمتن.') === 'متن.');
+check('the ordinary case is unchanged',
+  rm('{{بدون منبع}}\nمتن.') === 'متن.');
+check('a mid-page paragraph break survives',
+  rm('سرآغاز.\n{{بدون منبع}}\n\nمتن.') === 'سرآغاز.\n\nمتن.',
+  JSON.stringify(rm('سرآغاز.\n{{بدون منبع}}\n\nمتن.')));
+
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);
 if (fails.length) { console.error('failing:\n  - ' + fails.join('\n  - ')); process.exit(1); }
