@@ -242,5 +242,16 @@ check('a mid-page paragraph break survives',
   rm('سرآغاز.\n{{بدون منبع}}\n\nمتن.') === 'سرآغاز.\n\nمتن.',
   JSON.stringify(rm('سرآغاز.\n{{بدون منبع}}\n\nمتن.')));
 
+// Month-and-year pages are date pages. «خرداد ۱۳۸۷» was tagged on day one because the
+// rule required a day number first, the same gap that let the Hijri day pages through.
+for (const title of ['خرداد ۱۳۸۷', 'اکتبر ۲۰۲۶', 'رمضان ۱۴۴۵', 'مه ۱۹۴۵']) {
+  check(`«${title}» is a date page`, act('متن بی‌منبع.', title).act === 'skip',
+    JSON.stringify(act('متن بی‌منبع.', title)));
+}
+// …and a month name alone must not take ordinary titles with it.
+for (const title of ['مهر (شهر)', 'دی اکسید کربن', 'مه‌آلودگی', 'صفر مطلق']) {
+  check(`«${title}» is not a date page`, act('متن بی‌منبع.', title).act === 'add');
+}
+
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);
 if (fails.length) { console.error('failing:\n  - ' + fails.join('\n  - ')); process.exit(1); }

@@ -78,8 +78,15 @@ const HIJRI_MONTH = 'محرم|صفر|ربیع‌الاول|ربیع‌الآخر
   'جمادی‌الآخر|جمادی‌الثانی|رجب|شعبان|رمضان|شوال|ذی‌القعده|ذی‌الحجه|ذیقعده|ذیحجه';
 const ORDINAL = 'یکم|دوم|سوم|چهارم|پنجم|ششم|هفتم|هشتم|نهم|دهم|یازدهم|دوازدهم|سیزدهم|' +
   'چهاردهم|پانزدهم|شانزدهم|هفدهم|هجدهم|نوزدهم|بیستم|اول';
+// A MONTH-AND-YEAR page is a date page too: «خرداد ۱۳۸۷», «اکتبر ۲۰۲۶». The day-first
+// pattern below does not match them, so «خرداد ۱۳۸۷» was tagged in the first day's third
+// batch — the same miss as the Hijri months, in a different shape. The year is required,
+// or «مهر», «دی», «صفر» and «مه» would take the month names out of ordinary article
+// titles with them.
+const MONTH_YEAR = new RegExp(`^(${FA_MONTH}|${GREG_MONTH}|${HIJRI_MONTH}) [۰-۹0-9]{2,4}$`);
 const DATE_PAGE = new RegExp(
   `^[۰-۹0-9]{1,2} (${FA_MONTH}|${GREG_MONTH}|${HIJRI_MONTH})( |$)` +
+  `|${MONTH_YEAR.source}` +
   `|^(سده|دهه|هزاره) ([۰-۹0-9]+|${ORDINAL})( |$)` +
   '|^[۰-۹0-9]{1,4}( \\((میلادی|قمری|خورشیدی|پیش از میلاد)\\))?$');
 
