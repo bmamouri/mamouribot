@@ -86,8 +86,18 @@ const DATE_PAGE = new RegExp(
 export const STALE_NAMES = new Set(['بدون منبع', 'بدون منبع زنده', 'منبع', 'بی‌منبع',
   'بی منبع', 'فاقد منبع', 'بدون مرجع', 'unreferenced', 'blp unreferenced']);
 
-/** Does the page already carry any source/verification banner, anywhere? */
-function hasSourceBanner(text: string): string | null {
+/**
+ * Does the page already carry any source/verification banner, anywhere?
+ *
+ * Exported because `transform` re-checks it against the text fetched at WRITE time, not
+ * the text the decision was made on. `decide` sees the page as enumeration found it, and
+ * two things can put a banner there in between: the same title arriving twice in one run
+ * (CirrusSearch paging repeats titles as the index shifts under the offsets), and a human
+ * tagging the page during the ~50 minutes a 200-edit run takes. `addBanner` has no
+ * already-present guard of its own, so without this re-check either case appends a
+ * SECOND banner — which raises no error, lands in the right category and passes `verify`.
+ */
+export function hasSourceBanner(text: string): string | null {
   for (const n of allTemplateNames(text)) {
     const bare = n.split('|')[0].trim();
     if (EXISTING_SOURCE_BANNERS.has(bare)) return bare;

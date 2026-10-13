@@ -26,7 +26,9 @@ import { readFileSync } from 'fs';
 import type { Bot, BotTask } from '../../core.js';
 import { checkWikitext } from '../../lib/gates.js';
 import { extractProse, countWords } from '../task-10/destub-classify.js';
-import { decide, summaryFor, STALE_NAMES, type Decision, type PageFacts } from './decide.js';
+import {
+  decide, summaryFor, hasSourceBanner, STALE_NAMES, type Decision, type PageFacts,
+} from './decide.js';
 import {
   addBanner, removeStaleTag, monthStamp, BANNERS, REPORT_PAGE, type BannerName,
 } from './banners.js';
@@ -89,7 +91,11 @@ async function search(bot: Bot, srsearch: string, want: number): Promise<string[
     if (!hits.length) break;
     titles.push(...hits.map((h: { title: string }) => h.title));
   }
-  return titles;
+  // Offset paging over a live index REPEATS titles: each page is a fresh query against an
+  // index that has moved, so a title can fall into two windows. The first dry run on
+  // Toolforge returned «هنرمند بازی ویدئویی» twice in ten targets, which would have
+  // appended two {{بدون منبع}} banners to it.
+  return [...new Set(titles)];
 }
 
 /**
@@ -238,8 +244,10 @@ async function getTargets(bot: Bot): Promise<string[]> {
     const stale = await search(bot, QUERIES.stale, Math.ceil(cap / 3));
     const adds = await search(bot, QUERIES.add, cap);
     console.log(`نامزدها: ${adds.length} برای افزودن، ${stale.length} برای برداشتن برچسب کهنه`);
-    candidates = shuffle([...stale, ...adds]).slice(0, cap);
+    // Deduped across the two searches as well: a title can match both.
+    candidates = shuffle([...new Set([...stale, ...adds])]).slice(0, cap);
   }
+  candidates = [...new Set(candidates)];   // also dedupes TARGET_TITLES / TARGET_FILE
   if (!candidates.length) {
     console.log('هیچ نامزدی یافت نشد — جستجو را بررسی کنید (صفر بدون شاهد مثبت معنا ندارد).');
     return [];
@@ -323,6 +331,13 @@ export const sourceTagsTask: BotTask = {
       }
       done.push({ title, what: 'برداشتن برچسب کهنه' });
       return { text: out.text, changed: true, note: summaryFor(d) };
+    }
+
+    // Last-moment re-check against the text as it is NOW; see hasSourceBanner's comment.
+    const already = hasSourceBanner(text);
+    if (already) {
+      refusals.push({ title, why: `از پیش {{${already}}} دارد`, kind: 'بنر از پیش موجود' });
+      return { text, changed: false, note: `از پیش {{${already}}} دارد` };
     }
 
     const f = facts.get(title);

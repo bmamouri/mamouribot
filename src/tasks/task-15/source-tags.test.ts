@@ -9,7 +9,7 @@
 import {
   insertionPoint, addBanner, removeStaleTag, isSectionUse, monthStamp, bannerCall,
 } from './banners.js';
-import { decide, STALE_NAMES, type PageFacts } from './decide.js';
+import { decide, hasSourceBanner, STALE_NAMES, type PageFacts } from './decide.js';
 import { countRenderedRefs } from './source-tags.js';
 
 let pass = 0;
@@ -182,6 +182,20 @@ check('a tag is NOT removed when the only ref is یادکرد فرهنگستان
   JSON.stringify(act(molecule, 'مولکول', { renderedRefs: 1 })));
 check('…and an untagged version of it would be tagged',
   (act('متن.<ref>{{یادکرد فرهنگستان|مصوب=مولکول}}</ref>') as { banner?: string }).banner === 'بدون منبع');
+
+// ---- the write-time re-check (a duplicate target, or a human tagging mid-run) ---------
+// The first Toolforge dry run returned «هنرمند بازی ویدئویی» twice among ten targets,
+// because offset paging over a live search index repeats titles. The cached decision says
+// «add», addBanner has no already-present guard, and the result — two banners on one page
+// — raises no error and passes verify. getTargets now dedupes; this is the second line of
+// defence, and the one that also covers a human tagging the page during a 50-minute run.
+check('hasSourceBanner sees a banner that arrived after the decision',
+  hasSourceBanner('{{بدون منبع|تاریخ=اکتبر ۲۰۲۶}}\nمتن.') === 'بدون منبع');
+check('…and a redirect spelling of it',
+  hasSourceBanner('{{بی‌منبع}}\nمتن.') !== null);
+check('…but not a plain untagged page', hasSourceBanner('متن بدون بنر.') === null);
+check('…and not a citation that merely mentions sources',
+  hasSourceBanner('متن.<ref>{{یادکرد وب|نشانی=https://e.com}}</ref>') === null);
 
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);
 if (fails.length) { console.error('failing:\n  - ' + fails.join('\n  - ')); process.exit(1); }
