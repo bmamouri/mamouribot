@@ -26,6 +26,7 @@ import { task as taxonomyCreateMissingTask } from './tasks/task-11/taxonomy-crea
 import { linkfixTask } from './tasks/task-12/linkfix.js';
 import { populationBoxTask } from './tasks/task-14/population-box.js';
 import { sourceTagsTask } from './tasks/task-15/source-tags.js';
+import { stripTextFragmentTask } from './tasks/task-16/strip-text-fragment.js';
 
 const TASKS: Record<string, BotTask> = {
   [useDmyDatesTask.id]: useDmyDatesTask,
@@ -41,6 +42,7 @@ const TASKS: Record<string, BotTask> = {
   [linkfixTask.id]: linkfixTask,
   [populationBoxTask.id]: populationBoxTask,
   [sourceTagsTask.id]: sourceTagsTask,
+  [stripTextFragmentTask.id]: stripTextFragmentTask,
 };
 
 function parseArgs(argv: string[]) {

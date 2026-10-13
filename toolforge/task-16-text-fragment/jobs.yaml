@@ -1,0 +1,58 @@
+# وظیفهٔ ۱۶ — حذف نشانهٔ #:~:text= از نشانی منبع.   see the ⚠️ about `jobs load` below
+#
+# Approved by Huji, ۱۲ اکتبر ۲۰۲۶ ({{مجوز دارد}}) after a 35-edit trial run under the
+# operator's own account. Everything below therefore runs as MamouriBot — no --as-me.
+#
+# Candidate set is CirrusSearch (insource:/\#\:~\:text\=/), ~1,940 ns0 pages measured
+# ۱۳ اکتبر ۱۴۰۵ — small enough that a `--limit` cap, not a frozen file, is the right tool.
+# The request declares «یک دور روی فهرست کنونی» and the operator added on the request page
+# that the bot should keep running because editors paste new directives in every day; so
+# this is a daily job, draining the backlog at 200/run and then just clearing the trickle.
+#
+# NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in the
+# directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127.
+#
+# ⚠️ `toolforge jobs load` SYNCS — it deletes scheduled jobs absent from the file it is
+# given, including the other twelve tasks' jobs. Use `toolforge jobs run` / `delete`
+# per job instead.
+---
+- name: tf-check
+  command: ./task-16-text-fragment/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/tf-check.out
+  filelog-stderr: logs/tf-check.err
+
+# Dry run, no login, no writes. Read every diff before trusting a batch size.
+- name: tf-dry
+  command: ./task-16-text-fragment/run.sh --limit 50
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/tf-dry.out
+  filelog-stderr: logs/tf-dry.err
+
+# The first live batch as MamouriBot, deliberately small: the 35-edit trial was made with
+# the operator's account, so this is the first time the bot account itself writes here.
+# One-off: no `schedule:`.
+- name: tf-first
+  command: ./task-16-text-fragment/run.sh --live --limit 20 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0          # never silently re-run a partial edit batch
+  emails: all
+  filelog-stdout: logs/tf-first.out
+  filelog-stderr: logs/tf-first.err
+
+# The approved daily run. 06:50 UTC is clear of وظیفهٔ ۱ (06:20), وظیفهٔ ۱۵ (03:05),
+# وظیفهٔ ۱۳ (03:17) and وظیفهٔ ۳'s hourly job (every :25).
+- name: tf-daily
+  command: ./task-16-text-fragment/run.sh --live --limit 200 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "50 6 * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/tf-daily.out
+  filelog-stderr: logs/tf-daily.err

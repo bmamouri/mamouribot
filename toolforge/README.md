@@ -19,11 +19,13 @@ them.
 | `task-13-reports.mjs` | وظیفهٔ ۱۳, **every** database report: «مقاله‌های نیازمند تغییرنام» and the two درگاه reports (`src/tasks/task-13/reports-cli.ts`, pick with `--report`) |
 | `cite-scan-conflicts.mjs` | وظیفهٔ ۳'s review-page scanner (`src/tasks/task-03/scan-conflicts-cli.ts`) |
 | `gates.py` | the publish gate battery. Python, so it cannot be bundled; it ships beside the bundles |
+| `task-01-use-dmy-dates/` | وظیفهٔ ۱ — `run.sh`, `jobs.yaml` |
 | `task-03-cite-params/` | وظیفهٔ ۳ — `run.sh`, `scan.sh`, `jobs.yaml` |
 | `task-08-musician-params/` | وظیفهٔ ۸ — `run.sh`, `jobs.yaml` |
 | `task-13-move-report/` | وظیفهٔ ۱۳ — `run.sh`, `jobs.yaml` |
 | `task-14-population/` | وظیفهٔ ۱۴ — `run.sh`, `jobs.yaml` |
 | `task-15-source-tags/` | وظیفهٔ ۱۵ — `run.sh`, `jobs.yaml` |
+| `task-16-text-fragment/` | وظیفهٔ ۱۶ — `run.sh`, `jobs.yaml` |
 
 The `.mjs` files and `gates.py` are **build output** and are git-ignored; `npm run bundle`
 writes them. The `run.sh` and `jobs.yaml` files are source and are tracked.
