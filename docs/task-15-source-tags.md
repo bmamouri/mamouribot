@@ -1,10 +1,17 @@
 # وظیفهٔ ۱۵: source maintenance banners (add, and remove when stale)
 
-> **Status (۱۲ اکتبر ۲۰۲۶): BUILT. Code, tests and a differential replay are in;
-> dry-run only so far. No live edit has been made and nothing is filed.**
+> **Status (۱۳ اکتبر ۲۰۲۶): APPROVED AND RUNNING.** Huji granted
+> [{{مجوز دارد}}](https://fa.wikipedia.org/wiki/ویکی‌پدیا:سیاست_ربات‌رانی/درخواست_مجوز/MamouriBot/وظیفه_۱۵)
+> on ۱۲ اکتبر ۲۰۲۶ after a 116-edit trial under the operator's own account (§13).
 >
-> Next step is §0.4 step 7: the `--as-me` trial, 10 → 50 → a few hundred, auditing the
-> diffs and renders between runs. Log each run in §13.
+> It now runs as **MamouriBot**, not `--as-me`: deployment is
+> `toolforge/task-15-source-tags/` and the schedule is `st-daily`, **روزانه با سقف ۲۰۰
+> ویرایش** — the cap is the published commitment in the request, so do not raise it in
+> jobs.yaml without amending the request first.
+>
+> Every banner carries `تاریخ=`, and the run creates the month's cleanup category when it
+> is missing (`ensureMonthlyCategories`); without that page the article lands in
+> `رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو` instead.
 >
 > **Start with §0 (handover).** It lists every decision the operator made and the build
 > steps in order. §1–§2 are the research behind those decisions. §3–§6 are the rules,

@@ -1,0 +1,62 @@
+# وظیفهٔ ۱۵ — source maintenance banners.   toolforge jobs load jobs.yaml
+#
+# Approved ۱۲ اکتبر ۲۰۲۶. The request promises «تناوب اجرا: روزانه، با سقف ۲۰۰ ویرایش در
+# هر اجرا», so st-daily carries --limit 200 and nothing here may exceed it: the cap is a
+# published commitment, not a tuning knob.
+#
+# --delay 15 is the floor between writes (policy floor is 10; see docs/PACING.md). 200
+# edits therefore take ~50 minutes plus the candidate screening in front of them.
+#
+# mem is 1Gi, not 512Mi: a 200-edit run screens ~1,200 candidates, holds their wikitext,
+# and renders every one that survives the cheap screen.
+#
+# NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in the
+# directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127. run.sh
+# itself does `cd "$(dirname "$0")"`, so its own relative paths still resolve.
+#
+# ⚠️ `toolforge jobs load` SYNCS — it deletes scheduled jobs absent from the file it is
+# given, including other tasks' jobs, which live in their own jobs.yaml and are NOT
+# protected by this one. With other tasks live in this tool, prefer
+# `toolforge jobs delete X && toolforge jobs run X …` over a load of this file.
+---
+# Step 0 — preflight: credentials, the bot flag, the emergency-stop page. Makes NO edits.
+- name: st-check
+  command: ./task-15-source-tags/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/st-check.out
+  filelog-stderr: logs/st-check.err
+
+# Step 1 — enumerate, render and decide; write nothing. Prints every diff it would make
+# and the refusal report, so both can be read before a live run.
+- name: st-dry
+  command: ./task-15-source-tags/run.sh --limit 25
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/st-dry.out
+  filelog-stderr: logs/st-dry.err
+
+# Step 2 — the first live batch, deliberately small so every diff can be audited before
+# the daily schedule exists. One-off: no `schedule:`.
+- name: st-first
+  command: ./task-15-source-tags/run.sh --live --limit 25 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0          # never silently re-run a partial edit batch
+  emails: all
+  filelog-stdout: logs/st-first.out
+  filelog-stderr: logs/st-first.err
+
+# Step 3 — the approved daily run. Create this only after auditing st-first's diffs AND
+# renders. 03:05 UTC keeps it clear of وظیفهٔ ۱۳'s report jobs (03:17 onwards).
+- name: st-daily
+  command: ./task-15-source-tags/run.sh --live --limit 200 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "5 3 * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/st-daily.out
+  filelog-stderr: logs/st-daily.err

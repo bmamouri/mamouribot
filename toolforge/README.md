@@ -22,6 +22,8 @@ them.
 | `task-03-cite-params/` | وظیفهٔ ۳ — `run.sh`, `scan.sh`, `jobs.yaml` |
 | `task-08-musician-params/` | وظیفهٔ ۸ — `run.sh`, `jobs.yaml` |
 | `task-13-move-report/` | وظیفهٔ ۱۳ — `run.sh`, `jobs.yaml` |
+| `task-14-population/` | وظیفهٔ ۱۴ — `run.sh`, `jobs.yaml` |
+| `task-15-source-tags/` | وظیفهٔ ۱۵ — `run.sh`, `jobs.yaml` |
 
 The `.mjs` files and `gates.py` are **build output** and are git-ignored; `npm run bundle`
 writes them. The `run.sh` and `jobs.yaml` files are source and are tracked.

@@ -13,11 +13,14 @@
  * Wikidata references and authority-control templates emit URLs. So every page is
  * rendered, measured and cached here, and `transform` is a lookup plus pure rules.
  *
- * RUNNING: unapproved scope, so `--as-me` only, under the operator's own account
- * (decision 8). `core.ts` drops the permission link for those runs by itself.
+ * RUNNING: **approved** ۱۲ اکتبر ۲۰۲۶ ({{مجوز دارد}}, Huji), so this runs as MamouriBot
+ * — no `--as-me`. The request promises روزانه با سقف ۲۰۰ ویرایش, which is enforced by the
+ * `--limit` in `toolforge/task-15-source-tags/jobs.yaml`, not in this file.
+ *
+ * Decision 8 (`--as-me` only) applied to the pre-approval trial and no longer holds.
  *
  *   npx tsx src/run.ts source-tags --limit 20            # dry run, read every diff
- *   npx tsx src/run.ts source-tags --as-me --live --limit 10
+ *   npx tsx src/run.ts source-tags --live --limit 25 --delay 15
  */
 import { readFileSync } from 'fs';
 import type { Bot, BotTask } from '../../core.js';
@@ -89,21 +92,56 @@ async function search(bot: Bot, srsearch: string, want: number): Promise<string[
   return titles;
 }
 
-/** Does `رده:<category> از <month>` exist? Checked once per run per banner (§5). */
-async function datedCategories(bot: Bot): Promise<Partial<Record<BannerName, boolean>>> {
+/**
+ * Make sure each banner's monthly category exists, creating it when it does not, and
+ * report which ones are now usable (§5).
+ *
+ * WHY THE BOT CREATES THEM. `پودمان:Message box` builds `<base> از <month year>` and
+ * files the article in `رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو` when that page
+ * is absent. The first version of this task dodged that by writing no date at all, which
+ * is safe but throws away the thing the date is for: the dated categories are how an
+ * editor sees how long an article has carried a problem. On en a bot creates these
+ * monthly categories; fa has none, so the months simply stop
+ * (`lessons/tracking-categories/dated-maintenance-cat-missing-monthly-cats.md` — "the
+ * bulk fix is creating the missing monthly categories, not editing articles").
+ *
+ * The page body is one line. `{{رده تمیزکاری ماهانه}}` derives the parent, the month,
+ * the hidden flag and the all-articles category from the title, identically for every
+ * base — verified against all four of this task's bases before the first was created.
+ *
+ * Granularity is MONTH, not day: «اکتبر ۲۰۲۶». Twelve pages per base per year.
+ */
+async function ensureMonthlyCategories(bot: Bot): Promise<Partial<Record<BannerName, boolean>>> {
   const stamp = monthStamp();
-  const names = (Object.keys(BANNERS) as BannerName[])
-    .map(b => `رده:${BANNERS[b].category} از ${stamp}`);
-  const r = await bot.apiGet({ action: 'query', prop: 'info', titles: names.join('|') });
-  const exists = new Set<string>(
-    (r.query?.pages ?? []).filter((p: { missing?: boolean }) => !p.missing)
+  const want = (Object.keys(BANNERS) as BannerName[])
+    .map(b => ({ banner: b, title: `رده:${BANNERS[b].category} از ${stamp}` }));
+  const r = await bot.apiGet({
+    action: 'query', prop: 'info', titles: want.map(x => x.title).join('|'),
+  });
+  const missing = new Set<string>(
+    (r.query?.pages ?? []).filter((p: { missing?: boolean }) => p.missing)
       .map((p: { title: string }) => p.title));
+
   const out: Partial<Record<BannerName, boolean>> = {};
-  for (const b of Object.keys(BANNERS) as BannerName[]) {
-    out[b] = exists.has(`رده:${BANNERS[b].category} از ${stamp}`);
+  for (const { banner, title } of want) {
+    if (!missing.has(title)) { out[banner] = true; continue; }
+    if (bot.opts.dryRun) {
+      console.log(`  (آزمایشی) ردهٔ «${title}» ساخته می‌شد`);
+      out[banner] = false;            // a dry run must not pretend it exists
+      continue;
+    }
+    try {
+      await bot.edit(title, '{{رده تمیزکاری ماهانه}}', 'ایجاد ردهٔ ماهانهٔ تمیزکاری',
+        0, '', { allowCreate: true });
+      console.log(`  ردهٔ «${title}» ساخته شد`);
+      out[banner] = true;
+    } catch (e) {
+      console.warn(`  ⚠ ردهٔ «${title}» ساخته نشد: ${(e as Error).message}`);
+      out[banner] = false;            // fall back to writing no date
+    }
   }
   console.log(`رده‌های ماهانهٔ «${stamp}»: ` +
-    (Object.entries(out).map(([k, v]) => `${k}=${v ? 'هست' : 'نیست'}`).join('، ')));
+    Object.entries(out).map(([k, v]) => `${k}=${v ? 'آماده' : 'نه'}`).join('، '));
   return out;
 }
 
@@ -207,7 +245,7 @@ async function getTargets(bot: Bot): Promise<string[]> {
     return [];
   }
 
-  const dated = await datedCategories(bot);
+  const dated = await ensureMonthlyCategories(bot);
 
   // Fetch the wikitext of every candidate once, so the decision can be made here and
   // only the pages that will actually change are handed to the runner.
