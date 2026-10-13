@@ -53,6 +53,20 @@ export function countRenderedRefs(html: string): number {
   return (html.replace(/&#0*95;/g, '_').match(/id="cite_note-/g) ?? []).length;
 }
 
+/** Render-error markers, counted so a before/after comparison is possible. */
+export function errorMarkers(html: string): number {
+  return (html.match(/scribunto-error|class="[^"]*\berror\b/g) ?? []).length;
+}
+
+/** The render of an arbitrary wikitext, for the before half of that comparison. */
+async function renderOf(bot: Bot, title: string, text: string): Promise<string> {
+  const r = await bot.apiPost({
+    action: 'parse', title, text, contentmodel: 'wikitext',
+    prop: 'text', disablelimitreport: '1',
+  });
+  return String(r.parse?.text ?? '');
+}
+
 /** Searches that find candidates. Counts are from §0.5, measured ۱۰ اکتبر ۲۰۲۶. */
 const QUERIES = {
   add: '-insource:"<ref" -insource:"http" -hastemplate:"بدون منبع" ' +
@@ -378,8 +392,17 @@ export const sourceTagsTask: BotTask = {
     const cats = (r.parse?.categories ?? [])
       .map((c: { category: string }) => c.category.replace(/_/g, ' ').replace(/[‎‏]/g, ''));
 
-    if (/scribunto-error|class="error/.test(html)) {
-      return { ok: false, detail: 'نمایش تازه خطا دارد' };
+    // Errors the edit INTRODUCES, not errors the article already had.
+    //
+    // This was an absolute test, and it refused «جنگ کره» — whose render carries six
+    // `class="error mw-ext-cite-error"` markers of its own, none of ours. Any long
+    // article with a broken citation was therefore permanently unreachable, and the
+    // refusal published blamed our edit. `checkWikitext` two lines up already compares
+    // before against after (the `had` set); the render check has to do the same.
+    const before = errorMarkers(await renderOf(bot, title, oldText));
+    const after = errorMarkers(html);
+    if (after > before) {
+      return { ok: false, detail: `نمایش ${after - before} خطای تازه دارد` };
     }
     const badDate = 'مقاله‌های دارای پارامتر تاریخ نادرست در الگو';
     if (cats.includes(badDate)) return { ok: false, detail: `در رده «${badDate}» افتاد` };

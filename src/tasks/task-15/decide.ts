@@ -50,7 +50,8 @@ export type Decision =
 
 export type ReportKind =
   | 'یک منبع' | 'بخش بدون منبع' | 'اصلاح ترجمه'
-  | 'شلوغی بنر' | 'بسته‌بندی تک‌بنری' | 'ناسازگاری متن و نمایش';
+  | 'شلوغی بنر' | 'بسته‌بندی تک‌بنری' | 'ناسازگاری متن و نمایش'
+  | 'چند برچسب بدون منبع';
 
 /** Titles that are lists, years or dates — explicitly out (§3.1). */
 // `\b` would be wrong here for the third time in this task: JavaScript's word
@@ -181,6 +182,20 @@ export function decide(text: string, title: string, f: PageFacts): Decision {
     if (multi && inside === 2) {
       return { act: 'report', kind: 'بسته‌بندی تک‌بنری',
         why: 'برچسب کهنه درون {{مشکلات متعدد}} است و با برداشتنش تنها یک بنر می‌ماند' };
+    }
+    // More than one copy of the tag — or a sibling section tag — and removing one leaves
+    // the page in the unsourced category anyway. `removeStaleTag` takes a single
+    // occurrence, so «بوسنی و هرزگوین», «گلباف» and «انجیل» each reached `verify`, which
+    // refused them with «هنوز در ردهٔ بدون منبع است»: safe, but the edit was attempted and
+    // the reason published named the symptom instead of the cause.
+    const copies = [...STALE_NAMES].reduce((n, name) => {
+      const re = new RegExp('\\{\\{\\s*' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[|}]', 'gi');
+      return n + (text.match(re) ?? []).length;
+    }, 0);
+    const sectionTag = findTemplate(text, 'بخش بدون منبع');
+    if (copies > 1 || sectionTag) {
+      return { act: 'report', kind: 'چند برچسب بدون منبع',
+        why: 'بیش از یک برچسب بی‌منبعی دارد؛ برداشتن یکی صفحه را از رده بیرون نمی‌آورد' };
     }
     return { act: 'remove', why: `${feats.refs_sourcing + feats.cite_outside_sourcing + feats.sfn} منبع واقعی دارد` };
   }

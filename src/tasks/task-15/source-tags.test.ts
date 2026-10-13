@@ -10,7 +10,7 @@ import {
   insertionPoint, addBanner, removeStaleTag, isSectionUse, monthStamp, bannerCall,
 } from './banners.js';
 import { decide, hasSourceBanner, STALE_NAMES, type PageFacts } from './decide.js';
-import { countRenderedRefs } from './source-tags.js';
+import { countRenderedRefs, errorMarkers } from './source-tags.js';
 
 let pass = 0;
 const fails: string[] = [];
@@ -196,6 +196,30 @@ check('…and a redirect spelling of it',
 check('…but not a plain untagged page', hasSourceBanner('متن بدون بنر.') === null);
 check('…and not a citation that merely mentions sources',
   hasSourceBanner('متن.<ref>{{یادکرد وب|نشانی=https://e.com}}</ref>') === null);
+
+// ---- two copies of the tag: removing one leaves the page in the category --------------
+// «بوسنی و هرزگوین», «گلباف» and «انجیل» each carry the tag twice (انجیل also has
+// {{بخش بدون منبع}}). The first live batch attempted all three and verify refused them
+// with «هنوز در ردهٔ بدون منبع است» — the symptom, not the cause.
+const sourced = 'متن.<ref>{{یادکرد کتاب|عنوان=الف|ناشر=ب}}</ref>\n' +
+  '<ref>{{یادکرد وب|نشانی=https://e.com|عنوان=ج}}</ref>';
+check('one stale tag on a now-sourced page is still removed',
+  act('{{بدون منبع}}\n' + sourced, 'الف', { renderedRefs: 2 }).act === 'remove');
+check('two copies of the stale tag are reported, not edited',
+  act('{{بدون منبع}}\n' + sourced + '\n{{بدون منبع}}', 'الف', { renderedRefs: 2 }).act === 'report');
+check('a sibling {{بخش بدون منبع}} is reported too',
+  act('{{بدون منبع}}\n' + sourced + '\n== بخش ==\n{{بخش بدون منبع}}', 'الف',
+      { renderedRefs: 2 }).act === 'report');
+
+// ---- errorMarkers: the before/after comparison verify now makes ----------------------
+// «جنگ کره» renders six cite errors of its own. An absolute test refused it and blamed
+// our edit; only an INCREASE is ours.
+check('a pre-existing cite error is counted',
+  errorMarkers('<span class="error mw-ext-cite-error">x</span>') === 1);
+check('six of them count six',
+  errorMarkers('<i class="error mw-ext-cite-error">x</i>'.repeat(6)) === 6);
+check('a scribunto error counts', errorMarkers('<p class="scribunto-error">x</p>') === 1);
+check('a clean render counts zero', errorMarkers('<p>متن</p><div class="errorless">x</div>') === 0);
 
 console.log(`\n${pass} گذشت، ${fails.length} افتاد`);
 if (fails.length) { console.error('failing:\n  - ' + fails.join('\n  - ')); process.exit(1); }
