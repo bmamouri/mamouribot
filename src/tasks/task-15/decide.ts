@@ -10,7 +10,9 @@
  * banner costs trust in the bot. The reasons are what the report page publishes, so they
  * are written to be read by an editor, not by a developer.
  */
-import { sourceFeatures, isStrictUnsourced, type SourceFeatures } from './source-detect.js';
+import {
+  sourceFeatures, isStrictUnsourced, inlineCitations, citationFloor, type SourceFeatures,
+} from './source-detect.js';
 import {
   BANNERS, EXISTING_SOURCE_BANNERS, STOP_TEMPLATES, allTemplateNames, findMultiple,
   isSectionUse, type BannerName,
@@ -46,7 +48,18 @@ export type Decision =
   | { act: 'add'; banner: BannerName; why: string }
   | { act: 'remove'; why: string }
   | { act: 'report'; why: string; kind: ReportKind }
-  | { act: 'skip'; why: string };
+  /**
+   * `needsRender` marks a refusal that could change once the page is rendered, so the
+   * cheap pre-render screen must let the page through instead of rejecting it.
+   *
+   * It is a FLAG rather than a pattern match on `why`, because the screen used to detect
+   * this by testing the Persian reason string for «نمایش» — so the day a new
+   * render-dependent refusal was added with a different wording (the citation-density
+   * floor, which reads `proseWords` and `renderedRefs`), the screen would have quietly
+   * rejected every removal candidate before it was ever rendered and the whole removal
+   * half of the task would have reported "nothing to do".
+   */
+  | { act: 'skip'; why: string; needsRender?: true };
 
 export type ReportKind =
   | 'یک منبع' | 'بخش بدون منبع' | 'اصلاح ترجمه'
@@ -178,7 +191,7 @@ export function decide(text: string, title: string, f: PageFacts): Decision {
   if (staleName) {
     if (strict) return { act: 'skip', why: 'برچسب هست و مقاله هنوز منبعی ندارد' };
     // The render must agree, or the wikitext is lying about what the page cites.
-    if (f.renderFailed) return { act: 'skip', why: 'نمایش صفحه گرفته نشد' };
+    if (f.renderFailed) return { act: 'skip', why: 'نمایش صفحه گرفته نشد', needsRender: true };
     if (f.renderedRefs < 1) {
       return { act: 'report', kind: 'ناسازگاری متن و نمایش',
         why: 'ویکی‌متن منبع دارد ولی در نمایش هیچ پانویسی دیده نمی‌شود' };
@@ -213,13 +226,44 @@ export function decide(text: string, title: string, f: PageFacts): Decision {
       return { act: 'report', kind: 'ردهٔ دستی بدون منبع',
         why: 'ردهٔ بی‌منبعی به‌دست در صفحه نوشته شده، نه با برچسب؛ برداشتن برچسب بس نیست' };
     }
-    return { act: 'remove', why: `${feats.refs_sourcing + feats.cite_outside_sourcing + feats.sfn} منبع واقعی دارد` };
+    // ---- is it sourced ENOUGH to call the banner stale? ------------------------------
+    //
+    // Until ۱۳ اکتبر ۲۰۲۶ this returned `remove` as soon as ONE real source existed, and
+    // it counted the general-bibliography bullets under «منابع» towards that one. That is
+    // the wrong test twice over, and the operator caught it on «هدهد»: 564 words of prose,
+    // a «منابع» list of seven items — one of them literally "Wikipedia contributors,
+    // Hoopoe" — and exactly ONE inline footnote in the whole article. The banner came off
+    // with the summary «مقاله اکنون منبع دارد», which is a claim the article does not
+    // support. «وسترن» was the same shape: 1,128 words, one footnote.
+    //
+    // Two changes, both in `inlineCitations` / `citationFloor` (source-detect.ts):
+    //
+    // 1. Only INLINE citations count. A bullet under «منابع» is a reading list: it is not
+    //    attached to any sentence, so it cannot be checked against a claim, and a reader
+    //    cannot tell which statement it is supposed to support. `cite_outside_sourcing`
+    //    and `genref_sourcing` are therefore excluded here — note they still count in
+    //    `isStrictUnsourced`, because for ADDING a banner every doubt must block, and a
+    //    bibliography is doubt. The two directions are deliberately asymmetric.
+    // 2. The count has to keep up with the article. One footnote on 500 words of prose is
+    //    not a sourced article; the floor scales with length (§3.9).
+    //
+    // Measured on the day's own removals: genuinely-sourced articles run 27–95 words per
+    // citation («کازرون» 27, «روی» 37, «ترابری ریلی» 79, «کمونالیسم» 95), while the two
+    // bad removals were 564 and 1,128. The floor sits far from both groups.
+    const inline = inlineCitations(feats, f.renderedRefs);
+    const floor = citationFloor(f.proseWords);
+    if (inline < floor) {
+      return { act: 'skip', needsRender: true,
+        why: `منبع درون‌متنی کم است: ${inline} پانویس برای ${f.proseWords} واژه ` +
+             `(کمینهٔ لازم ${floor})` };
+    }
+    return { act: 'remove', why: `${inline} پانویس درون‌متنی برای ${f.proseWords} واژه دارد` };
   }
 
   // ---- adding needs a clean slate ----------------------------------------------------
   const already = hasSourceBanner(text);
   if (already) return { act: 'skip', why: `از پیش الگوی «${already}» دارد` };
-  if (f.renderFailed) return { act: 'skip', why: 'نمایش صفحه گرفته نشد' };
+  if (f.renderFailed) return { act: 'skip', why: 'نمایش صفحه گرفته نشد', needsRender: true };
 
   if (bannerCount(text) >= 2) {
     return { act: 'report', kind: 'شلوغی بنر',

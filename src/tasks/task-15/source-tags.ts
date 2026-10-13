@@ -230,12 +230,17 @@ async function gatherRender(bot: Bot, title: string, f: PageFacts): Promise<Page
  * Only reasons that cannot change with rendering belong here; anything that depends on
  * `renderedRefs`, `foreignLinks` or `proseWords` must stay in `decide`, or the screen
  * would start making decisions of its own.
+ *
+ * The render-dependent refusals identify themselves with `needsRender`. This used to test
+ * the reason string for «نمایش» instead, which meant adding a render-dependent refusal
+ * worded any other way — the citation-density floor — would have had the screen reject
+ * every removal candidate before rendering it, and the run would have reported that there
+ * was nothing to remove anywhere on the wiki.
  */
 function rejectedWithoutRendering(text: string, title: string, f: PageFacts): string | null {
   const d = decide(text, title, { ...f, renderFailed: false, renderedRefs: 0, foreignLinks: 0,
     proseWords: Number.MAX_SAFE_INTEGER });
-  // A render-dependent verdict is not a rejection; let it through to be rendered.
-  if (d.act === 'skip' && !/نمایش/.test(d.why)) return d.why;
+  if (d.act === 'skip' && !d.needsRender) return d.why;
   return null;
 }
 

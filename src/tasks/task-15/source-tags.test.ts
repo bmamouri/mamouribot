@@ -11,6 +11,7 @@ import {
 } from './banners.js';
 import { decide, hasSourceBanner, STALE_NAMES, type PageFacts } from './decide.js';
 import { countRenderedRefs, errorMarkers } from './source-tags.js';
+import { citationFloor, inlineCitations, sourceFeatures } from './source-detect.js';
 
 let pass = 0;
 const fails: string[] = [];
@@ -124,12 +125,87 @@ check('the stamp is Persian digits',
   /^[^\d]+ [۰-۹]{4}$/.test(monthStamp(new Date('2026-10-12T00:00:00Z'))), monthStamp());
 
 // ---- §3.9 removal ----------------------------------------------------------------------
-const stale = '{{بدون منبع|تاریخ=مه ۲۰۲۰}}\nمتن.<ref>{{یادکرد کتاب|عنوان=الف}}</ref>';
+const stale = '{{بدون منبع|تاریخ=مه ۲۰۲۰}}\nمتن.<ref>{{یادکرد کتاب|عنوان=الف}}</ref>'
+  + '<ref>{{یادکرد وب|نشانی=https://example.com|عنوان=ب}}</ref>';
 check('a stale tag on a now-sourced article is removed',
-  act(stale, 'الف', { renderedRefs: 1 }).act === 'remove');
+  act(stale, 'الف', { renderedRefs: 2 }).act === 'remove');
 const removed = removeStaleTag(stale, STALE_NAMES)!;
 check('…taking its trailing newline with it',
-  removed.text === 'متن.<ref>{{یادکرد کتاب|عنوان=الف}}</ref>', JSON.stringify(removed.text));
+  removed.text === 'متن.<ref>{{یادکرد کتاب|عنوان=الف}}</ref>'
+    + '<ref>{{یادکرد وب|نشانی=https://example.com|عنوان=ب}}</ref>', JSON.stringify(removed.text));
+
+// ---- the citation-density floor: «هدهد», ۱۳ اکتبر ۲۰۲۶ -------------------------------
+// The removal bar used to be "one real source exists", and a bullet under «منابع» counted
+// as that source. «هدهد» (564 words of prose, seven bibliography bullets of which one was
+// the English Wikipedia article, exactly ONE inline footnote) lost its banner under the
+// summary «مقاله اکنون منبع دارد». «وسترن» was the same at 1,128 words and one footnote.
+// `inlineCitations` counts only what is attached to a sentence, and never more than the
+// render shows.
+check('a bibliography-only page has zero inline citations',
+  inlineCitations(sourceFeatures('متن.\n== منابع ==\n* {{یادکرد کتاب|عنوان=الف|ناشر=ب}}'), 0) === 0);
+check('two footnotes count two',
+  inlineCitations(sourceFeatures(
+    'متن.<ref>{{یادکرد کتاب|عنوان=الف|ناشر=ب}}</ref><ref>{{یادکرد وب|نشانی=https://e.com|عنوان=ج}}</ref>'), 2) === 2);
+check('the render caps the wikitext count',
+  inlineCitations(sourceFeatures(
+    'متن.<ref>{{یادکرد کتاب|عنوان=الف|ناشر=ب}}</ref><ref>{{یادکرد وب|نشانی=https://e.com|عنوان=ج}}</ref>'), 1) === 1);
+
+check('the floor is 2 citations for a short article', citationFloor(0) === 2);
+check('…and 2 still at 500 words', citationFloor(500) === 2);
+check('…3 at 501 words', citationFloor(501) === 3);
+check('…one per 250 words above that', citationFloor(2000) === 8);
+
+const oneFootnote = 'متن. '.repeat(50) + '<ref>{{یادکرد کتاب|عنوان=الف|ناشر=ب}}</ref>';
+const hodhod = '{{بدون منبع|تاریخ=مه ۲۰۲۰}}\n' + oneFootnote
+  + '\n== منابع ==\n{{پانویس}}\n* کتاب حکایت‌های عطار نیشابوری\n'
+  + '* [http://www.iranbirds.com/ پرندگان ایران]\n'
+  + '* Wikipedia contributors, "Hoopoe", http://en.wikipedia.org/wiki/Hoopoe\n';
+const hodhodVerdict = act(hodhod, 'هدهد', { renderedRefs: 1, proseWords: 564 });
+check('«هدهد» keeps its banner: one footnote for 564 words',
+  hodhodVerdict.act === 'skip', JSON.stringify(hodhodVerdict));
+check('…and the reason names the count, the length and the floor',
+  /۱|1/.test(hodhodVerdict.why) && hodhodVerdict.why.includes('564')
+    && hodhodVerdict.why.includes('3'));
+check('…and it is marked render-dependent, so the cheap screen lets it be rendered',
+  (hodhodVerdict as { needsRender?: true }).needsRender === true);
+check('«وسترن» keeps its banner too: one footnote for 1,128 words',
+  act('{{بدون منبع}}\n' + oneFootnote, 'وسترن',
+      { renderedRefs: 1, proseWords: 1128 }).act === 'skip');
+
+// A bibliography is not an inline citation, however long the list is.
+const bibliographyOnly = '{{بدون منبع}}\n' + 'متن. '.repeat(40)
+  + '\n== منابع ==\n' + '* {{یادکرد کتاب|عنوان=الف|ناشر=ب}}\n'.repeat(8);
+check('eight bibliography bullets and no footnote never clear the floor',
+  act(bibliographyOnly, 'الف', { renderedRefs: 0, proseWords: 400 }).act !== 'remove');
+
+// The density rule must not block a genuinely sourced article. These ratios are the
+// live ones measured on the first day's own removals.
+const manyRefs = (n: number) =>
+  Array.from({ length: n }, (_, i) =>
+    `متن.<ref>{{یادکرد کتاب|عنوان=ک${i}|ناشر=ن}}</ref>`).join(' ');
+check('«کمونالیسم»-shaped: 9 footnotes for 859 words is removed',
+  act('{{بدون منبع}}\n' + manyRefs(9), 'الف',
+      { renderedRefs: 9, proseWords: 859 }).act === 'remove');
+check('«کتاب مستطاب آشپزی»-shaped: 3 footnotes for 232 words is removed',
+  act('{{بدون منبع}}\n' + manyRefs(3), 'الف',
+      { renderedRefs: 3, proseWords: 232 }).act === 'remove');
+check('«روی»-shaped: a heavily cited long article is removed',
+  act('{{بدون منبع}}\n' + manyRefs(60), 'الف',
+      { renderedRefs: 60, proseWords: 9299 }).act === 'remove');
+check('a long article whose citations do not keep up is refused',
+  act('{{بدون منبع}}\n' + manyRefs(5), 'الف',
+      { renderedRefs: 5, proseWords: 9299 }).act === 'skip');
+
+// The render is the smaller, conservative opinion when the two disagree.
+check('wikitext claims many footnotes but the render shows two → the render wins',
+  act('{{بدون منبع}}\n' + manyRefs(20), 'الف',
+      { renderedRefs: 2, proseWords: 2000 }).act === 'skip');
+
+// A named-ref reuse has no body to classify but is still a citation on a sentence.
+check('a <ref name=x/> reuse counts towards the floor',
+  act('{{بدون منبع}}\nمتن.<ref name="a">{{یادکرد کتاب|عنوان=الف|ناشر=ب}}</ref>'
+      + ' متن.<ref name="a"/>', 'الف',
+      { renderedRefs: 2, proseWords: 300 }).act === 'remove');
 
 check('a SECTION use is never removed ({{منبع|بخش}})',
   removeStaleTag('{{منبع|بخش}}\nمتن.<ref>{{یادکرد کتاب|عنوان=الف}}</ref>', STALE_NAMES) === null);

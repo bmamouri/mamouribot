@@ -276,3 +276,58 @@ export function isStrictUnsourced(f: SourceFeatures): boolean {
     f.cite_outside_sourcing === 0 && f.sfn === 0 && f.http_external === 0 &&
     f.genref_sourcing === 0 && !f.isbn;
 }
+
+// ---------------------------------------------------------------------------
+// "sourced enough to take the banner off" — citation DENSITY, inline only
+// ---------------------------------------------------------------------------
+
+/**
+ * How many words of prose one inline citation is allowed to carry.
+ *
+ * Calibrated on وظیفهٔ ۱۵'s own first-day removals, which is the only population that
+ * matters here — the articles the bot actually judged sourced. Genuinely-sourced ones came
+ * in at 27–95 words per citation («کازرون» 27, «روی» 37, «ترابری ریلی» 79, «نوگرایی» 63,
+ * «کمونالیسم» 95, and the shortest, «کتاب مستطاب آشپزی», 77). The two the operator
+ * rejected were «هدهد» at 564 and «وسترن» at 1,128. 250 sits in the empty gap between the
+ * groups with a wide margin on both sides, and is roughly one citation per paragraph.
+ *
+ * Erring high is the safe direction: the only cost of refusing is that a maintenance
+ * banner stays on an article for another day, while the cost of removing wrongly is a
+ * false claim published in an edit summary over the operator's bot.
+ */
+export const WORDS_PER_CITATION = 250;
+
+/**
+ * No article is "sourced" on a single footnote, however short it is. A two-sentence stub
+ * with one citation is an article with one citation; the banner is not wrong enough to be
+ * worth a bot edit either way, so it stays and a human can judge.
+ */
+export const MIN_INLINE_CITATIONS = 2;
+
+/** The least number of inline citations an article of this length must carry. */
+export function citationFloor(proseWords: number): number {
+  return Math.max(MIN_INLINE_CITATIONS, Math.ceil(proseWords / WORDS_PER_CITATION));
+}
+
+/**
+ * Inline citations only — the ones attached to a sentence.
+ *
+ * `cite_outside_sourcing` (a citation template sitting loose in the page) and
+ * `genref_sourcing` (a bullet under «منابع») are deliberately NOT counted. They are a
+ * reading list: nothing ties them to a particular claim, so they cannot be verified
+ * against one, and «هدهد» had seven of them while one of the seven was the English
+ * Wikipedia article on the same bird. They still count in `isStrictUnsourced`, because
+ * that test guards ADDING a banner and there every doubt must block.
+ *
+ * `renderedRefs` is the number of footnote items the page actually renders, and it is the
+ * second, independent opinion: the wikitext count can be fooled by a ref inside a
+ * template or a malformed tag. The smaller of the two wins, so a disagreement always
+ * resolves towards refusing.
+ */
+export function inlineCitations(f: SourceFeatures, renderedRefs: number): number {
+  // A `<ref name="x"/>` reuse has no body to classify, so it is not in `refs_sourcing`;
+  // it is still a citation attached to a sentence. Count it.
+  const reuses = Math.max(0, f.refs - (f.refs_real + f.refs_ykw_only));
+  const fromWikitext = f.refs_sourcing + f.sfn + reuses;
+  return Math.min(fromWikitext, renderedRefs);
+}

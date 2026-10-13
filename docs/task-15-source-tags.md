@@ -28,6 +28,52 @@
 | two removals blocked by the gate | `removeStaleTag` took the tag and one newline, which is right mid-page but leaves `{{tag}}` + a blank line at the TOP as a page starting with a blank line — invisible in the render, visible in every diff |
 | «خرداد ۱۳۸۷» tagged | `DATE_PAGE` required a day number before the month, so a month-and-year page was not a date page to the rule. Reverted; see `scripts/archive/task15-revert-month-year-date-tag.py` |
 
+> **۱۳ اکتبر ۲۰۲۶, later the same day — the removal bar was wrong and 17 edits were
+> reverted.** The operator checked «هدهد» and rejected the removal: 564 words of prose,
+> seven bullets under «منابع» — one of them literally "Wikipedia contributors, Hoopoe" —
+> and exactly ONE inline footnote in the whole article, yet the banner came off under
+> «مقاله اکنون منبع دارد». The old test was "at least one real source exists", and it
+> counted the general-bibliography bullets as that source. Both halves are wrong:
+>
+> - **A bibliography is not a citation.** Nothing attaches a bullet under «منابع» to any
+>   sentence, so no claim can be checked against it and a reader cannot tell which
+>   statement it is meant to support. `inlineCitations()` counts footnotes and
+>   `{{پک}}`/sfn only. (`isStrictUnsourced` still counts bibliographies, because that
+>   test guards *adding* a banner and there every doubt must block — the two directions
+>   are deliberately asymmetric.)
+> - **The count has to keep up with the article.** `citationFloor()` requires one inline
+>   citation per 250 prose words, minimum 2. Prose words come from وظیفهٔ ۱۰'s
+>   `extractProse` over the rendered HTML, which keeps `<p>` text only and drops
+>   infoboxes, navboxes, tables and reference lists by tag and class — so template and
+>   markup bulk cannot inflate the denominator.
+>
+> The 250 was calibrated on this task's own removals, the only population that matters.
+> Genuinely-sourced articles came in at 27–95 words per citation («کازرون» 27, «روی» 37,
+> «ترابری ریلی» 79, «کمونالیسم» 95, and the shortest, «کتاب مستطاب آشپزی», 77). The
+> rejected ones were «هدهد» at 564 and «وسترن» at 1,128. The floor sits in the empty gap.
+>
+> **Scale of the defect:** re-measured every removal ever made — 38 as MamouriBot plus 21
+> in the trial — and **26 failed the new floor**, a 44% error rate on the removal half.
+> Five had already been re-tagged by someone («مولکول» was self-reverted on ۱۲ اکتبر;
+> «جورقان», «زویار», «جانویسلو» and «وسترن» picked up {{مدرک}} or {{بهبود منبع}}),
+> leaving 21 live. 17 were restored with
+> `scripts/archive/task15-restore-undercited-banners.py`, which puts the ORIGINAL banner
+> call back at its original spot — so «تمام‌نگاری» returned to
+> `رده:مقاله‌های بدون منبع از دسامبر ۲۰۱۹` rather than this month's — and leaves a page
+> alone if anyone re-tagged it or if its anchor text is gone. The remaining 4 are
+> 22–84-word stubs carrying one citation, where «بدون منبع» would be a false statement;
+> the operator chose to leave those as they are.
+>
+> **The near-miss worth remembering:** the cheap pre-render screen decided whether a
+> refusal was render-dependent by testing the Persian reason string for «نمایش». The new
+> density refusal is render-dependent and worded differently, so the screen would have
+> rejected **every** removal candidate before rendering it and the run would have reported
+> that there was nothing to remove anywhere on the wiki — a total silent loss of the
+> removal half, with no error and a clean log. `Decision` now carries an explicit
+> `needsRender` flag instead. A positive control was run after the fix: a 60-page dry run
+> through the real `run.sh` still produced 4 removals («راحت‌الحلقوم», «شهرستان سمیرم»,
+> «سوگواری محرم», «لوله»), each independently re-measured at 26–164 words per citation.
+
 > **Open for the operator:** 19 of the 196 were «N (عدد)» number articles. They are
 > genuinely unsourced and in scope, but they arrive in clumps because the candidate search
 > finds them together, and a reader seeing nineteen tagged in one day may read it as
@@ -195,7 +241,10 @@ criteria below are quoted or paraphrased from those docs. Redirect lists are in
 - **Trap:** `{{منبع|بخش}}` is a legacy section use of the same template. In a sample of
   40 tagged pages, 14 were section uses.
 - Live: 5,783 articles. 2,152 of those now contain `<ref`, i.e. stale tags. Removing
-  them is **in scope** (§3.9).
+  them is **in scope** (§3.9) — but `<ref` ANYWHERE is not the bar. «Contains a ref» was
+  roughly the test the task shipped with, and 44% of the removals it made were wrong:
+  §3.9 now requires one INLINE citation per 250 prose words, minimum 2, and does not count
+  bibliography bullets at all. So 2,152 is the upper bound on candidates, not on edits.
 
 ### 1.2 `{{بهبود منبع}}` ← en `{{More citations needed}}`
 - **Use only when there are some citations, but too few.**
