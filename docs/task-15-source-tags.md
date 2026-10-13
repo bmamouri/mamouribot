@@ -24,6 +24,14 @@
 > | the same title twice in one run | offset paging over a live search index repeats titles; the cached decision still said «add», so the page got a second banner — no error, right category, passes verify |
 > | «جنگ کره» refused | `verify` tested the new render for `class="error"` absolutely, and that article carries six cite errors of its own, so every long article with a broken citation was unreachable and our edit was blamed |
 > | three removals refused | the tag appears twice (or beside {{بخش بدون منبع}}); removing one leaves the page in the category, and the published reason named the symptom |
+| «عدسی (خوراکی)» refused | the article hard-codes `[[رده:مقاله‌های بدون منبع]]` at its foot, so taking the banner out leaves it in the category; removing a hand-placed category is a different edit and not in scope, so it is reported |
+| two removals blocked by the gate | `removeStaleTag` took the tag and one newline, which is right mid-page but leaves `{{tag}}` + a blank line at the TOP as a page starting with a blank line — invisible in the render, visible in every diff |
+| «خرداد ۱۳۸۷» tagged | `DATE_PAGE` required a day number before the month, so a month-and-year page was not a date page to the rule. Reverted; see `scripts/archive/task15-revert-month-year-date-tag.py` |
+
+> **Open for the operator:** 19 of the 196 were «N (عدد)» number articles. They are
+> genuinely unsourced and in scope, but they arrive in clumps because the candidate search
+> finds them together, and a reader seeing nineteen tagged in one day may read it as
+> spray. Excluding or throttling them is a judgement call, not a defect.
 >
 > **Start with §0 (handover).** It lists every decision the operator made and the build
 > steps in order. §1–§2 are the research behind those decisions. §3–§6 are the rules,
