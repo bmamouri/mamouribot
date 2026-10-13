@@ -12,6 +12,18 @@
 > Every banner carries `تاریخ=`, and the run creates the month's cleanup category when it
 > is missing (`ensureMonthlyCategories`); without that page the article lands in
 > `رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو` instead.
+
+> **Rollout log.** ۱۳ اکتبر ۲۰۲۶, first day as MamouriBot: 21 + 60 + 119 = 200 edits
+> (the declared daily cap), then `st-daily` takes over at 03:05 UTC. Every edit of the
+> first 81 was re-derived from the live pages with
+> `scripts/archive/task15-audit-live-edits.py` in the parent repo — 81/81 clean, pacing
+> min 18s — and three defects were found and fixed in the process:
+>
+> | found | why it mattered |
+> |---|---|
+> | the same title twice in one run | offset paging over a live search index repeats titles; the cached decision still said «add», so the page got a second banner — no error, right category, passes verify |
+> | «جنگ کره» refused | `verify` tested the new render for `class="error"` absolutely, and that article carries six cite errors of its own, so every long article with a broken citation was unreachable and our edit was blamed |
+> | three removals refused | the tag appears twice (or beside {{بخش بدون منبع}}); removing one leaves the page in the category, and the published reason named the symptom |
 >
 > **Start with §0 (handover).** It lists every decision the operator made and the build
 > steps in order. §1–§2 are the research behind those decisions. §3–§6 are the rules,
