@@ -1,0 +1,60 @@
+# وظیفهٔ ۱ — حذف الگوهای واردشدهٔ انگلیسی.   see the ⚠️ about `jobs load` below
+#
+# Approved by Huji, ۱۲ اکتبر ۲۰۲۶. The request declares «تناوب اجرا: یک‌بار (و در صورت
+# بازگشت الگو، گاه‌به‌گاه برای نگهداری)» and the operator asked on the request page for a
+# permanent run precisely because رده:صفحه‌های حاوی الگوی غیر بومی keeps refilling. Hence
+# a daily job rather than a one-off: the backlog (489 articles across the eight templates,
+# measured ۱۳ اکتبر ۲۰۲۶) drains in about three runs, after which each run has only the
+# day's new imports to clear.
+#
+# --delay 15 is the floor between writes; the request promises «دست‌کم ۱۰ ثانیه» and
+# docs/PACING.md keeps 15 as the house floor. 200 edits is therefore ~50 minutes.
+#
+# NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in
+# the directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127.
+# run.sh itself does `cd "$(dirname "$0")"`, so its own relative paths still resolve.
+#
+# ⚠️ `toolforge jobs load` SYNCS — it deletes scheduled jobs absent from the file it is
+# given, including the other twelve tasks' jobs, which live in their own jobs.yaml and
+# are NOT protected by this one. Use `toolforge jobs run` / `delete` per job instead.
+---
+# Step 0 — preflight: credentials, the bot flag, the emergency-stop page. Makes NO edits.
+- name: ud-check
+  command: ./task-01-use-dmy-dates/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/ud-check.out
+  filelog-stderr: logs/ud-check.err
+
+# Step 1 — enumerate and decide, write nothing. Prints every diff it would make.
+- name: ud-dry
+  command: ./task-01-use-dmy-dates/run.sh --limit 25
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/ud-dry.out
+  filelog-stderr: logs/ud-dry.err
+
+# Step 2 — the first live batch, deliberately small so every diff can be read before the
+# daily schedule exists. One-off: no `schedule:`.
+- name: ud-first
+  command: ./task-01-use-dmy-dates/run.sh --live --limit 20 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0          # never silently re-run a partial edit batch
+  emails: all
+  filelog-stdout: logs/ud-first.out
+  filelog-stderr: logs/ud-first.err
+
+# Step 3 — the approved daily run. 06:20 UTC is clear of وظیفهٔ ۱۵ (03:05), وظیفهٔ ۱۳
+# (03:17), وظیفهٔ ۳'s hourly job (every :25) and the two weeklies (04:40–04:55).
+- name: ud-daily
+  command: ./task-01-use-dmy-dates/run.sh --live --limit 200 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "20 6 * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/ud-daily.out
+  filelog-stderr: logs/ud-daily.err
