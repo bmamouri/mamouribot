@@ -161,6 +161,15 @@ interface FieldDef {
   field: string;
   /** the Persian canonical name we normalize TO (must be a real CS1 alias of this field) */
   canonical: string;
+  /**
+   * The ENGLISH-script canonical for the same field — used instead of `canonical` when
+   * the citation's OWN parameters are written in English. See `citationScript` for why
+   * this exists and the on-wiki edit that made it necessary: a lone Persian key dropped
+   * into an otherwise all-English `{{cite book}}` is correct per field and wrong for the
+   * citation as a whole. Only set on the three renaming families below; the dedupeOnly
+   * families never rename so there is nothing to choose between.
+   */
+  canonicalEn?: string;
   /** every alias of this field, underscore-normalized + lowercased */
   aliases: string[];
   /**
@@ -194,8 +203,9 @@ interface FieldDef {
   valueMap?: (sourceAlias: string, rawVal: string) => string;
   /** optional transform for the value actually WRITTEN, given the raw and the canonical.
    *  Separate from valueMap on purpose: two aliases must compare equal by meaning while
-   *  the surviving one is written in the preferred spelling. */
-  writeMap?: (rawVal: string, canonical: string) => string;
+   *  the surviving one is written in the preferred spelling. `lang` is the citation's
+   *  own script (see `citationScript`), so a value can match it too — not just the key. */
+  writeMap?: (rawVal: string, canonical: string, lang?: 'fa' | 'en') => string;
 }
 
 /** yes/no → dead/live for the legacy boolean dead-url aliases. */
@@ -236,20 +246,34 @@ function deadUrlValueMap(_sourceAlias: string, rawVal: string): string {
 }
 
 /**
- * The value actually WRITTEN. Persian, now that «مرده» and «زنده» are accepted spellings
- * in every CS1 config — the key «چگونگی پیوند» is Persian, so the value should be too.
+ * The value actually WRITTEN. Persian when the citation's OWN parameters are Persian,
+ * English when they are English (see `citationScript`) — the value should match the
+ * script of the key it is sitting in, same as the key itself now does.
  *
- * But only where the bot is translating anyway. A value the module already accepts is
- * left exactly as the editor wrote it: rewriting every existing «چگونگی پیوند=dead» to
- * «مرده» would be hundreds of edits that change nothing a reader sees, and the operator
- * asked for the opposite — new writes in Persian, existing English left alone.
+ * `canonical` here is `deadUrlValueMap`'s OUTPUT — the literal string `'dead'` or
+ * `'live'` whenever the raw value was RECOGNISED as that boolean (by either spelling:
+ * `yes`/`بله`/`dead`/`مرده`/…), and the raw value unchanged otherwise (`unfit`,
+ * `usurped`, `bot: unknown`, or anything not in the table). So this function translates
+ * exactly the two values that HAVE a Persian spelling, and never touches anything else —
+ * there is no Persian term for `usurped`, and an unrecognised value must never be
+ * guessed at.
+ *
+ * CAUGHT ON A LIVE EDIT (سیارک ۱۴۳۴۹، ۱۲ اکتبر ۲۰۲۶): a previous version of this
+ * function returned any ALREADY-ACCEPTED spelling (`dead`, `live`, `مرده`, `زنده`, …)
+ * untouched before ever checking the script, on the theory that a value the module
+ * already accepts needs no rewrite. That is true only when the FIELD itself is not
+ * being touched otherwise — but this function has no way to know that, and it fired on
+ * every merge too: `dead-url=yes` + `url-status=dead` merged into `|چگونگی پیوند =dead`,
+ * a Persian key with an English value, in the very citation whose key the bot had just
+ * renamed. The caller (`normalizeSpan`) now decides when NOT to call this function at
+ * all — see `fieldAlreadySettled` — so once this function is reached the value is
+ * always translated to match; there is no second "leave it alone" branch to get wrong
+ * here.
  */
-function urlStatusWrite(rawVal: string, canonical: string): string {
-  const raw = rawVal.trim();
-  if (ACCEPTED.includes(foldVal(raw))) return raw;          // already valid → untouched
-  if (canonical === 'dead') return 'مرده';
-  if (canonical === 'live') return 'زنده';
-  return raw;                                                // unrecognised → never guessed at
+function urlStatusWrite(_rawVal: string, canonical: string, lang: 'fa' | 'en' = 'fa'): string {
+  if (canonical === 'dead') return lang === 'en' ? 'dead' : 'مرده';
+  if (canonical === 'live') return lang === 'en' ? 'live' : 'زنده';
+  return _rawVal.trim();                                     // unrecognised → never guessed at
 }
 
 /**
@@ -276,16 +300,19 @@ const ALL_FIELDS: FieldDef[] = [
     // wrote it to get renamed back on the next pass.
     field: 'archive-url',
     canonical: 'پیوند بایگانی',
+    canonicalEn: 'archive-url',
     aliases: ['پیوند بایگانی', 'نشانی بایگانی', 'archive-url', 'archiveurl'],
   },
   {
     field: 'archive-date',
     canonical: 'تاریخ بایگانی',
+    canonicalEn: 'archive-date',
     aliases: ['تاریخ بایگانی', 'archive-date', 'archivedate'],
   },
   ...(ENABLE_URL_STATUS ? [{
     field: 'url-status',
     canonical: 'چگونگی پیوند',
+    canonicalEn: 'url-status',
     aliases: ['چگونگی پیوند', 'پیوند مرده', 'url-status', 'dead-url', 'deadurl'],
     valueMap: deadUrlValueMap,
     writeMap: urlStatusWrite,
@@ -553,6 +580,55 @@ function latinDigits(s: string): number {
 function isPersianName(key: string): boolean {
   return /[؀-ۿ]/.test(key);
 }
+
+/**
+ * Which SCRIPT a citation's own parameter names are already written in, so the archive
+ * rename can match it instead of forcing Persian onto an English-named citation.
+ *
+ * Caught on a live diff (ویرایش ۴۴۷۱۴۵۹۶ روی «نادیا اووسو»): a `{{cite book|last1=…}}`
+ * whose every OTHER parameter — `last1`, `first1`, `title`, `location`, `publisher`,
+ * `pages`, `volume`, `isbn` — is English got a single Persian key dropped into it:
+ * `|چگونگی پیوند=|پیوند بایگانی=|تاریخ بایگانی=`. Each rename is individually correct
+ * (every name is a declared CS1 alias of the right field), but the citation as a WHOLE
+ * now mixes two naming conventions for no reason a reader or editor can see, which is
+ * the opposite of the stated goal — «هم‌سان‌سازی» (making consistent). The task fixed
+ * one inconsistency (several names for the same field) by introducing another
+ * (two scripts in one citation).
+ *
+ * So the canonical a renaming family writes is chosen to match the citation's OWN
+ * convention: look at every OTHER parameter name already on the citation (never the
+ * field being decided — that would be circular) and vote on their script. Ties —
+ * including a citation with NO other params at all, e.g. a bare `{{cite web|dead-url=
+ * no}}` — default to Persian, the project's house style and the behaviour this task has
+ * always had, so nothing regresses for the common case where there is no signal either
+ * way.
+ *
+ * The TEMPLATE NAME is deliberately NOT a vote. `{{cite web}}` and `{{یادکرد وب}}` are
+ * the same template under two names — plenty of fa editors type `{{cite web}}` out of
+ * habit while writing every parameter in Persian, so the template name alone says
+ * nothing reliable about the parameters that follow it. Using it anyway was tried and
+ * broke exactly the case above: a bare `{{cite web|deadurl=no}}`, with no parameter
+ * besides the one field.being renamed, scored `en` from the template name alone and
+ * flipped a value that had always been Persian for no reason visible in the wikitext.
+ * The signal has to come from parameters that are actually there.
+ *
+ * Deliberately NOT per-field either. A citation does not get `پیوند بایگانی` from one
+ * rule and `archive-date` from another; the whole family moves together, the same way
+ * ARCHIVE_TODAY_FAMILY already treats it as one unit.
+ */
+export function citationScript(_templateName: string, segs: string[]): 'fa' | 'en' {
+  let fa = 0, en = 0;
+  for (let s = 1; s < segs.length; s++) {
+    const [keyRaw, val] = splitKey(segs[s]);
+    if (val === null) continue; // positional, no key to read
+    const alias = normalizeKey(keyRaw);
+    if (alias === 'ref' || ALIAS_TO_FIELD.has(alias)) continue; // not a signal: it IS the question
+    if (isPersianName(keyRaw)) fa++;
+    else if (/^[a-z][a-z0-9-]*$/i.test(alias)) en++; // author1, first2, … still count as English
+  }
+  return en > fa ? 'en' : 'fa';
+}
+
 function isCitationName(name: string): boolean {
   const n = normalizeKey(name);
   return n === 'یادکرد' || n.startsWith('یادکرد ') || n === 'cite' || n.startsWith('cite ') || n === 'citation';
@@ -622,6 +698,10 @@ function normalizeSpan(span: string): { out: string; changed: boolean; collision
   const conflicts: Conflict[] = [];
   const body = span.slice(2, -2);
   const segs = splitTopLevel(body);
+  // Which script the RENAMING families should write in — see citationScript. Computed
+  // once per citation: the archive family moves together, in one script, not field by
+  // field.
+  const script = citationScript(segs[0], segs);
 
   // classify params by field
   const byField = new Map<string, Hit[]>();
@@ -688,13 +768,19 @@ function normalizeSpan(span: string): { out: string; changed: boolean; collision
       continue;
     }
 
+    // The name this field's family writes for THIS citation — Persian or English,
+    // matching the citation's own convention (see citationScript). Only the renaming
+    // families (archive-url/-date/url-status) carry `canonicalEn`; a dedupeOnly family
+    // never renames, so `canonical` there is just the report-page label and unaffected.
+    const canonicalName = (script === 'en' && f.canonicalEn) ? f.canonicalEn : f.canonical;
+
     // choose which segment to KEEP: prefer one already at the canonical name, else a non-empty, else first
     const pool = nonEmpty.length ? nonEmpty : mapped;
     // Which SEGMENT survives, i.e. which parameter NAME the article keeps. For a
     // renaming family this barely matters, since the survivor is renamed to the
     // canonical anyway. For a dedupeOnly family it is the entire outcome: prefer the
     // canonical if it is present, then any Persian-script alias, then document order.
-    const keep = pool.find(h => normalizeKey(h.keyRaw) === normalizeKey(f.canonical))
+    const keep = pool.find(h => normalizeKey(h.keyRaw) === normalizeKey(canonicalName))
       ?? (f.dedupeOnly ? pool.find(h => isPersianName(h.keyRaw)) : undefined)
       ?? pool[0];
     // Of several values that compare equal, keep the one written most natively. Taking
@@ -708,7 +794,7 @@ function normalizeSpan(span: string): { out: string; changed: boolean; collision
     //      would be churn on a value nobody needs changed.
     //   2. then the existing letterform preference, for values that are otherwise equal.
     const writesUnchanged = (h: Hit & { mappedVal: string }) =>
-      f.writeMap ? (f.writeMap(h.rawVal, h.mappedVal) === h.rawVal.trim() ? 0 : 1) : 0;
+      f.writeMap ? (f.writeMap(h.rawVal, h.mappedVal, script) === h.rawVal.trim() ? 0 : 1) : 0;
     // Weights are ordered by how much each criterion matters, and the gaps are wide so
     // a lower-ranked preference can never overturn a higher one:
     //   1000s  a value the module already accepts (no pointless churn)
@@ -717,11 +803,26 @@ function normalizeSpan(span: string): { out: string; changed: boolean; collision
     const rank = (h: Hit & { mappedVal: string }) =>
       writesUnchanged(h) * 1000 + foreignness(h.mappedVal) * 10 + latinDigits(h.mappedVal);
     const chosen = nonEmpty.length ? nonEmpty.reduce((best, h) => rank(h) < rank(best) ? h : best) : keep;
-    const keptVal = f.writeMap ? f.writeMap(chosen.rawVal, chosen.mappedVal) : chosen.mappedVal;
+    // Whether to call writeMap AT ALL — i.e. whether this field is actually being
+    // edited, as opposed to a single alias that already sits at the canonical name for
+    // this script. That second case is the genuine NO-CHURN one: nothing else about the
+    // citation needs touching, so the value is left byte-for-byte, matching the request
+    // («existing values left alone»). The first case is a MERGE (≥2 aliases present) or
+    // a RENAME (the surviving key is not yet the canonical one) — the field is being
+    // edited regardless, so the value must come along in the SAME script as the key it
+    // is about to sit under.
+    //
+    // CAUGHT ON A LIVE EDIT (سیارک ۱۴۳۴۹، ۱۲ اکتبر ۲۰۲۶): the previous version skipped
+    // writeMap whenever the value was ALREADY a module-accepted spelling (`dead`,
+    // `live`, …), regardless of whether a merge was happening. `dead-url=yes` +
+    // `url-status=dead` merged into `|چگونگی پیوند =dead` — a Persian key carrying an
+    // English value, in the very citation whose key the bot had just rewritten.
+    const fieldUntouched = hits.length === 1 && normalizeKey(keep.keyRaw) === normalizeKey(canonicalName);
+    const keptVal = (f.writeMap && !fieldUntouched) ? f.writeMap(chosen.rawVal, chosen.mappedVal, script) : chosen.mappedVal;
 
     // rename kept → canonical (preserve the ORIGINAL key's leading/trailing space around the name)
     const m = keep.keyRaw.match(/^(\s*).*?(\s*)$/s)!;
-    const newKey = f.dedupeOnly ? keep.keyRaw : `${m[1]}${f.canonical}${m[2]}`;
+    const newKey = f.dedupeOnly ? keep.keyRaw : `${m[1]}${canonicalName}${m[2]}`;
     const needRename = keep.keyRaw !== newKey || keptVal !== keep.rawVal;
     if (needRename) { rename.set(keep.idx, { key: newKey, val: keptVal }); changed = true; }
 

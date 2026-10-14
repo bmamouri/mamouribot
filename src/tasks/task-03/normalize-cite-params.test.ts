@@ -1,5 +1,5 @@
 /** Unit tests for the citation-param normalizer.  npx tsx src/tasks/task-03/normalize-cite-params.test.ts */
-import { normalizeCiteParams, buildReview } from './normalize-cite-params.js';
+import { normalizeCiteParams, buildReview, citationScript } from './normalize-cite-params.js';
 
 let pass = 0, fail = 0;
 function t(name: string, input: string, check: (r: ReturnType<typeof normalizeCiteParams>) => string | null) {
@@ -51,9 +51,9 @@ t('url-status: dead-url=no → چگونگی پیوند=زنده',
   '{{cite web|deadurl=no}}',
   r => has(r, '|چگونگی پیوند=زنده'));
 
-t('url-status: dead-url=yes + url-status=dead (equal after map) → keep چگونگی پیوند=dead, drop dead-url',
+t('url-status: dead-url=yes + url-status=dead (equal after map) → merges to چگونگی پیوند, value translated too (fa citation, no other signal)',
   '{{یادکرد وب|url-status=dead|dead-url=yes}}',
-  r => lacks(r, 'dead-url=') || has(r, '|چگونگی پیوند=dead'));
+  r => lacks(r, 'dead-url=') || lacks(r, 'url-status=') || has(r, '|چگونگی پیوند=مرده'));
 
 t('url-status: dead-url=yes + url-status=live (dead≠live) → conflict, leave + manual review',
   '{{cite web|url-status=live|dead-url=yes}}',
@@ -241,14 +241,77 @@ t('NO CHURN: usurped stays English — no Persian term is in use for it',
   '{{یادکرد وب|عنوان=خ|چگونگی پیوند=usurped}}',
   r => r.changed ? 'must not touch usurped' : null);
 
-t('a legacy alias holding an already-valid value keeps the value, only the key moves',
+t('a legacy alias being renamed translates the value too, so key and value script match',
   '{{یادکرد وب|پیوند مرده=dead}}',
-  r => has(r, '|چگونگی پیوند=dead') || lacks(r, 'پیوند مرده'));
+  r => has(r, '|چگونگی پیوند=مرده') || lacks(r, 'پیوند مرده'));
 
-t('«بله» and an existing «dead» are the same statement, not a conflict',
+t('«بله» and an existing «dead» are the same statement, not a conflict — merging still translates the value',
   '{{یادکرد وب|dead-url=بله|چگونگی پیوند=dead}}',
-  r => (r.changed && !r.manualReview) ? (lacks(r, 'dead-url') || has(r, '|چگونگی پیوند=dead')) : 'should merge, keeping the already-valid spelling');
+  r => (r.changed && !r.manualReview) ? (lacks(r, 'dead-url') || has(r, '|چگونگی پیوند=مرده')) : 'should merge, translating the value to match the Persian key');
 
+
+// --- The VALUE must follow the KEY's script, not just stop at an already-accepted
+// spelling. Caught on a LIVE edit (سیارک ۱۴۳۴۹، ۱۲ اکتبر ۲۰۲۶): dead-url=yes merged with
+// url-status=dead produced |چگونگی پیوند =dead — a Persian key with an English value —
+// because the old urlStatusWrite returned any already-accepted spelling untouched
+// before ever checking which script the key had just been written in.
+
+t('REGRESSION (سیارک ۱۴۳۴۹): merging dead-url=yes into an existing url-status=dead'
+  + ' must translate the value, not just the key',
+  '{{یادکرد وب |نشانی = http://x |عنوان = y |تاریخ بایگانی = ۱۳ مه ۲۰۱۹ |dead-url = yes'
+  + ' |archive-date = ۱۹ مارس ۲۰۱۶ |url-status = dead }}',
+  r => has(r, '|چگونگی پیوند =مرده') || lacks(r, 'dead-url') || lacks(r, 'url-status')
+       || (r.text.includes('چگونگی پیوند') && r.text.includes('=dead') ? 'value stayed English' : null));
+
+t('the exact سیارک ۱۴۳۴۹ citation, reproduced in full: no Persian key ends up with an'
+  + ' English value',
+  '{{یادکرد وب |نشانی = http://starbase.jpl.nasa.gov/x |عنوان = فهرست |ناشر = ناسا'
+  + ' |تاریخ بازدید = ۱۴ مه ۲۰۱۹ |پیوند بایگانی = https://web.archive.org/a'
+  + ' |تاریخ بایگانی = ۱۳ مه ۲۰۱۹ |dead-url = yes |بازبینی = ۲ اكتبر ۲۰۰۹'
+  + ' |archive-date = ۱۹ مارس ۲۰۱۶ |archive-url = https://web.archive.org/b'
+  + ' |url-status = dead }}',
+  r => {
+    const m = r.text.match(/چگونگی پیوند\s*=\s*([^|}]*)/);
+    if (!m) return 'چگونگی پیوند should be present after the merge';
+    return m[1].trim() === 'مرده' ? null : `value should be مرده, got ${JSON.stringify(m[1])}`;
+  });
+
+t('url-status: a MERGE translates the value even when the merged-in value is already'
+  + ' English-accepted (یاور dead + پیوند مرده=بله، fa citation → مرده, not dead)',
+  '{{یادکرد وب|عنوان=خ|چگونگی پیوند=dead|پیوند مرده=بله}}',
+  r => {
+    const m = r.text.match(/چگونگی پیوند\s*=\s*([^|}]*)/);
+    return (m && m[1].trim() === 'مرده') ? null : `expected مرده, got ${r.text}`;
+  });
+
+t('url-status: the SAME merge in an English-scripted citation keeps the value English',
+  '{{cite web|last=A|first=B|title=T|url-status=dead|dead-url=yes}}',
+  r => {
+    const m = r.text.match(/url-status\s*=\s*([^|}]*)/);
+    return (m && m[1].trim() === 'dead') ? null : `expected dead, got ${r.text}`;
+  });
+
+t('NO-CHURN still holds: a lone, already-canonical چگونگی پیوند=dead with nothing else'
+  + ' to merge is left completely alone (this is the case the old shortcut was FOR)',
+  '{{یادکرد وب|عنوان=خ|چگونگی پیوند=dead}}',
+  r => r.changed ? 'a lone already-settled field must not be rewritten' : null);
+
+t('NO-CHURN still holds in English too: a lone url-status=live is untouched',
+  // `last=`/`first=` rather than `title=`: under CITE_WIDENED_SCOPE=1, `title` is
+  // itself one of the ten widened fields, so citationScript correctly excludes it from
+  // the signal (see its own doc comment — never the field being decided). `last=`/
+  // `first=` are never in ALIAS_TO_FIELD in either scope, so they stay an unambiguous
+  // English signal regardless of which fields are enabled.
+  '{{cite web|last=A|first=B|url-status=live}}',
+  r => r.changed ? 'a lone already-settled field must not be rewritten' : null);
+
+t('a RENAME (not just a merge) also translates the value: a lone legacy alias'
+  + ' moving to the canonical key brings its value into the same script',
+  '{{cite web|last=A|title=T|dead-url=yes}}',
+  r => {
+    const m = r.text.match(/url-status\s*=\s*([^|}]*)/);
+    return (m && m[1].trim() === 'dead') ? null : `expected dead, got ${r.text}`;
+  });
 
 // --- The manual-review page. The bot leaving a conflict alone is correct; leaving it
 // INVISIBLE is not. «ندا آقاسلطان» carried four, one pair fifteen years apart, and the
@@ -286,6 +349,68 @@ t('a citation the bot CAN fix records no conflict',
   // The page is cumulative (see review-store.ts), so the empty case cannot say «در این
   // اجرا»: it is a statement about the whole worklist, not about one run.
   if (!empty.includes('موردی برای بازبینی ثبت نشده')) { fail++; console.log('✗ empty review page does not say so'); } else pass++;
+}
+
+// ---------------------------------------------------------------------------
+// citationScript: which script a rename should match. Caught on a LIVE diff
+// (ویرایش ۴۴۷۱۴۵۹۶ روی «نادیا اووسو»): a `{{cite book|last1=…}}` whose every other
+// parameter is English got a lone Persian key dropped into it — each rename individually
+// correct, the citation as a whole newly inconsistent. See the doc comment on
+// citationScript for the full story.
+// ---------------------------------------------------------------------------
+
+t('an all-English citation keeps its archive params in English, not Persian',
+  '{{cite book|last1=Smith|first1=J.|title=A Book|url=http://a|archiveurl=http://a.arc'
+  + '|archivedate=2019|deadurl=no|publisher=P|isbn=1}}',
+  r => (has(r, '|archive-url=http://a.arc') || has(r, '|archive-date=2019')
+        || has(r, '|url-status=live') || has(r, 'last1=Smith')
+        || lacks(r, 'پیوند بایگانی') || lacks(r, 'تاریخ بایگانی') || lacks(r, 'چگونگی پیوند')));
+
+t('the exact citation from the Nadia Owusu diff: a lone Persian key must not appear',
+  '{{cite book |last1=Այվազյան|first1=Հ. Մ.|date=2005 (2007) |title=Ով ով է. հայեր'
+  + ' |url=http://anunner.example |deadurl= |location=Yerevan |publisher=Hayk'
+  + ' |pages= |volume=first |isbn= |archiveurl= |archivedate= |accessdate=}}',
+  r => lacks(r, 'چگونگی پیوند') || lacks(r, 'پیوند بایگانی') || lacks(r, 'تاریخ بایگانی'));
+
+t('an all-Persian citation keeps writing Persian, as it always has',
+  '{{یادکرد کتاب|نام خانوادگی=اسمیت|عنوان=کتابی|archiveurl=http://a|archivedate=2019|deadurl=no}}',
+  r => (has(r, '|پیوند بایگانی=http://a') || has(r, '|تاریخ بایگانی=2019')
+        || has(r, '|چگونگی پیوند=زنده') || lacks(r, 'archive-url') || lacks(r, 'archive-date')));
+
+t('mostly-English with no OTHER params at all still defaults to Persian (no regression)',
+  '{{cite web|deadurl=no}}',
+  r => has(r, '|چگونگی پیوند=زنده'));
+
+t('a tie between Persian and English other-params defaults to Persian',
+  '{{cite web|عنوان=خ|title=x|archive-url=http://a}}',
+  r => has(r, '|پیوند بایگانی=http://a'));
+
+t('url-status value also follows the citation script: English key AND English value',
+  '{{cite web|last=A|first=B|title=T|dead-url=yes}}',
+  r => has(r, '|url-status=dead') || lacks(r, 'چگونگی پیوند') || lacks(r, 'مرده'));
+
+t('url-status: an already-accepted value is left exactly as written, in either script',
+  '{{cite web|last=A|first=B|title=T|url-status=dead}}',
+  r => r.changed ? 'a lone already-valid alias/value must not be touched' : null);
+
+t('archive-date keeps a non-Persian script even when the kept SEGMENT was Persian-named',
+  '{{cite journal|last=A|first=B|title=T|نشانی بایگانی=http://a|archive-date=2019}}',
+  r => has(r, '|archive-url=http://a') || lacks(r, 'نشانی بایگانی') || lacks(r, 'پیوند بایگانی'));
+
+{
+  const en = '{{cite book|last1=S|first1=J|title=T|url=http://a}}'.slice(2, -2).split('|');
+  const fa = '{{یادکرد کتاب|نام خانوادگی=S|عنوان=T|نشانی=http://a}}'.slice(2, -2).split('|');
+  const tie = '{{cite web|عنوان=خ|title=x}}'.slice(2, -2).split('|');
+  const nothingElse = '{{cite web|dead-url=no}}'.slice(2, -2).split('|');
+  const check = (name: string, got: 'fa' | 'en', want: 'fa' | 'en') => {
+    if (got === want) { pass++; console.log(`✓ citationScript: ${name}`); }
+    else { fail++; console.log(`✗ citationScript: ${name}\n    expected ${want}, got ${got}`); }
+  };
+  check('all-English other-params → en', citationScript('cite book', en), 'en');
+  check('all-Persian other-params → fa', citationScript('یادکرد کتاب', fa), 'fa');
+  check('a tie defaults to fa', citationScript('cite web', tie), 'fa');
+  check('no other params at all defaults to fa (template name is not a vote)',
+    citationScript('cite web', nothingElse), 'fa');
 }
 
 // ---------------------------------------------------------------------------
