@@ -29,7 +29,7 @@ waits what it waits, and `docs/task-NN-*.md` for each task's own decisions.
 | # | directory | Task id | What it does |
 |---|---|---|---|
 | ۱ | `task-01/` | `remove-use-dmy-dates` | Removes the imported `{{Use dmy dates}}`, which renders nothing on fa.wiki and only populates a tracking category |
-| ۳ | `task-03/` | `normalize-cite-params` | Unifies the archive parameter names in citation templates (`archive-url`/`نشانی بایگانی` → `پیوند بایگانی`, `archive-date` → `تاریخ بایگانی`, the `dead-url` family → `چگونگی پیوند`) and drops `ref=harv` |
+| ۳ | `task-03/` | `normalize-cite-params` | Unifies the archive parameter names in citation templates (`archive-url`/`نشانی بایگانی` → `پیوند بایگانی`/`archive-url`, `archive-date` → `تاریخ بایگانی`/`archive-date`, the `dead-url` family → `چگونگی پیوند`/`url-status` — Persian or English chosen per citation to match its OWN other parameters, never a forced language) and drops `ref=harv` |
 | ۴ | `task-04/` | `company-deprecated-params` | Renames deprecated `جعبه اطلاعات شرکت` parameters, restoring field values the template was silently dropping |
 | ۴ | `task-04/` | `citation-dedup-accessdate` | The approved addition to task ۴: removes a duplicated access-date parameter where both copies hold the same date |
 | ۵ | `task-05/` | `empty-unknown-params.py` | Removes *empty* unknown citation parameters that raise a CS1 error (Python; to be ported to pywikibot) |
@@ -40,7 +40,7 @@ waits what it waits, and `docs/task-NN-*.md` for each task's own decisions.
 | ۱۰ | `task-10/` | `destub` | Removes stub tags from articles that are demonstrably no longer stubs |
 | ۱۱ | `task-11/` | `taxonomy-create-missing` | Creates missing taxonomy templates that task ۹ depends on |
 | ۱۲ | `task-12/` | `linkfix` | Repairs links the mass imports left in English: fa article if one exists, else an interwiki with a Persian label, else plain Persian text. Never invents a Persian name. Permission withheld pending three requests from the review, all now done. See `docs/task-12-linkfix.md` |
-| ۱۳ | `task-13/` | `reports-cli` | **Every database report this bot publishes**: the five «نیازمند تغییرنام» reports and the two درگاه reports daily, the featured-content ranking and the user-preferences overview weekly. Proposes only; writes pages and never edits an article. **Needs no permission and runs UNFLAGGED** (`flagEdits: false`) — see `docs/task-13-move-report.md` |
+| ۱۳ | `task-13/` | `reports-cli` | **Every database report this bot publishes**: the five «نیازمند تغییرنام» reports, the two درگاه reports and the four «ویکی‌های همسایه» reports daily, the featured-content ranking and the user-preferences overview weekly. Proposes only; writes pages and never edits an article. **Needs no permission and runs UNFLAGGED** (`flagEdits: false`) — see `docs/task-13-move-report.md` |
 | ۱۴ | `task-14/` | `population-box` | Places `{{جمعیت ایران}}`, the Wikidata-fed census trend box, on Iranian village articles. No number travels in the edit; replacing a hand-written box carries a deletion proof. See `docs/task-14-population.md` |
 
 **The directory name is the BRFA number**, zero-padded so it sorts, and it is the index
