@@ -12,7 +12,7 @@ never in the bot; it is now diagnosed and guarded against, so the run can resume
 | Self-reverted by the guard | **5** |
 | Processed | 75 |
 | Checkpoint | 729 done, 15 deferred (`~/state/normalize-cite-params.json`) |
-| Job | deleted; `mamouribot` runs only `empty-params`, `notelist-daily`, `destub-watch`, `destub-inventory-monthly` |
+| Job | deleted; `mamouribot` runs only `empty-params`, `notelist-watch`, `destub-watch`, `destub-inventory-monthly` |
 
 Every one of the 5 reverted pages was checked: the current revision is the bot's own
 revert and the wikitext is **byte-identical to the pre-bot state**. 5 of 5. No article is

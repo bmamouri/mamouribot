@@ -18,7 +18,7 @@ Consolidated ۸ اکتبر ۲۰۲۶: every job runs there, every task's resume c
 | Job | Task | Schedule | Command |
 |---|---|---|---|
 | `empty-params` | وظیفهٔ ۵ | `5 3 * * *` | `bot/empty-unknown-params.py` |
-| `notelist-daily` | وظیفهٔ ۶ | `23 4 * * *` | `mamouribot.mjs notelist-missing --live --delay 12` |
+| `notelist-watch` | وظیفهٔ ۶ | `*/15 * * * *` | `mamouribot.mjs notelist-missing --live --delay 12` |
 | `destub-watch` | وظیفهٔ ۱۰ | `*/10 * * * *` | `cd task-10-destub && node ../destub-watch.mjs --live` |
 | `destub-inventory-monthly` | وظیفهٔ ۱۰ | `0 2 1 * *` | `cd task-10-destub && node ../destub-inventory.mjs` |
 
@@ -27,10 +27,33 @@ Layout on the tool:
 ```
 ~/mamouribot.mjs            all-tasks bundle (run.ts)        ~/state/        BOT_STATE_DIR
 ~/destub-watch.mjs          وظیفهٔ ۱۰ poller                  ~/logs/         job logs
-~/destub-inventory.mjs      وظیفهٔ ۱۰ monthly inventory       ~/bot/          وظیفهٔ ۵ (Python)
+~/destub-inventory.mjs      وظیفهٔ ۱۰ monthly inventory       ~/bot/          وظیفهٔ ۵ (Python) ONLY
 ~/cite-scan-conflicts.mjs   وظیفهٔ ۳ review-page scanner      ~/task-NN-*/    per-task run dirs
 ~/gates.py                  the publish gate, beside the bundles
 ```
+
+⚠️ **`~/bot/` is NOT where the TypeScript bundle lives — a mistake that shipped a fix
+that silently did nothing for ~2 hours (۱۳ اکتبر ۲۰۲۶, وظیفهٔ ۳).** Every `task-NN/run.sh`
+execs its bundle **relative to its own directory** (`exec node ../mamouribot.mjs …` from
+inside `~/task-03-cite-params/`), which resolves to the **tool home** `~/mamouribot.mjs`
+— not `~/bot/mamouribot.mjs`. `~/bot/` exists only because وظیفهٔ ۵ is Python and keeps
+its own script there (`~/bot/empty-unknown-params.py`); it is not a general deploy
+target for the TypeScript bundle, despite looking like the obvious "the bot's files go
+in `bot/`" place to put one. Two redeploys that day went to `~/bot/mamouribot.mjs`,
+which built, gated, and copied over cleanly — and which **nothing on the box reads** —
+while the live cron kept running the stale `~/mamouribot.mjs` from three days earlier.
+The failure was silent because every verification step that day (`--check`, a live
+`toolforge jobs run … --wait` of `--check`) exercises credentials and the stop-key, not
+which bundle a scheduled job actually execs.
+
+**After deploying, always confirm the fix reached the file the SCHEDULED JOB's command
+line actually names** — read the job's own `--command`, follow the relative path from
+where it `cd`s, and grep THAT file for the new code:
+```sh
+become mamouribot bash -c 'grep -c <new-identifier-added-by-the-fix> ~/mamouribot.mjs'
+```
+`grep`-ing `~/bot/mamouribot.mjs` (or any path you merely *intended* to be the deploy
+target) proves nothing about what the cron job runs.
 
 **وظیفهٔ ۱۰ needs its own working directory.** Its state paths (`.state/destub/…`) are
 relative to the process CWD rather than `BOT_STATE_DIR`, so its jobs `cd ~/task-10-destub`
@@ -356,7 +379,7 @@ Finished one-off jobs stay in `jobs list` until deleted — clean up stale ones.
 | Secrets | `~/bot/.env` (chmod 600, MamouriBot bot-password) |
 | Deploy | pipe file over stdin through `become` (no scp) |
 | Jobs CLI | `become mamouribot toolforge jobs {run,list,logs,delete,restart}` |
-| Current jobs | `tools.mamouribot` only: `empty-params` (وظیفهٔ ۵) daily `5 3 * * *`; `notelist-daily` (وظیفهٔ ۶) daily `23 4 * * *`; `destub-watch` (وظیفهٔ ۱۰) `*/10 * * * *`; `destub-inventory-monthly` (وظیفهٔ ۱۰) `0 2 1 * *` |
+| Current jobs | `tools.mamouribot` only: `empty-params` (وظیفهٔ ۵) daily `5 3 * * *`; `notelist-watch` (وظیفهٔ ۶) every 15 min `*/15 * * * *`; `destub-watch` (وظیفهٔ ۱۰) `*/10 * * * *`; `destub-inventory-monthly` (وظیفهٔ ۱۰) `0 2 1 * *` |
 
 For the full operational history of the first bot (speed tuning, hang
 diagnosis, wrapper-template fixes), see the `task5-toolforge-deploy` agent

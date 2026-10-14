@@ -112,9 +112,32 @@ never esbuild by hand. See the warning in `TOOLFORGE.md`; a hand-rolled bundle
 makes every `isMain()` guard fire, and `destub-report`'s main publishes a report
 page when `--live` is in argv.
 
-Toolforge: tool `tools.mamouribot` (the only tool), job `notelist-daily`,
-`23 4 * * *` UTC, `--delay 12` (the BRFA promises ≥10s between edits).
-Definition saved at `~/bot/jobs.yaml` for `toolforge jobs load`.
+Toolforge: tool `tools.mamouribot` (the only tool), job `notelist-watch`,
+`*/15 * * * *` UTC, `--delay 12` (the BRFA promises ≥10s between edits — the run's
+own *frequency* is a separate commitment, the BRFA names it only as an example
+("اجرای دوره‌ای، برای نمونه هفتگی") rather than a cap, and 15-minute polling fits
+easily inside the per-write floor).
+
+Switched from daily (`23 4 * * *`) to every 15 minutes on ۱۱ اکتبر ۲۰۲۶, so an
+article freshly broken by a translation (the persian-alpha fallback — see above)
+gets its notes list restored within minutes rather than sitting silently broken
+for up to a day. The job itself is cheap to run often: `getTargets` re-renders
+only the pages currently in the tracking category (normally near-empty), and the
+≥10s-between-WRITES floor is unchanged, so this raises how often the category is
+*checked*, not how fast any single edit goes out.
+
+There is no `~/bot/jobs.yaml` on the box for this task (unlike tasks 3/8/12/13/14,
+whose job definitions are tracked files under `toolforge/task-NN-*/jobs.yaml` and
+loaded with `toolforge jobs load`) — the job was created with a bare
+`toolforge jobs run --schedule`. Recreating it after a tool rebuild means re-running
+that command (see below), not `jobs load`.
+
+```sh
+become mamouribot toolforge jobs run notelist-watch \
+  --command "cd /data/project/mamouribot && BOT_STATE_DIR=/data/project/mamouribot/state node mamouribot.mjs notelist-missing --live --delay 12" \
+  --image node20 --mem 1Gi --schedule "*/15 * * * *" \
+  --filelog-stdout logs/notelist-watch.out --filelog-stderr logs/notelist-watch.err
+```
 
 ## Status
 
