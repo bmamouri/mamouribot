@@ -86,3 +86,17 @@
   emails: onfailure
   filelog-stdout: logs/up-weekly.out
   filelog-stderr: logs/up-weekly.err
+
+# The four «ویکی‌های همسایه» reports (ar/ckb/mzn standalone, + a combined ar+tr+he
+# report). Reads wikidatawiki_p's wb_items_per_site rather than fawiki_p/enwiki_p, which
+# is why this needs its own job rather than piggybacking on mr-daily. Daily: sitelink
+# counts move slowly, but which candidate already has a fa article changes day to day,
+# same reasoning as pr-daily above.
+- name: nb-daily
+  command: ./task-13-move-report/run.sh --report neighbors --live
+  image: node20
+  mem: 1Gi
+  schedule: "10 5 * * *"
+  emails: onfailure
+  filelog-stdout: logs/nb-daily.out
+  filelog-stderr: logs/nb-daily.err

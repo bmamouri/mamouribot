@@ -45,11 +45,22 @@ export type Backend = 'auto' | 'direct' | 'ssh';
 const CREDENTIALS = join(homedir(), 'replica.my.cnf');
 const SSH_HOST = process.env.TOOLFORGE_SSH ?? 'mamouri@login.toolforge.org';
 const SSH_TOOL = process.env.TOOLFORGE_TOOL ?? 'mamouribot';
-/** Which wiki's replica to read. Each has its own host and database. */
-export type Wiki = 'fa' | 'en';
+/**
+ * Which wiki's replica to read. Each has its own host and database — the host is
+ * always the dbname with its trailing `_p` dropped, which is why وظیفهٔ ۱۳'s
+ * neighbour-wiki report (ar/ckb/mzn/tr/he, plus wikidatawiki for sitelink counts) could
+ * be added here without inventing a second naming scheme.
+ */
+export type Wiki = 'fa' | 'en' | 'wikidata' | 'ar' | 'ckb' | 'mzn' | 'tr' | 'he';
 const WIKIS: Record<Wiki, { db: string; host: string }> = {
   fa: { db: 'fawiki_p', host: 'fawiki.analytics.db.svc.wikimedia.cloud' },
   en: { db: 'enwiki_p', host: 'enwiki.analytics.db.svc.wikimedia.cloud' },
+  wikidata: { db: 'wikidatawiki_p', host: 'wikidatawiki.analytics.db.svc.wikimedia.cloud' },
+  ar: { db: 'arwiki_p', host: 'arwiki.analytics.db.svc.wikimedia.cloud' },
+  ckb: { db: 'ckbwiki_p', host: 'ckbwiki.analytics.db.svc.wikimedia.cloud' },
+  mzn: { db: 'mznwiki_p', host: 'mznwiki.analytics.db.svc.wikimedia.cloud' },
+  tr: { db: 'trwiki_p', host: 'trwiki.analytics.db.svc.wikimedia.cloud' },
+  he: { db: 'hewiki_p', host: 'hewiki.analytics.db.svc.wikimedia.cloud' },
 };
 
 export function chooseBackend(mode: Backend = 'auto'): Exclude<Backend, 'auto'> {

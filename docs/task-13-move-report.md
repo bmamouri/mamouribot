@@ -16,6 +16,10 @@ bundle (`toolforge/task-13-reports.mjs`):
 | درگاه‌های انگلیسی برای ترجمه | **enwiki** replica + AQS + fa existence check | daily, `pr-daily` |
 | کاربران بر پایه تعداد محتوای برگزیده | three hand-maintained گزیدن pages | weekly, `fc-weekly` |
 | ترجیحات کاربران | fawiki replica, `user_properties` | weekly, `up-weekly` |
+| مقالاتی که در ویکی‌عربی هست و در ویکی‌فا نیست | **wikidatawiki** replica, `wb_items_per_site` + ar/en existence checks | daily, `nb-daily` |
+| مقالاتی که در ویکی‌کردی هست و در ویکی‌فا نیست | همان، ckbwiki | daily, `nb-daily` |
+| مقالاتی که در ویکی‌مازندرانی هست و در ویکی‌فا نیست | همان، mznwiki | daily, `nb-daily` |
+| مقالاتی که در ویکی‌های خاورمیانه (عربی، ترکی، عبری) هست و در ویکی‌فا نیست | همان، ar+tr+he merged | daily, `nb-daily` |
 
 They have almost nothing in common in their data. They are the same **job**: propose
 something on a page, never touch an article, need no permission, go out unflagged so
@@ -130,6 +134,103 @@ deliberately not excluded.
 per-wiki host, because the candidates report reads enwiki. `articleTitles()` became a
 thin wrapper over it so the move report's behaviour did not move.
 
+
+### The four «ویکی‌های همسایه» reports (۱۳ اکتبر ۲۰۲۶)
+
+Four pages the user asked MamouriBot to take over, hand-run by three different editors
+(Ladsgroup, Yamaha5, Hamid Hassani) between 2014 and 2019 and frozen since ۱۷ آوریل ۲۰۲۱:
+
+| page | source wiki(s) |
+|---|---|
+| مقالاتی که در ویکی‌عربی هست و در ویکی‌فا نیست | ar |
+| مقالاتی که در ویکی‌کردی هست و در ویکی‌فا نیست | ckb (سورانی) |
+| مقالاتی که در ویکی‌مازندرانی هست و در ویکی‌فا نیست | mzn |
+| مقالاتی که در ویکی‌های خاورمیانه هست و در ویکی‌فا نیست | ar + tr + he, merged |
+
+**Sitelinks replace each wiki's own interlanguage-link count.** The old pages read each
+foreign wiki's OWN `langlinks` table — a number that meant something before Wikidata
+centralised interlanguage links and has drifted since. This version reads ONE number
+for all four reports: how many Wikimedia sites carry a sitelink to the item at all
+(`wb_items_per_site` on `wikidatawiki_p`), the same count Wikidata's own item page shows.
+Rows sort by it, highest first — the direct reading of "sort by whichever is most
+notable/connected," which is what the operator asked for when the bot took these over.
+
+**Inlined SQL, not a live Quarry call.** Same pattern as the two درگاه reports: the SQL
+is a named constant run straight through `queryRows()`, not a request to the Quarry web
+service. Quarry queues a job on a shared pool behind a login and has no SLA on when a
+run finishes — it is built for a human to press run and read the result, not for a daily
+cron. `wikidatawiki_p` joins the same way `fawiki_p`/`enwiki_p` already did; `replica.ts`
+only needed its per-wiki host table widened (`wikidata`, `ar`, `ckb`, `mzn`, `tr`, `he`),
+nothing structural.
+
+**Structural pages are excluded by two layers, not one.** A naive top-N by raw sitelink
+count is dominated by cross-wiki infrastructure: `قالب:Wikitext talk page converted to
+Flow` carries 503 sitelinks, `تصنيف:مستخدم zh-Hant` carries 304, `وحدة:Navbar/configuration`
+127 — none of them an article anyone could translate. Measured on عربی ۱۳ اکتبر ۲۰۲۶: of
+the top 30 candidates by raw sitelink count, only 3 were real articles.
+
+1. a SQL prefilter, `ips_site_page NOT LIKE '%:%'` — cheap, and also a real performance
+   win (fewer rows reach the per-item sitelink-count subquery), but only a superset test.
+2. the AUTHORITATIVE check — querying the SOURCE wiki's own `page` table for
+   `page_namespace = 0 AND page_is_redirect = 0` on the survivors — is what actually
+   decides a row ships. Nothing is trusted on the SQL prefilter's say alone, the same
+   discipline `replica.ts`'s header already states for this task's other reports: SQL
+   stays dumb, the rules that decide what ships live in TypeScript.
+
+**The merge for «ویکی‌های خاورمیانه» happens in TypeScript, not SQL.** A single query
+across all three site IDs with a correlated per-item sitelink-count subquery and a
+`GROUP BY` timed out past 90 seconds on `wikidatawiki_p` (measured). Three separate
+single-site queries — the same shape already proven fast (~45s) for each of the other
+three reports — run well under a minute each; `mergeCandidates()` then combines them by
+item, keeping the larger sitelink count (the two wikis' copies of `wb_items_per_site`
+can be a few minutes out of replication sync with each other; the larger number is the
+fresher one, never a sum) and the union of which source wiki(s) carried it.
+
+**A residual false positive, caught by the publish gate rather than missed.** A few
+en.wikipedia articles are themselves titled a single Perso-Arabic letter — enwiki has
+«ب», the mirror of «Ñ»/«Š», which `move-report.ts`'s own rules already treat as real
+titles. `[[:en:ب]]` is byte-identical to the mistake `gates.py`'s
+`audit_en_interwiki_persian` exists to catch (a porter `:en:`-prefixing a title that is
+already Persian), so the gate correctly refused to publish it. Rather than loosen the
+gate, the en-title lookup drops any title containing a Perso-Arabic letter before it
+ever reaches the page — the source-wiki link already shows the reader the subject, so
+nothing is lost by leaving that cell blank.
+
+### The redirect-bridge bug — caught by the operator ۱۳ اکتبر ۲۰۲۶
+
+**The report was live for less than a day before the operator found real false
+positives in it.** مازندرانی «صنعت» was listed as missing from fa; it is not —
+«تولید (صنعت)» already covers it. عربی «هواء» the same way, against «اتمسفر زمین».
+
+**Why `NOT EXISTS an fa sitelink for this item` was not enough.** It is correct for the
+item it checks; the bug is that it can be checking the wrong item. مازندرانی «صنعت» sits
+on Wikidata item Q8148 ("Industry (manufacturing)"), and Q8148 genuinely has no fa
+sitelink. But Q8148's OWN enwiki sitelink — "Industry (manufacturing)" — is itself a
+local `#REDIRECT` on en.wikipedia to "Manufacturing", which belongs to a **different**
+item, Q187939, and Q187939 has fa:«تولید (صنعت)». An item-level sitelink check can never
+see that: the fa sitelink that matters is on a different item than the one being asked.
+«هواء» is the same shape one level further: Q7391292 ("Air") → enwiki redirect →
+"Atmosphere of Earth" → Q3230 → fa:«اتمسفر زمین».
+
+**The fix bridges through en.wikipedia's own redirect graph directly**, the same
+move `portal-reports-run.ts`'s `faTopics()` already makes for a different reason
+(resolving a candidate's Persian name). One
+`action=query&redirects=1&prop=langlinks&lllang=fa` call on en.wikipedia itself is
+enough — and it resolves the **whole** chain server-side, not just one hop: tested
+live against `Special:DoubleRedirects`, a two-hop case ("Woody weedkiller" →
+"2,4-Dichlorophenoxyacetic acid" → "2,4-D") came back fully resolved in a single
+response, every hop listed and the final page's langlinks attached. So a candidate is
+dropped whenever its OWN enwiki sitelink, followed wherever it currently redirects,
+turns out to already carry an fa langlink — never mind which Wikidata item the final
+page happens to belong to. `resolveRedirectChain()` walks the API's own `from → to`
+pairs rather than trusting that it is always exactly one hop, because trusting an
+unenforced invariant is exactly how the bug went unnoticed the first time; a redirect
+loop terminates rather than spinning.
+
+**Cost.** One extra batch of en.wikipedia API calls (50 titles per request, same cap
+`unverifiedEnTargets` in `linkfix.ts` uses), run once per site and shared across every
+report that reads that site — the mideast report does not re-check عربی, ترکی and عبری
+a second time on top of the three standalone reports.
 
 ## Renamed ۱۰ اکتبر ۲۰۲۶ — «برای انتقال مقاله» → «مقاله‌های نیازمند تغییرنام»
 
