@@ -215,6 +215,40 @@ def audit_broken_file_link(text: str):
     return bad
 
 
+def audit_link_brackets(text: str):
+    """Flag an unbalanced wikilink: a `]]` with no `[[`, or a `[[` never closed.
+
+    The failure mode is a hand-built link where only the CLOSING brackets were
+    written — `{'[[' + title + ']]'}` with the opener dropped, or a title spliced
+    in without its wrapper. MediaWiki then renders the title as plain prose plus
+    a stray `]]`, and nothing raises: no cite error, no redlink, no tracking
+    category, no change in any count a render check compares. It shipped once
+    this way in a `جستارهای وابسته` entry.
+
+    Valid links are removed innermost-first (an outer match cannot span a `[[`
+    or `]]`, so a nested or adjacent link does not hide the damage), and opaque
+    regions are masked first — a `]]` inside `<nowiki>` or a code sample is
+    display text, not a link.
+    """
+    masked = mask_opaque(text)
+    # Mask single-bracket EXTERNAL links first: `[url متن]` inside a file-link
+    # caption is enough for `[^\[\]]*` to fail, which would report the enclosing
+    # `[[پرونده:…]]` as an unclosed opener. Real occurrences: `خمینی در هواپیما.JPG`
+    # and `Bakhtiar D8.jpg` both carry a `[http://… ]` footnote inside the caption.
+    masked = re.sub(r'(?<!\[)\[[^\[\]]*\](?!\])',
+                    lambda m: '\x00' * len(m.group(0)), masked)
+    rest = masked
+    while True:
+        stripped = re.sub(r'\[\[[^\[\]]*\]\]', '', rest)
+        if stripped == rest:
+            break
+        rest = stripped
+    hits = []
+    for m in re.finditer(r'\[\[|\]\]', rest):
+        hits.append(re.sub(r'\s+', ' ', rest[max(0, m.start() - 40):m.start() + 40]))
+    return hits
+
+
 def audit_whitespace_tail(text: str):
     """Flag blank-line damage left behind by a splice.
 
@@ -772,6 +806,9 @@ _TEXT_AUDITS = [
     ('broken_file_link', audit_broken_file_link,
      'File link mangled by a link sweep — the image options print as body text, '
      'with no error and no bracket-count change: %s'),
+    ('link_brackets', audit_link_brackets,
+     'unbalanced wikilink — a «]]» with no «[[» (or vice versa) renders the title '
+     'as plain prose plus a stray «]]», raising nothing: %s'),
     ('signature', audit_signature,
      'signature leak: MediaWiki will bake «Mamouri (بحث) …» into the page: %s'),
     ('dashes', audit_dashes,

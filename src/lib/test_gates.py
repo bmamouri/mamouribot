@@ -60,6 +60,33 @@ expect('comments', lambda t: [] if gates.audit_comments(t) else ['x'],
 expect('signature', gates.audit_signature, 'BS|uHST~~ایستگاه~~~~متن', True, 'collapsed ~~')
 expect('signature', gates.audit_signature, 'BS|uHST~~ایستگاه~~ ~~متن', False, 'spaced ~~')
 
+# ---------------------------------------------------------------- link brackets
+# A hand-built link with only the CLOSING brackets: the title renders as plain
+# prose plus a stray «]]», and nothing raises — no cite error, no redlink, no
+# tracking category, no change in any count a render check compares.
+expect('link_brackets', gates.audit_link_brackets,
+       '* سخنرانی سید روح‌الله خمینی در بهشت زهرا]]', True, 'closer without opener')
+expect('link_brackets', gates.audit_link_brackets,
+       'متن [[حسینعلی منتظری و ادامهٔ گفتار', True, 'opener never closed')
+expect('link_brackets', gates.audit_link_brackets,
+       '* [[سخنرانی حسینعلی منتظری در ۱۳ رجب|سخنرانی ۱۳ رجب]]', False, 'piped link')
+expect('link_brackets', gates.audit_link_brackets,
+       '[[حسینعلی منتظری]] و [[ولایت فقیه]] {{•}} [[قم]]', False, 'several links')
+expect('link_brackets', gates.audit_link_brackets,
+       '{{اصلی|سخنرانی سید روح‌الله خمینی در بهشت زهرا}}', False, 'template arg')
+expect('link_brackets', gates.audit_link_brackets,
+       '[[پرونده:X.jpg|بندانگشتی|[[حسینعلی منتظری]]]]', False, 'nested file link')
+expect('link_brackets', gates.audit_link_brackets,
+       '<nowiki>]] اینجا نمایشی است</nowiki>', False, 'brackets inside nowiki')
+expect('link_brackets', gates.audit_link_brackets,
+       '[[رده:حسینعلی منتظری]]\n[[رده:ولایت فقیه]]', False, 'categories')
+expect('link_brackets', gates.audit_link_brackets,
+       '[[پرونده:X.jpg|بندانگشتی|[[الف]] در حال <ref>[http://a.example ب]</ref>]]',
+       False, 'external link inside a caption (خمینی در هواپیما.JPG)')
+expect('link_brackets', gates.audit_link_brackets,
+       '* [[آرامگاه روح‌الله خمینی]]\n* سخنرانی سید روح‌الله خمینی در بهشت زهرا]]',
+       True, 'see-also entry with only the closer')
+
 # ---------------------------------------------------------------- dashes
 expect('dashes', gates.audit_dashes, 'او — که شاعر بود — رفت', True, 'em dash U+2014')
 expect('dashes', gates.audit_dashes, 'سال‌های ۱۸۵۸–۱۸۶۴ و قزوینی–غنی', False,
