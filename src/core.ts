@@ -24,7 +24,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { Pacer, RunRegistry } from './pacing.js';
 import { brfaPage, fitsSummaryLimit, withBrfaLink } from './brfa.js';
 import { dirname } from 'path';
-import { isKnown, isParked, loadCheckpoint, markDeferred, markDone, serializeCheckpoint } from './lib/checkpoint.js';
+import { isKnown, isParked, loadCheckpoint, markClean, markDeferred, markDone, serializeCheckpoint } from './lib/checkpoint.js';
 
 // --- .env loader (same inline pattern as the rest of the repo) ---
 // Optional: on Toolforge there is no .env — credentials arrive as real environment
@@ -826,7 +826,15 @@ export class Bot {
         if (item.kind === 'optout') { skipped++; markDone(cp, item.title); saveState(); console.log(`  ⊘ ${item.title} — {{nobots}}/{{bots}} (رد شد)`); continue; }
         if (item.kind === 'nochange') {
           if (item.manual) { regressed++; markDeferred(cp, item.title); saveState(); console.log(`  ⚠ ${item.title} — ${item.note ?? 'نیازمند بازبینی دستی'} — رد شد`); }
-          else { nomatch++; console.log(`  ? ${item.title} — تغییری حاصل نشد${item.note ? ' ('+item.note+')' : ''}`); }
+          else {
+            // Record it. Without this the checkpoint never grows on a page that needed no
+            // work, and a capped run over a frozen list re-takes the identical first N
+            // unparked titles every time — وظیفهٔ ۳ spun on the same 250 for nine days
+            // with a clean exit code. `markClean` expires after CLEAN_TTL_DAYS so a page
+            // that breaks later is not hidden permanently.
+            nomatch++; markClean(cp, item.title); saveState();
+            console.log(`  ? ${item.title} — تغییری حاصل نشد${item.note ? ' ('+item.note+')' : ''}`);
+          }
           continue;
         }
         if (item.kind === 'error') { console.error(`  ✗ ${item.title}: ${item.msg}`); continue; }

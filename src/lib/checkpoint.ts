@@ -19,9 +19,29 @@ export interface Checkpoint {
   done: Record<string, number>;
   /** title → epoch ms when it was last parked for a human */
   deferred: Record<string, number>;
+  /**
+   * title → epoch ms when the task looked and found NOTHING TO DO.
+   *
+   * A third bucket, not folded into `done`, because the two mean different things and
+   * want different lifetimes. `done` is "we changed this"; `clean` is "we looked, the
+   * page did not need us". Recording it is not optional bookkeeping — leaving it out
+   * wedged وظیفهٔ ۳ for nine days (see CLEAN_TTL_DAYS).
+   */
+  clean: Record<string, number>;
   /** true when this was read from the pre-timestamp array format */
   migrated: boolean;
 }
+
+/**
+ * How long a "nothing to do here" verdict is trusted.
+ *
+ * Not the task's own `recheckAfterDays`, and deliberately never infinite. A page that
+ * needs no work today can acquire the defect tomorrow, so a permanent clean stamp would
+ * hide it forever in a task whose target list is defect-driven. 30 days bounds that to one
+ * month while still letting a capped run walk a frozen list of 80,000 titles — which takes
+ * about 13 days at وظیفهٔ ۳'s rate — without the start of the list expiring behind it.
+ */
+export const CLEAN_TTL_DAYS = 30;
 
 /**
  * Parse whatever is on disk, tolerating the legacy `{done: [...], deferred: [...]}`.
@@ -52,11 +72,14 @@ export function loadCheckpoint(raw: unknown, now = Date.now()): Checkpoint {
   };
   const done = coerce(obj.done);
   const deferred = coerce(obj.deferred);
-  return { done, deferred, migrated };
+  // Absent in v1/v2 files: an older checkpoint simply has no clean verdicts recorded, and
+  // those pages get looked at once more. That is the safe direction.
+  const clean = coerce(obj.clean);
+  return { done, deferred, clean, migrated };
 }
 
 export function serializeCheckpoint(cp: Checkpoint): string {
-  return JSON.stringify({ v: 2, done: cp.done, deferred: cp.deferred });
+  return JSON.stringify({ v: 3, done: cp.done, deferred: cp.deferred, clean: cp.clean });
 }
 
 /**
@@ -66,6 +89,9 @@ export function serializeCheckpoint(cp: Checkpoint): string {
  * present in either set → always skipped.
  */
 export function isParked(cp: Checkpoint, title: string, recheckAfterDays = 0, now = Date.now()): boolean {
+  // A clean verdict always expires, whatever the task says about its own TTL.
+  const cleanAt = cp.clean[title];
+  if (cleanAt !== undefined && now - cleanAt < CLEAN_TTL_DAYS * 86400_000) return true;
   const at = cp.done[title] ?? cp.deferred[title];
   if (at === undefined) return false;
   if (!recheckAfterDays) return true;
@@ -74,7 +100,8 @@ export function isParked(cp: Checkpoint, title: string, recheckAfterDays = 0, no
 
 /** has this title been seen before, regardless of whether it is still parked? */
 export function isKnown(cp: Checkpoint, title: string): boolean {
-  return cp.done[title] !== undefined || cp.deferred[title] !== undefined;
+  return cp.done[title] !== undefined || cp.deferred[title] !== undefined
+    || cp.clean[title] !== undefined;
 }
 
 /**
@@ -86,9 +113,31 @@ export function isKnown(cp: Checkpoint, title: string): boolean {
 export function markDone(cp: Checkpoint, title: string, now = Date.now()) {
   cp.done[title] = now;
   delete cp.deferred[title];
+  // …and any earlier clean verdict: the page did need work after all, and leaving both
+  // stamps would let the shorter-lived one decide how long the page stays parked.
+  delete cp.clean[title];
 }
 
 export function markDeferred(cp: Checkpoint, title: string, now = Date.now()) {
   cp.deferred[title] = now;
   delete cp.done[title];
+  delete cp.clean[title];
+}
+
+/**
+ * Record that the task looked at this title and found nothing to change.
+ *
+ * MUST be called for that outcome. Every other verdict — edited, missing, opted out,
+ * parked for review — wrote to the checkpoint, and "nothing to do" alone wrote nothing.
+ * For a task that walks a FROZEN list under a `--limit` cap that is a permanent wedge, not
+ * a slow leak: the run takes the first N titles that are not parked, and if those N all
+ * come back "nothing to do" then nothing is recorded, so the next run takes the very same
+ * N. وظیفهٔ ۳ sat on the identical 250 titles, starting «سزار ای. رادنی», every hour for
+ * nine days — exit code 0, no error in the log, «پردازش=250» every time, and the
+ * «پردازش‌شدهٔ پیشین» counter frozen at 6,999 as the only visible symptom.
+ */
+export function markClean(cp: Checkpoint, title: string, now = Date.now()) {
+  cp.clean[title] = now;
+  delete cp.done[title];
+  delete cp.deferred[title];
 }

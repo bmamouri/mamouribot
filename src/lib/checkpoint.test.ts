@@ -7,7 +7,8 @@
  *   npx tsx scripts/lib/checkpoint.test.ts
  */
 import {
-  isKnown, isParked, loadCheckpoint, markDeferred, markDone, serializeCheckpoint,
+  CLEAN_TTL_DAYS, isKnown, isParked, loadCheckpoint, markClean, markDeferred, markDone,
+  serializeCheckpoint,
 } from './checkpoint.js';
 
 const DAY = 86400_000;
@@ -87,6 +88,52 @@ function check(name: string, cond: boolean) {
   const cp = loadCheckpoint({}, NOW);
   check('absent state is empty and not a migration',
     Object.keys(cp.done).length === 0 && cp.migrated === false);
+}
+
+// ---- the clean bucket: the وظیفهٔ ۳ wedge, ۱۸ اکتبر ۲۰۲۶ ----------------------------
+// A "nothing to do" verdict wrote nothing to the checkpoint, so a capped run over a frozen
+// list re-took the identical first N unparked titles every hour. This is that bug, written
+// as the test that would have caught it.
+{
+  const cp = loadCheckpoint({}, NOW);
+  const list = ['آ', 'ب', 'پ', 'ت'];
+  const limit = 2;
+  const walk = (at: number) => list.filter(x => !isParked(cp, x, 0, at)).slice(0, limit);
+  const first = walk(NOW);
+  check('a capped run takes the first two titles', first.join() === 'آ,ب');
+  for (const x of first) markClean(cp, x, NOW);
+  check('the next run moves on to the next two instead of repeating',
+    walk(NOW + 3600_000).join() === 'پ,ت');
+}
+{
+  const cp = loadCheckpoint({}, NOW);
+  markClean(cp, 'آ', NOW);
+  check('a clean title is parked while the verdict is fresh', isParked(cp, 'آ', 0, NOW + DAY));
+  check('…and NEVER permanently, whatever the task asks for',
+    isParked(cp, 'آ', 0, NOW + (CLEAN_TTL_DAYS + 1) * DAY) === false);
+  check('a task with no recheckAfterDays still parks an EDITED page forever',
+    (() => { const c = loadCheckpoint({}, NOW); markDone(c, 'ب', NOW);
+             return isParked(c, 'ب', 0, NOW + 3650 * DAY); })());
+}
+{
+  const cp = loadCheckpoint({}, NOW);
+  markClean(cp, 'آ', NOW);
+  markDone(cp, 'آ', NOW + DAY);
+  check('editing a page later clears its clean stamp',
+    cp.clean['آ'] === undefined && cp.done['آ'] === NOW + DAY);
+  markClean(cp, 'آ', NOW + 2 * DAY);
+  check('…and a later clean verdict clears the done stamp',
+    cp.done['آ'] === undefined && cp.clean['آ'] === NOW + 2 * DAY);
+}
+{
+  const cp = loadCheckpoint({}, NOW);
+  markClean(cp, 'آ', NOW);
+  const again = loadCheckpoint(JSON.parse(serializeCheckpoint(cp)), NOW + DAY);
+  check('clean survives a serialize → load round trip', again.clean['آ'] === NOW);
+  check('a v2 file with no clean key loads as empty, not undefined',
+    Object.keys(loadCheckpoint({ done: { x: NOW } }, NOW).clean).length === 0);
+  check('a page only ever seen as clean counts as known',
+    isKnown(again, 'آ') === true);
 }
 
 console.log(failed ? `\n${failed} FAILED` : '\nall checkpoint tests passed');
