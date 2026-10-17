@@ -180,6 +180,20 @@ Roughly four harvests clear the backlog.
 **Trigger.** Runs start reporting mostly «موردی برای هم‌سان‌سازی نبود» — or just every
 couple of weeks. ~80,450 titles at ~5,500 edits/day is about two weeks per list.
 
+⚠️ **That trigger has a second, unrelated cause — check it FIRST, because a re-harvest
+hides it.** On ۱۸ اکتبر ۲۰۲۶ the runs were 250/250 «موردی برای هم‌سان‌سازی نبود» and the
+list looked spent; it was not. A sample of the *unwalked* titles in the same list was **90%
+productive**. The job was re-processing the identical 250 titles every hour because a
+"nothing to do" verdict was never written to the checkpoint (fixed: `clean` bucket, core
+`markClean`). The tell is the **«پردازش‌شدهٔ پیشین» counter not moving between runs**:
+
+```bash
+ssh mamouri@login.toolforge.org 'become mamouribot grep "هدف‌ها:" \
+  /data/project/mamouribot/cite-params-hourly.out | tail -5'
+```
+Same number five times over = wedged, not finished. A re-harvest would have "fixed" it for
+one run and left the bug in place for every later task.
+
 **Check.** On the tool: compare the checkpoint against the list.
 
 ```bash
@@ -201,9 +215,25 @@ look finished.
 
 **Why.** It is the big one and it is nowhere near done.
 
-**Status, ۹ اکتبر ۲۰۲۶.** ~2,000 articles edited. A 240-article random sample of all of
-fa.wikipedia found **~25% have in-scope work**, so roughly **265,000 articles remain** —
-about 1% done. At `cite-params-hourly`'s ~5,500 edits/day that is **~7 weeks**.
+**Status, ۱۸ اکتبر ۲۰۲۶** (re-measured, not carried forward). A fresh 300-article random
+sample of all of fa.wikipedia finds **22.7% have in-scope work** → about **249,000 of
+1,098,256 articles remain**. That is barely down from the 25% measured on ۹ اکتبر, because
+the nine days in between produced no edits at all (see §2's ⚠️). At 250 edits/hour that is
+**~6 weeks of running**, needing roughly three more harvests after the current list.
+
+In the current list: **73,687 titles unwalked, ~90% of them productive ≈ 66,000 edits**, so
+about 11–12 days before the next harvest is due.
+
+The list was also **re-shuffled in place** on ۱۸ اکتبر (`targets.txt.preshuffle.bak` is the
+old order). The harvest order turned out to be clustered — long runs of New Jersey
+townships, UN Security Council resolutions and Italian footballers that earlier passes had
+already cleaned — so even with the wedge fixed, the bot would have spent ~30 hours of
+no-op runs grinding through a block of clean pages at the head of the list before reaching
+any work. Re-shuffling put the productive 90% back in the first window; the next run edited
+250 of 250.
+
+**Status, ۹ اکتبر ۲۰۲۶.** ~2,000 articles edited. A 240-article random sample found ~25%
+with in-scope work, so roughly 265,000 remaining — about 1% done.
 
 **Check.** Re-run the population estimate rather than trusting the number above; it is a
 sample, and the bot is changing the population under it.
