@@ -521,7 +521,11 @@ def audit_latin_display_label(text: str):
     foreign = _foreign_citation_spans(text)
     # Masked for the same reason as audit_en_interwiki_persian: example links in
     # posted source code are not links.
-    for m in re.finditer(r'\[\[([^\]\|\n]+)\|([^\]\n]+)\]\]', mask_opaque(text)):
+    # A `|` inside a `{{…}}` span in the TARGET (e.g. `[[رده:{{MediaWiki:…|ns=0}}]]`)
+    # is an argument separator, not a label separator; allow `{{…}}` as a unit so
+    # the target scan does not stop at that `|`.
+    for m in re.finditer(
+            r'\[\[((?:[^\]\|\n{}]|\{\{[^{}]*\}\})+)\|([^\]\n]+)\]\]', mask_opaque(text)):
         if any(s <= m.start() < e for s, e in foreign):
             continue                      # source's own title, correctly Latin
         target, label = m.group(1).strip(), m.group(2).strip()
