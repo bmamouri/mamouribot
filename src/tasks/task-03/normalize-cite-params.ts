@@ -868,7 +868,7 @@ export function normalizeCiteParams(text: string): { text: string; changed: bool
 export const normalizeCiteParamsTask: BotTask = {
   id: 'normalize-cite-params',
   taskNumber: 3,
-  summary: 'هم‌سان‌سازی نام پارامترهای بایگانی یادکردها به نام فارسی و حذف پارامتر تکراری',
+  summary: 'همسان‌سازی نام پارامترهای بایگانی یادکردها به نام فارسی و حذف پارامتر تکراری',
   description: 'هم‌سان‌سازی نام پارامترهای یادکرد (نشانی/تاریخ بایگانی و چگونگی پیوند) به نام فارسی معیار و ادغام پارامترهای تکراریِ هم‌ارز؛ یادکردهایی که دو مقدار متفاوت دارند دست‌نخورده و برای بازبینی دستی گزارش می‌شوند.',
   async getTargets(bot: Bot): Promise<string[]> {
     // TARGET_TITLES: a pipe-separated list, for re-running over specific pages — a

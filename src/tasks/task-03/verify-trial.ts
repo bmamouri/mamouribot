@@ -205,7 +205,11 @@ async function main() {
   // else with the summary «برداشتن پرانتز تکراری» — was picked up and reported as this
   // task's rendering regression. A supervision tool that attributes other people's edits
   // to itself is worse than none: it manufactures regressions and buries real ones.
-  const marker = arg('--summary-contains', 'هم‌سان‌سازی نام پارامترهای بایگانی');
+  // Matched with the ZWNJ in «هم‌سان» optional, because the spelling of the live edit
+  // summary changed on ۱۹ اکتبر ۲۰۲۶ («هم‌سان‌سازی» → «همسان‌سازی») and the ~7,000 edits
+  // made before that keep the old spelling for ever. A literal match on either form alone
+  // silently selects half the campaign and reports «هیچ ویرایشی یافت نشد» or a partial pass.
+  const marker = arg('--summary-contains', 'سازی نام پارامترهای بایگانی');
   const all = uc.query.usercontribs as any[];
   const edits = all.filter(e => (e.comment ?? '').includes(marker));
   const skipped = all.length - edits.length;

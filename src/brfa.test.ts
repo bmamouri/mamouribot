@@ -25,10 +25,10 @@ ok('and never carries Latin digits', !/\d/.test(brfaPage(12)), brfaPage(12));
 
 console.log('\n== the summary matches what fa and en bots actually emit ==');
 {
-  const s = withBrfaLink(3, 'هم‌سان‌سازی نام پارامترهای بایگانی یادکردها');
+  const s = withBrfaLink(3, 'همسان‌سازی نام پارامترهای بایگانی یادکردها');
   ok('the linked word is «ربات»', s.startsWith('[[') && s.includes('|ربات]]: '), s);
   ok('the link targets the permission page', s.includes(brfaPage(3)), s);
-  ok('the content summary survives intact', s.endsWith('هم‌سان‌سازی نام پارامترهای بایگانی یادکردها'), s);
+  ok('the content summary survives intact', s.endsWith('همسان‌سازی نام پارامترهای بایگانی یادکردها'), s);
 }
 
 console.log('\n== a summary that already says «ربات:» does not say it twice ==');
