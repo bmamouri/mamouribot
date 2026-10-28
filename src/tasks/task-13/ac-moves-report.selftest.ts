@@ -85,6 +85,9 @@ export function selfTest(): string {
   if (!text.includes('در این ماه موردی یافت نشد')) return 'SELFTEST FAILED: empty month must say so';
   if (!text.includes('data-sort-value="20261022235256"')) return 'SELFTEST FAILED: time not sortable';
   if (!text.includes('[[رده:گزارش‌های دیتابیس ویکی‌پدیا]]')) return 'SELFTEST FAILED: category missing';
+  // fa's alias for Special:Log is «سیاهه‌ها»; «ویژه:سیاهه/…» is a red link (shipped once).
+  if (!text.includes('[[ویژه:سیاهه‌ها/rights|')) return 'SELFTEST FAILED: rights-log link';
+  if (/\[\[ویژه:سیاهه\//.test(text)) return 'SELFTEST FAILED: «ویژه:سیاهه/» is not a valid special page';
   if ((text.match(/\[\[رده:/g) ?? []).length !== 1) return 'SELFTEST FAILED: a stray category';
   const problems = checkWikitext('ویکی‌پدیا:گزارش دیتابیس/آزمایش', text).filter(q => !q.includes('signature leak'));
   if (problems.length) return `SELFTEST FAILED: gate: ${problems.join('; ')}`;
