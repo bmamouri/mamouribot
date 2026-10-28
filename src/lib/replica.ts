@@ -51,7 +51,7 @@ const SSH_TOOL = process.env.TOOLFORGE_TOOL ?? 'mamouribot';
  * neighbour-wiki report (ar/ckb/mzn/tr/he, plus wikidatawiki for sitelink counts) could
  * be added here without inventing a second naming scheme.
  */
-export type Wiki = 'fa' | 'en' | 'wikidata' | 'ar' | 'ckb' | 'mzn' | 'tr' | 'he';
+export type Wiki = 'fa' | 'en' | 'wikidata' | 'ar' | 'ckb' | 'mzn' | 'tr' | 'he' | 'centralauth';
 const WIKIS: Record<Wiki, { db: string; host: string }> = {
   fa: { db: 'fawiki_p', host: 'fawiki.analytics.db.svc.wikimedia.cloud' },
   en: { db: 'enwiki_p', host: 'enwiki.analytics.db.svc.wikimedia.cloud' },
@@ -61,6 +61,9 @@ const WIKIS: Record<Wiki, { db: string; host: string }> = {
   mzn: { db: 'mznwiki_p', host: 'mznwiki.analytics.db.svc.wikimedia.cloud' },
   tr: { db: 'trwiki_p', host: 'trwiki.analytics.db.svc.wikimedia.cloud' },
   he: { db: 'hewiki_p', host: 'hewiki.analytics.db.svc.wikimedia.cloud' },
+  // Global accounts and global groups (stewards, global rollbackers, …). Not a wiki,
+  // but it follows the same host-is-dbname-minus-_p rule.
+  centralauth: { db: 'centralauth_p', host: 'centralauth.analytics.db.svc.wikimedia.cloud' },
 };
 
 export function chooseBackend(mode: Backend = 'auto'): Exclude<Backend, 'auto'> {
@@ -118,15 +121,18 @@ export async function articleTitles(mode: Backend = 'auto'): Promise<string[]> {
  * types to give, so the direct backend is coerced to match rather than the two
  * disagreeing depending on where the bot happens to be running. Callers parse.
  *
- * Same zero rule as above — an empty result is a failure, not a clean run.
+ * Same zero rule as above — an empty result is a failure, not a clean run — unless
+ * the caller says `allowEmpty`. That is for a LOOKUP whose empty answer is meaningful
+ * ("none of these users holds a global group"), never for the query a report is
+ * built from.
  */
 export async function queryRows(
-  sql: string, opts: { wiki?: Wiki; mode?: Backend } = {},
+  sql: string, opts: { wiki?: Wiki; mode?: Backend; allowEmpty?: boolean } = {},
 ): Promise<Record<string, string>[]> {
   const wiki = opts.wiki ?? 'fa';
   const backend = chooseBackend(opts.mode ?? 'auto');
   const rows = backend === 'direct' ? await rowsViaMysql(sql, wiki) : await rowsViaSsh(sql, wiki);
-  if (!rows.length) throw new Error(`replica returned no rows over ${backend} (${wiki}) — refusing to treat that as an empty wiki`);
+  if (!rows.length && !opts.allowEmpty) throw new Error(`replica returned no rows over ${backend} (${wiki}) — refusing to treat that as an empty wiki`);
   return rows;
 }
 
@@ -149,11 +155,17 @@ async function rowsViaSsh(sql: string, wiki: Wiki): Promise<Record<string, strin
   const out = await run('ssh', ['-o', 'BatchMode=yes', SSH_HOST,
     `become ${SSH_TOOL} bash -c ${JSON.stringify(remote)}`], sql, 10 * 60_000);
   const lines = out.split('\n').filter(l => l.length > 0);
-  if (!lines.length) throw new Error(`no output from the replica over ssh: ${out.slice(0, 200)}`);
+  // `mysql --batch` prints nothing at all, not even the header, for an empty result.
+  // queryRows() decides whether that is an error.
+  if (!lines.length) return [];
   const cols = lines[0].split('\t');
   return lines.slice(1).map(l => {
     const cells = l.split('\t');
-    return Object.fromEntries(cols.map((c, i) => [c, cells[i] ?? ''])) as Record<string, string>;
+    // `--batch` prints SQL NULL as the four letters «NULL»; the direct backend turns it
+    // into ''. Without this the two disagree, and a NULL GROUP_CONCAT read as a group
+    // literally named «NULL» (it silently emptied وظیفهٔ ۱۳'s move report on a dev run).
+    // A real string 'NULL' is indistinguishable in batch output and becomes '' too.
+    return Object.fromEntries(cols.map((c, i) => [c, cells[i] === 'NULL' ? '' : cells[i] ?? ''])) as Record<string, string>;
   });
 }
 
