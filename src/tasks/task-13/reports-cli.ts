@@ -8,6 +8,7 @@
  *   npx tsx src/tasks/task-13/reports-cli.ts --report featured [--live]
  *   npx tsx src/tasks/task-13/reports-cli.ts --report prefs    [--live]
  *   npx tsx src/tasks/task-13/reports-cli.ts --report neighbors [--live] [--only ar|ckb|mzn|mideast]
+ *   npx tsx src/tasks/task-13/reports-cli.ts --report acmoves  [--live]
  *   npx tsx src/tasks/task-13/reports-cli.ts --report all      [--live]
  *
  * One task, one entry, one bundle. The reports have nothing in common in their data —
@@ -29,10 +30,12 @@ import { runPortalReports } from './portal-reports-run.js';
 import { runFeaturedReport } from './featured-report-run.js';
 import { runPrefsReport } from './prefs-report-run.js';
 import { runNeighborWikisReports } from './neighbor-wikis-report-run.js';
+import { runAcMovesReport } from './ac-moves-report-run.js';
 import { selfTest as portalSelfTest } from './portal-reports.selftest.js';
 import { selfTest as featuredSelfTest } from './featured-report.selftest.js';
 import { selfTest as prefsSelfTest } from './prefs-report.selftest.js';
 import { selfTest as neighborSelfTest } from './neighbor-wikis-report.selftest.js';
+import { selfTest as acMovesSelfTest } from './ac-moves-report.selftest.js';
 
 const argv = process.argv.slice(2);
 const arg = (name: string) => {
@@ -44,15 +47,15 @@ async function main() {
   if (argv.includes('--selftest')) {
     // Both halves, so the bundler's gate covers every report in the bundle. A single
     // line is printed because build-bundle.ts matches on it.
-    for (const t of [moveSelfTest(), portalSelfTest(), featuredSelfTest(), prefsSelfTest(), neighborSelfTest()]) {
+    for (const t of [moveSelfTest(), portalSelfTest(), featuredSelfTest(), prefsSelfTest(), neighborSelfTest(), acMovesSelfTest()]) {
       if (!t.startsWith('SELFTEST OK')) { console.error(t); process.exit(1); }
     }
-    console.log('SELFTEST OK: هر پنج گزارش‌ساز');
+    console.log('SELFTEST OK: هر شش گزارش‌ساز');
     return;
   }
   const report = arg('--report') ?? 'move';
-  if (!['move', 'portals', 'featured', 'prefs', 'neighbors', 'all'].includes(report)) {
-    console.error(`گزارش ناشناخته: ${report} (move | portals | featured | prefs | neighbors | all)`);
+  if (!['move', 'portals', 'featured', 'prefs', 'neighbors', 'acmoves', 'all'].includes(report)) {
+    console.error(`گزارش ناشناخته: ${report} (move | portals | featured | prefs | neighbors | acmoves | all)`);
     process.exit(1);
   }
   if (report === 'move' || report === 'all') {
@@ -68,6 +71,7 @@ async function main() {
   if (report === 'featured' || report === 'all') await runFeaturedReport(argv);
   if (report === 'prefs' || report === 'all') await runPrefsReport(argv);
   if (report === 'neighbors' || report === 'all') await runNeighborWikisReports(argv);
+  if (report === 'acmoves' || report === 'all') await runAcMovesReport(argv);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
