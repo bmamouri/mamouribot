@@ -13,8 +13,10 @@ const chunk = <T>(a: T[], n: number) =>
 
 /** Namespace number → local prefix, and every name or alias → number. */
 async function namespaces(bot: Bot) {
-  const d = await bot.apiGet({ action: 'query', meta: 'siteinfo', siprop: 'namespaces|namespacealiases|usergroups' });
+  const d = await bot.apiGet({ action: 'query', meta: 'siteinfo', siprop: 'namespaces|namespacealiases|usergroups', sigprop: 'rights' });
   const groups = new Set<string>((d.query.usergroups as any[]).map(g => g.name));
+  const autopatrol = new Set<string>((d.query.usergroups as any[])
+    .filter(g => (g.rights as string[]).includes('autopatrol')).map(g => g.name));
   const prefix = new Map<number, string>();
   const byName = new Map<string, number>();
   for (const ns of Object.values(d.query.namespaces) as any[]) {
@@ -23,7 +25,7 @@ async function namespaces(bot: Bot) {
   }
   for (const a of d.query.namespacealiases as any[]) byName.set(a.alias.toLowerCase(), a.id);
   return {
-    groups,
+    groups, autopatrol,
     full: (ns: number, title: string) => {
       const t = title.replace(/_/g, ' ');
       return ns === 0 ? t : `${prefix.get(ns)}:${t}`;
@@ -36,9 +38,15 @@ async function namespaces(bot: Bot) {
   };
 }
 
-export async function runAcMovesReport(argv: string[]) {
-  const live = argv.includes('--live');
-  const bot = new Bot({ dryRun: !live, delayMs: 0, limit: 0, maxlag: 5, flagEdits: false });
+/** Everything both move reports need: each move, with the groups its author held then. */
+export interface Classified { row: MoveRow; held: string[]; global: boolean }
+
+/**
+ * One pass over the replica for both move reports: the moves, today's users, the rights
+ * log replayed to each move, and global groups. The reports differ only in which of
+ * these they keep, so the expensive part is shared rather than run twice.
+ */
+export async function collectMoves(bot: Bot) {
   const months = monthsWindow();
   const start = months[months.length - 1].start;
   console.log(`بازه: از ${start.slice(0, 8)} (${months.map(m => m.key).join('، ')})`);
@@ -49,7 +57,7 @@ export async function runAcMovesReport(argv: string[]) {
   const moves = raw.map(r => {
     const p = phpUnserialize(r.log_params) as Record<string, unknown>;
     return {
-      ts: r.log_timestamp, user: r.actor_name, userId: r.actor_user,
+      ts: r.log_timestamp, userId: r.actor_user,
       from: ns.full(Number(r.log_namespace), r.log_title),
       fromNs: Number(r.log_namespace),
       to: String(p['4::target'] ?? ''),
@@ -87,46 +95,71 @@ export async function runAcMovesReport(argv: string[]) {
     }
   }
 
-  // 3. Keep a move only if its author had nothing beyond (auto)confirmed AT THAT MOMENT.
-  const rows: MoveRow[] = [];
-  let dropped = 0;
+  // 3. Each move with its author's groups AT THAT MOMENT.
+  const classified: Classified[] = [];
   for (const m of moves) {
     const u = users.get(m.userId);
-    if (!u) { dropped++; continue; }
-    const held = groupsAt(m.ts, history.get(u.name) ?? [], u.groups, ns.groups);
-    if (held.length || globalHolders.has(u.name)) { dropped++; continue; }
-    rows.push({
-      ts: m.ts, user: u.name, blocked: u.blocked, from: m.from, to: m.to, comment: m.comment,
-      status: statusOf(m.from, m.to, m.current),
+    if (!u) continue;
+    classified.push({
+      held: groupsAt(m.ts, history.get(u.name) ?? [], u.groups, ns.groups),
+      global: globalHolders.has(u.name),
+      row: {
+        ts: m.ts, user: u.name, blocked: u.blocked, from: m.from, to: m.to, comment: m.comment,
+        status: statusOf(m.from, m.to, m.current),
+      },
     });
   }
-  console.log(`${rows.length} ردیف؛ ${dropped} تغییرنام کاربران دارای دسترسی بیشتر کنار گذاشته شد`);
-  // A positive control: the window spans five months on a wiki where such moves run at
-  // several a day. Zero means a query or the group replay broke, not a quiet wiki.
-  if (rows.length < 20) throw new Error(`تنها ${rows.length} ردیف؛ احتمالاً پرسمان یا بازسازی گروه‌ها شکسته است`);
+  return { months, classified, autopatrolGroups: ns.autopatrol };
+}
 
-  const text = buildAcMoves(rows, months);
+/** Gate a page with the edit summaries blanked, then (live) write it and its /امضا. */
+export async function publishReport(
+  bot: Bot, page: string, text: string, gated: string, summary: string, live: boolean,
+  opts: { signature?: boolean; quiet?: boolean } = {},
+) {
   // Gated with the edit summaries BLANKED. A summary is another editor's words quoted
   // verbatim (the first live run tripped the em-dash rule on one); the style rules are
   // for prose this bot writes, and rewriting a quotation to pass them would misquote.
   // What a summary could DO to the page is handled by safeComment(), which the
   // selftest checks against a hostile one.
-  const gated = buildAcMoves(rows.map(r => ({ ...r, comment: '' })), months);
-  const problems = checkWikitext(AC_MOVES_PAGE, gated).filter(p => !p.includes('signature leak'));
-  if (problems.length) throw new Error('GATE FAILED:\n  - ' + problems.join('\n  - '));
-  if (!live) { console.log(`\n${text}`); return; }
-
-  const cur = await bot.apiGet({ action: 'query', prop: 'revisions', titles: AC_MOVES_PAGE,
+  const problems = checkWikitext(page, gated).filter(p => !p.includes('signature leak'));
+  if (problems.length) throw new Error(`GATE FAILED (${page}):\n  - ` + problems.join('\n  - '));
+  if (!live) {
+    console.log(opts.quiet ? `\n===== ${page}: ${text.length} bytes` : `\n===== ${page} =====\n${text}`);
+    return;
+  }
+  const cur = await bot.apiGet({ action: 'query', prop: 'revisions', titles: page,
     rvprop: 'content|ids|timestamp', rvslots: 'main' });
   const p = cur.query.pages[0];
-  await bot.edit(AC_MOVES_PAGE, text, 'به‌روزرسانی گزارش تغییرنام‌های کاربران تأییدشدهٔ خودکار',
+  await bot.edit(page, text, summary,
     p.missing ? 0 : p.revisions[0].revid, p.missing ? '' : p.revisions[0].timestamp,
     { allowCreate: true });
-  console.log(`منتشر شد: ${AC_MOVES_PAGE}`);
-  const sig = `${AC_MOVES_PAGE}/امضا`;
+  console.log(`منتشر شد: ${page}`);
+  if (opts.signature === false) return;
+  const sig = `${page}/امضا`;
   const s = (await bot.apiGet({ action: 'query', prop: 'revisions', titles: sig,
     rvprop: 'ids|timestamp', rvslots: 'main' })).query.pages[0];
   await bot.edit(sig, '‏~~~~~', 'به‌روزرسانی زمان آخرین اجرا',
     s.missing ? 0 : s.revisions[0].revid, s.missing ? '' : s.revisions[0].timestamp,
     { allowCreate: true });
+}
+
+/** A positive control: zero means a query or the group replay broke, not a quiet wiki. */
+export function requireRows(n: number, min: number) {
+  if (n < min) throw new Error(`تنها ${n} ردیف؛ احتمالاً پرسمان یا بازسازی گروه‌ها شکسته است`);
+}
+
+export async function runAcMovesReport(argv: string[], data?: Awaited<ReturnType<typeof collectMoves>>) {
+  const live = argv.includes('--live');
+  const bot = new Bot({ dryRun: !live, delayMs: 0, limit: 0, maxlag: 5, flagEdits: false });
+  const { months, classified } = data ?? await collectMoves(bot);
+  // Only moves whose author had nothing beyond (auto)confirmed at that moment.
+  const rows = classified.filter(c => !c.held.length && !c.global).map(c => c.row);
+  console.log(`تأییدشدهٔ خودکار: ${rows.length} ردیف از ${classified.length}`);
+  requireRows(rows.length, 20);
+
+  const text = buildAcMoves(rows, months);
+  const gated = buildAcMoves(rows.map(r => ({ ...r, comment: '' })), months);
+  await publishReport(bot, AC_MOVES_PAGE, text, gated,
+    'به‌روزرسانی گزارش تغییرنام‌های کاربران تأییدشدهٔ خودکار', live);
 }

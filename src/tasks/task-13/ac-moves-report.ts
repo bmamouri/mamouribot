@@ -294,21 +294,34 @@ function statusCell(s: Status): string {
   }
 }
 
-function userCell(r: MoveRow): string {
-  const u = `[[کاربر:${r.user}|${r.user}]] ([[ویژه:مشارکت‌ها/${r.user}|مشارکت‌ها]])`;
-  return r.blocked ? `${u} {{قرمز|(بسته‌شده)}}` : u;
+export function userCell(user: string, blocked: boolean): string {
+  const u = `[[کاربر:${user}|${user}]] ([[ویژه:مشارکت‌ها/${user}|مشارکت‌ها]])`;
+  return blocked ? `${u} {{قرمز|(بسته‌شده)}}` : u;
 }
 
-export function buildAcMoves(rows: MoveRow[], months: Month[]): string {
-  const byMonth = new Map(months.map(m => [m.key, [] as MoveRow[]]));
-  for (const r of rows) byMonth.get(r.ts.slice(0, 6))?.push(r);
-  const count = (rs: MoveRow[], k: Status['kind']) => rs.filter(r => r.status.kind === k).length;
+export const countKind = (rs: MoveRow[], k: Status['kind']) => rs.filter(r => r.status.kind === k).length;
 
-  const out = [
-    'این صفحه تغییرنام‌هایی را فهرست می‌کند که به فضای نام اصلی (مقاله‌ها) وارد یا از آن خارج شده‌اند و '
-    + 'انجام‌دهنده‌شان در زمان تغییرنام، جز عضویت در [[ویکی‌پدیا:کاربران تأییدشده خودکار|کاربران تأییدشدهٔ خودکار]] '
-    + '(یا گروه «تأییدشده»)، دسترسی دیگری نداشته است تا بازبینی شوند.',
-    '',
+/** One month's rows as a sortable table, or a sentence when there are none. */
+export function movesTable(rs: MoveRow[]): string[] {
+  if (!rs.length) return ['در این ماه موردی یافت نشد.'];
+  const out = ['{| class="wikitable sortable" style="width:100%"',
+    '! زمان !! کاربر !! عنوان پیشین !! عنوان تازه !! خلاصهٔ ویرایش !! وضعیت کنونی'];
+  for (const r of rs) {
+    out.push('|-',
+      `| ${stamp(r.ts)}`,
+      `| ${userCell(r.user, r.blocked)}`,
+      `| ${link(r.from)}`,
+      `| ${link(r.to)}`,
+      `| ${safeComment(r.comment)}`,
+      `| ${statusCell(r.status)}`);
+  }
+  out.push('|}');
+  return out;
+}
+
+/** The bullets both move reports share: how groups are judged, and what the window is. */
+export function commonNotes(months: Month[]): string[] {
+  return [
     '* گروه‌های کاربر بر پایهٔ [[ویژه:سیاهه‌ها/rights|سیاههٔ اختیارات]] در همان لحظهٔ تغییرنام سنجیده می‌شود؛ '
     + 'بنابراین اگر کاربری بعدها دسترسی تازه‌ای بگیرد، تغییرنام‌های پیشینش از این فهرست حذف نمی‌شود.',
     '* هر ماه بخش جداگانه‌ای دارد و فهرست هر ماه پس از پایانش ثابت می‌ماند. '
@@ -316,11 +329,28 @@ export function buildAcMoves(rows: MoveRow[], months: Month[]): string {
     '* تغییرنام صفحه‌های بحث که همراه مقاله جابه‌جا شده‌اند جداگانه آورده نمی‌شوند. '
     + 'ستون «وضعیت کنونی» در هر به‌روزرسانی دوباره سنجیده می‌شود.',
     '* زمان‌ها به وقت [[زمان هماهنگ جهانی]] است.',
+  ];
+}
+
+export const STATUS_HEADER = 'در همان عنوان !! برگردانده‌شده !! دوباره تغییرنام‌یافته !! حذف‌شده';
+export const statusCounts = (rs: MoveRow[]) =>
+  (['same', 'reverted', 'moved-again', 'deleted'] as const).map(k => `| ${fa(countKind(rs, k))}`);
+
+export function buildAcMoves(rows: MoveRow[], months: Month[]): string {
+  const byMonth = new Map(months.map(m => [m.key, [] as MoveRow[]]));
+  for (const r of rows) byMonth.get(r.ts.slice(0, 6))?.push(r);
+
+  const out = [
+    'این صفحه تغییرنام‌هایی را فهرست می‌کند که به فضای نام اصلی (مقاله‌ها) وارد یا از آن خارج شده‌اند و '
+    + 'انجام‌دهنده‌شان در زمان تغییرنام، جز عضویت در [[ویکی‌پدیا:کاربران تأییدشده خودکار|کاربران تأییدشدهٔ خودکار]] '
+    + '(یا گروه «تأییدشده»)، دسترسی دیگری نداشته است تا بازبینی شوند.',
+    '',
+    ...commonNotes(months),
     '',
     'آخرین به‌روزرسانی: ~~~~~',
     '',
     '{| class="wikitable"',
-    '! ماه !! تغییرنام !! کاربر !! در همان عنوان !! برگردانده‌شده !! دوباره تغییرنام‌یافته !! حذف‌شده',
+    `! ماه !! تغییرنام !! کاربر !! ${STATUS_HEADER}`,
   ];
   for (const m of months) {
     const rs = byMonth.get(m.key)!;
@@ -328,29 +358,12 @@ export function buildAcMoves(rows: MoveRow[], months: Month[]): string {
       `| [[#${m.label}|${m.label}]]${m.partial ? ' (تاکنون)' : ''}`,
       `| ${fa(rs.length)}`,
       `| ${fa(new Set(rs.map(r => r.user)).size)}`,
-      `| ${fa(count(rs, 'same'))}`,
-      `| ${fa(count(rs, 'reverted'))}`,
-      `| ${fa(count(rs, 'moved-again'))}`,
-      `| ${fa(count(rs, 'deleted'))}`);
+      ...statusCounts(rs));
   }
   out.push('|}');
 
   for (const m of months) {
-    const rs = byMonth.get(m.key)!;
-    out.push('', `== ${m.label} ==`);
-    if (!rs.length) { out.push('در این ماه موردی یافت نشد.'); continue; }
-    out.push('{| class="wikitable sortable" style="width:100%"',
-      '! زمان !! کاربر !! عنوان پیشین !! عنوان تازه !! خلاصهٔ ویرایش !! وضعیت کنونی');
-    for (const r of rs) {
-      out.push('|-',
-        `| ${stamp(r.ts)}`,
-        `| ${userCell(r)}`,
-        `| ${link(r.from)}`,
-        `| ${link(r.to)}`,
-        `| ${safeComment(r.comment)}`,
-        `| ${statusCell(r.status)}`);
-    }
-    out.push('|}');
+    out.push('', `== ${m.label} ==`, ...movesTable(byMonth.get(m.key)!));
   }
   out.push('', '[[رده:گزارش‌های دیتابیس ویکی‌پدیا]]');
   return out.join('\n');
