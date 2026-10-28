@@ -2,7 +2,7 @@
 
 ## This task owns every database report, not just one
 
-One task, one entry (`reports-cli.ts --report move|portals|featured|prefs|neighbors|acmoves|all`), one
+One task, one entry (`reports-cli.ts --report move|portals|featured|prefs|neighbors|acmoves|ecmoves|usermoves|all`), one
 bundle (`toolforge/task-13-reports.mjs`):
 
 | report | source | frequency |
@@ -20,7 +20,8 @@ bundle (`toolforge/task-13-reports.mjs`):
 | مقالاتی که در ویکی‌کردی هست و در ویکی‌فا نیست | همان، ckbwiki | daily, `nb-daily` |
 | مقالاتی که در ویکی‌مازندرانی هست و در ویکی‌فا نیست | همان، mznwiki | daily, `nb-daily` |
 | مقالاتی که در ویکی‌های خاورمیانه (عربی، ترکی، عبری) هست و در ویکی‌فا نیست | همان، ar+tr+he merged | daily, `nb-daily` |
-| تغییرنام‌های کاربران تأییدشده خودکار | fawiki replica `logging` + rights-log replay + **centralauth_p** | daily, `ac-daily` |
+| تغییرنام‌های کاربران تأییدشده خودکار | fawiki replica `logging` + rights-log replay + **centralauth_p** | daily, `moves-daily` |
+| تغییرنام‌های کاربران تأییدشده پایدار بدون گشت خودکار (+ five monthly subpages) | same pass as above | daily, `moves-daily` |
 
 They have almost nothing in common in their data. They are the same **job**: propose
 something on a page, never touch an article, need no permission, go out unflagged so
@@ -279,6 +280,32 @@ error:
 First run ۲۸ اکتبر ۲۰۲۶: 10,186 moves → 9,955 touching ns 0 → **451 rows**
 (۴۸، ۶۸، ۹۹، ۱۱۲، ۱۲۴ by month). The box output was byte-identical to the dev
 (ssh-backend) output. Listed on وپ:گد under «گشت‌زنی، دسترسی‌ها و حساب‌ها».
+
+### تغییرنام‌های کاربران تأییدشده پایدار بدون گشت خودکار (۲۸ اکتبر ۲۰۲۶)
+
+Asked for by Sunfyre once the autoconfirmed report went live. It covers moves by users who
+were **extendedconfirmed at the time** but held **no group with the `autopatrol` right**.
+extendedconfirmed comes from edit count alone, while autopatrolled is granted by an admin
+who read the work. The two reports are disjoint by construction, since the first requires
+"nothing beyond (auto)confirmed". Together they give the نظرخواهی the comparison it was
+arguing about without data. Code: `ec-moves-report.ts`, `-run.ts`, `.selftest.ts`.
+
+- **One engine, one pass.** `collectMoves()` in `ac-moves-report-run.ts` does the replica
+  reads and the rights-log replay once and returns each move with the groups held then.
+  Each report is a filter over that. `--report usermoves` runs both and is what the job
+  calls. After the refactor, the autoconfirmed report's 451 rows were checked identical,
+  row for row, against what was live.
+- **Which groups count as autopatrol** is read from `siprop=usergroups&sigprop=rights` at
+  run time (sysop, autopatrolled, eliminator, bot today), not listed in code. rollbacker
+  does not carry it, so EC + rollbacker stays in. Measured: 26 rows. The run refuses to
+  publish if `autopatrolled` ever stops carrying the right, because the report would then
+  mean nothing.
+- **The volume decided the layout.** First run: **2,916 rows** from 135 users over five
+  months, against 451 for the first report. Two users account for 1,319 of them. One
+  page would be about 1.1 MB, so the main page carries the monthly totals and a per-user
+  table (moves, reverted, % reverted, deleted, months), and each month's rows go on
+  `/۲۰۲۶-۱۰` and so on, 84 to 272 kB each. Subpages are written first, so the main page
+  never links one that does not exist yet. They carry no category and no `/امضا`.
 
 ## Renamed ۱۰ اکتبر ۲۰۲۶ — «برای انتقال مقاله» → «مقاله‌های نیازمند تغییرنام»
 
