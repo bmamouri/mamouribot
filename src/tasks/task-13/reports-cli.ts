@@ -11,6 +11,7 @@
  *   npx tsx src/tasks/task-13/reports-cli.ts --report acmoves  [--live]   (autoconfirmed)
  *   npx tsx src/tasks/task-13/reports-cli.ts --report ecmoves  [--live]   (extendedconfirmed, not autopatrolled)
  *   npx tsx src/tasks/task-13/reports-cli.ts --report usermoves [--live]  (both, one replica pass)
+ *   npx tsx src/tasks/task-13/reports-cli.ts --report iranica  [--live] [--pages N] [--no-fetch]
  *   npx tsx src/tasks/task-13/reports-cli.ts --report all      [--live]
  *
  * One task, one entry, one bundle. The reports have nothing in common in their data —
@@ -34,6 +35,7 @@ import { runPrefsReport } from './prefs-report-run.js';
 import { runNeighborWikisReports } from './neighbor-wikis-report-run.js';
 import { collectMoves, runAcMovesReport } from './ac-moves-report-run.js';
 import { runEcMovesReport } from './ec-moves-report-run.js';
+import { runIranicaReport } from './iranica-report-run.js';
 import { Bot } from '../../core.js';
 import { selfTest as portalSelfTest } from './portal-reports.selftest.js';
 import { selfTest as featuredSelfTest } from './featured-report.selftest.js';
@@ -41,6 +43,7 @@ import { selfTest as prefsSelfTest } from './prefs-report.selftest.js';
 import { selfTest as neighborSelfTest } from './neighbor-wikis-report.selftest.js';
 import { selfTest as acMovesSelfTest } from './ac-moves-report.selftest.js';
 import { selfTest as ecMovesSelfTest } from './ec-moves-report.selftest.js';
+import { selfTest as iranicaSelfTest } from './iranica-report.selftest.js';
 
 const argv = process.argv.slice(2);
 const arg = (name: string) => {
@@ -52,15 +55,15 @@ async function main() {
   if (argv.includes('--selftest')) {
     // Both halves, so the bundler's gate covers every report in the bundle. A single
     // line is printed because build-bundle.ts matches on it.
-    for (const t of [moveSelfTest(), portalSelfTest(), featuredSelfTest(), prefsSelfTest(), neighborSelfTest(), acMovesSelfTest(), ecMovesSelfTest()]) {
+    for (const t of [moveSelfTest(), portalSelfTest(), featuredSelfTest(), prefsSelfTest(), neighborSelfTest(), acMovesSelfTest(), ecMovesSelfTest(), iranicaSelfTest()]) {
       if (!t.startsWith('SELFTEST OK')) { console.error(t); process.exit(1); }
     }
-    console.log('SELFTEST OK: هر هفت گزارش‌ساز');
+    console.log('SELFTEST OK: هر هشت گزارش‌ساز');
     return;
   }
   const report = arg('--report') ?? 'move';
-  if (!['move', 'portals', 'featured', 'prefs', 'neighbors', 'acmoves', 'ecmoves', 'usermoves', 'all'].includes(report)) {
-    console.error(`گزارش ناشناخته: ${report} (move | portals | featured | prefs | neighbors | acmoves | ecmoves | usermoves | all)`);
+  if (!['move', 'portals', 'featured', 'prefs', 'neighbors', 'acmoves', 'ecmoves', 'usermoves', 'iranica', 'all'].includes(report)) {
+    console.error(`گزارش ناشناخته: ${report} (move | portals | featured | prefs | neighbors | acmoves | ecmoves | usermoves | iranica | all)`);
     process.exit(1);
   }
   if (report === 'move' || report === 'all') {
@@ -76,6 +79,8 @@ async function main() {
   if (report === 'featured' || report === 'all') await runFeaturedReport(argv);
   if (report === 'prefs' || report === 'all') await runPrefsReport(argv);
   if (report === 'neighbors' || report === 'all') await runNeighborWikisReports(argv);
+  // Not in «all»: weekly, and its entry fetches respect Iranica's 20-second crawl delay.
+  if (report === 'iranica') await runIranicaReport(argv);
   if (report === 'acmoves') await runAcMovesReport(argv);
   if (report === 'ecmoves') await runEcMovesReport(argv);
   if (report === 'usermoves' || report === 'all') {

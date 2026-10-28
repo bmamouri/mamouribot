@@ -115,3 +115,18 @@
   emails: onfailure
   filelog-stdout: logs/moves-daily.out
   filelog-stderr: logs/moves-daily.err
+
+# «مقاله‌هایی که با دانشنامه ایرانیکا می‌شود گسترش داد» + six subpages (خرد، آغازین،
+# بلندتر، ساخت با مقاله انگلیسی، ساخت مقاله تازه، بررسی‌نشده). Weekly: the fa grades
+# move slowly and each run also measures up to 150 Iranica entries at the site's
+# 20-second crawl delay (~50 min). Entry list from iranicaonline.org directly — which
+# answers Toolforge normally (measured ۲۹ اکتبر ۲۰۲۶) — falling back to the Wayback copy
+# if the site ever serves its Cloudflare challenge. Cache: ~/state/iranica-entries.json.
+- name: ir-weekly
+  command: ./task-13-move-report/run.sh --report iranica --live
+  image: node20
+  mem: 2Gi
+  schedule: "20 6 * * 3"
+  emails: onfailure
+  filelog-stdout: logs/ir-weekly.out
+  filelog-stderr: logs/ir-weekly.err

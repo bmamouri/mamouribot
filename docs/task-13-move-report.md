@@ -2,7 +2,7 @@
 
 ## This task owns every database report, not just one
 
-One task, one entry (`reports-cli.ts --report move|portals|featured|prefs|neighbors|acmoves|ecmoves|usermoves|all`), one
+One task, one entry (`reports-cli.ts --report move|portals|featured|prefs|neighbors|acmoves|ecmoves|usermoves|iranica|all`), one
 bundle (`toolforge/task-13-reports.mjs`):
 
 | report | source | frequency |
@@ -22,6 +22,7 @@ bundle (`toolforge/task-13-reports.mjs`):
 | مقالاتی که در ویکی‌های خاورمیانه (عربی، ترکی، عبری) هست و در ویکی‌فا نیست | همان، ar+tr+he merged | daily, `nb-daily` |
 | تغییرنام‌های کاربران تأییدشده خودکار | fawiki replica `logging` + rights-log replay + **centralauth_p** | daily, `moves-daily` |
 | تغییرنام‌های کاربران تأییدشده پایدار بدون گشت خودکار (+ five monthly subpages) | same pass as above | daily, `moves-daily` |
+| مقاله‌هایی که با دانشنامه ایرانیکا می‌شود گسترش داد (+ six subpages) | iranicaonline.org (or Wayback) + frozen match file + fa/en API + WDQS | weekly, `ir-weekly` |
 
 They have almost nothing in common in their data. They are the same **job**: propose
 something on a page, never touch an article, need no permission, go out unflagged so
@@ -306,6 +307,61 @@ arguing about without data. Code: `ec-moves-report.ts`, `-run.ts`, `.selftest.ts
   table (moves, reverted, % reverted, deleted, months), and each month's rows go on
   `/۲۰۲۶-۱۰` and so on, 84 to 272 kB each. Subpages are written first, so the main page
   never links one that does not exist yet. They carry no category and no `/امضا`.
+
+### مقاله‌هایی که با دانشنامه ایرانیکا می‌شود گسترش داد (۲۹ اکتبر ۲۰۲۶)
+
+Every Encyclopædia Iranica Online entry set against fa and en: fa articles that are short
+where Iranica is long, and Iranica subjects with no fa article. It began as a one-off
+survey the operator asked for (`scripts/archive/iranica_survey/` in the companion repo),
+which also put 40 cards on `کاربر:Mamouri/درخواست مقاله`; he then asked for it to run
+here. Code: `iranica-report.ts` (pure), `-run.ts`, `.selftest.ts`, and
+`data/iranica-match.json`. `--report iranica` is not part of `all`.
+
+**Iranica directly, Wayback if refused.** iranicaonline.org answers scripted requests from
+some networks with a Cloudflare challenge: a 403 HTML page, never a readable error. From
+the operator's laptop every URL got it. From a Toolforge job the site answered 200 with
+the real XML (measured ۲۹ اکتبر ۲۰۲۶). `IranicaClient` tries the site, recognises the
+challenge **by its body** (it is sometimes served as 200 behind a proxy), and from then on
+reads `web.archive.org/web/2026id_/…`, the newest raw copy. Two Wayback traps, both hit:
+
+- a file the site served gzipped is archived as **the gzip bytes**, labelled `text/xml`
+  with no `Content-Encoding`, so `fetch` does not inflate it. Sniff `1f 8b` and gunzip.
+- the archived **sitemap index** can be older than the archived sitemaps: one listed
+  `articles-sitemap10.xml`, which the live site no longer has (404). The live set is
+  **8,652** entries (nine files), the survey's archived set 8,814. `MIN_ENTRIES = 8000`
+  is the positive control: a challenge page parses as zero entries, a half-read sitemap
+  set as a few thousand, and both abort the run instead of publishing a short report. A
+  listed sitemap that yields nothing throws for the same reason.
+
+**The match is frozen; the grade is live.** Which fa/en article an entry is about took
+hours of API time to establish (P3021, pages that cite the entry, title and full-text
+search on both wikis, Persian transliteration of the headword), and about forty wrong
+matches were then removed **by reading them**: «Armor (film)», «Crown Lands (band)», a
+Jahrom village for «aubergine», the month بهمن for Vohu Manah, «Dariush» for Darius I,
+«(actor)» pages. A rule did not catch those, so a daily recompute would bring them back.
+The selftest asserts four of them stay out. The run only ever ADDS to the frozen file,
+from Wikidata's live P3021 claims and the en article's current fa langlink. It also
+drops a frozen fa title that no longer exists, which turns the row back into a create
+candidate.
+
+The rejected matches are kept as `rejected` in the survey's `match.json`, and every
+search pass there now skips them. The first time that was not so, the English full-text
+pass re-found 30 matches an earlier filter had removed, and only this selftest noticed.
+
+**Grade from prose words, not bytes.** «خاندان هخامنشی» is 8,799 bytes and 169 words of
+prose; the infobox, refs and interwiki-era templates are the rest. Bands: خرد (stub
+category or < 300 words), آغازین (< 1,000), متوسط (< 2,500), کامل‌تر; خوب and برگزیده
+from their categories.
+
+**Entry length is cached, and filled in slowly.** robots.txt asks for `Crawl-Delay: 20`;
+8,652 pages at that pace is two days. Each run measures at most 150 entries (about 50
+minutes), the ones with a fa or en article first, into `~/state/iranica-entries.json`,
+which was seeded from the survey (3,038 measured). An unmeasured entry shows «ـ», never
+an em dash, which the gate refuses.
+
+**Layout.** One page would be about 1.3 MB, so the main page carries the summary, the
+method and two 25-row previews, and six subpages hold the tables (each under ~350 KB;
+parsed in 0.5 s). Subpages are written first. Only the main page gets `/امضا`.
 
 ## Renamed ۱۰ اکتبر ۲۰۲۶ — «برای انتقال مقاله» → «مقاله‌های نیازمند تغییرنام»
 
