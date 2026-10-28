@@ -2,7 +2,7 @@
 
 ## This task owns every database report, not just one
 
-One task, one entry (`reports-cli.ts --report move|portals|featured|prefs|all`), one
+One task, one entry (`reports-cli.ts --report move|portals|featured|prefs|neighbors|acmoves|all`), one
 bundle (`toolforge/task-13-reports.mjs`):
 
 | report | source | frequency |
@@ -20,6 +20,7 @@ bundle (`toolforge/task-13-reports.mjs`):
 | مقالاتی که در ویکی‌کردی هست و در ویکی‌فا نیست | همان، ckbwiki | daily, `nb-daily` |
 | مقالاتی که در ویکی‌مازندرانی هست و در ویکی‌فا نیست | همان، mznwiki | daily, `nb-daily` |
 | مقالاتی که در ویکی‌های خاورمیانه (عربی، ترکی، عبری) هست و در ویکی‌فا نیست | همان، ar+tr+he merged | daily, `nb-daily` |
+| تغییرنام‌های کاربران تأییدشده خودکار | fawiki replica `logging` + rights-log replay + **centralauth_p** | daily, `ac-daily` |
 
 They have almost nothing in common in their data. They are the same **job**: propose
 something on a page, never touch an article, need no permission, go out unflagged so
@@ -231,6 +232,53 @@ loop terminates rather than spinning.
 `unverifiedEnTargets` in `linkfix.ts` uses), run once per site and shared across every
 report that reads that site — the mideast report does not re-check عربی, ترکی and عبری
 a second time on top of the three standalone reports.
+
+### تغییرنام‌های کاربران تأییدشده خودکار (۲۸ اکتبر ۲۰۲۶)
+
+Asked for by Sunfyre on قهوه‌خانه/فنی («درخواست کوئری»): the نظرخواهی to raise the move
+threshold to extendedconfirmed was not heading for consensus, so review the moves instead.
+Huji's Quarry query 110612 (`LEFT JOIN user_groups … IS NULL`) was the starting point.
+Every move into or out of ns 0 whose author had nothing beyond (auto)confirmed **at the
+time of the move**. Code: `ac-moves-report.ts` (pure), `-run.ts`, `.selftest.ts`.
+
+Operator's decisions: the window is **anchored on calendar months**, four whole months
+plus the current partial one, never "the last N days". A rolling window loses its first
+day every day, so a reviewer could not work through it. Users whose only explicit group is
+`confirmed` are **included**, because that group is handed to new accounts and grants the
+same move right. Moves into ns 0 from user/draft space count too. Talk-page moves that
+travel with an article are not listed. The title has no ezafe hamza, matching the
+policy page «ویکی‌پدیا:کاربران تأییدشده خودکار» (the gate refuses a word-final «هٔ»).
+
+Measured while building it. Each of these made the obvious version wrong without any
+error:
+
+- **Current groups are not the mover's groups.** 19 accounts that moved as
+  autoconfirmed-only since June are extendedconfirmed now (Che1985: moved ۲۷ سپتامبر,
+  promoted ۲۶ اکتبر). Reading today's groups drops a month's rows on the day the author
+  is promoted, which defeats the anchored window. Groups are replayed from `rights` and
+  `autopromote` log entries up to each move, honouring temporary-group expiries.
+  `log_params` is PHP-serialized with **byte** string lengths, so it is parsed with a
+  real unserializer and not a regex. A group held today with no log trail (granted on
+  meta) is assumed always held, which is the safe direction.
+- **Abolished groups never leave the log.** fa's old «uploader» group was removed by a
+  config change, which writes no rights entry, so the replay made dozens of 2014 to 2018
+  editors uploaders for ever. Groups are filtered against `siprop=usergroups`.
+- **`mysql --batch` prints NULL as «NULL».** `GROUP_CONCAT` over no groups read as a
+  group literally called «NULL», and the first dev run published 70 rows instead of
+  451. `replica.ts`'s ssh backend now maps it to `''`, matching the direct backend.
+  `queryRows` also gained `allowEmpty` for lookups whose empty answer is meaningful.
+- **Edit summaries are quoted, not written.** They are printed as wikitext so their
+  links work, and `safeComment()` neutralises anything that would act on the page:
+  templates, categories and files, signatures, tags and cell pipes. The gate runs on the
+  page with summaries blanked. One summary contained an em dash, and rewriting someone
+  else's words to satisfy a style rule would misquote them.
+- Global groups come from `centralauth_p` as of today, because no history is exposed
+  there. Bots (by current group) are excluded in SQL. The run refuses to publish under
+  20 rows, because a broken replay shows up as a short list and not as an error.
+
+First run ۲۸ اکتبر ۲۰۲۶: 10,186 moves → 9,955 touching ns 0 → **451 rows**
+(۴۸، ۶۸، ۹۹، ۱۱۲، ۱۲۴ by month). The box output was byte-identical to the dev
+(ssh-backend) output. Listed on وپ:گد under «گشت‌زنی، دسترسی‌ها و حساب‌ها».
 
 ## Renamed ۱۰ اکتبر ۲۰۲۶ — «برای انتقال مقاله» → «مقاله‌های نیازمند تغییرنام»
 

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Toolforge tool: mamouribot   (see docs/TOOLFORGE.md for the full task/tool table)
 # Entry point for وظیفهٔ ۱۳ — every database report this bot publishes: the five
-# «نیازمند تغییرنام» reports, the two درگاه reports, the featured-content ranking and
-# the user-preferences report. Pick with --report, and a namespace with --ns.
+# «نیازمند تغییرنام» reports, the two درگاه reports, the featured-content ranking,
+# the user-preferences report, the neighbour-wiki reports and the autoconfirmed-moves report. Pick with --report, and a namespace with --ns.
 set -euo pipefail
 cd "$(dirname "$0")"
 

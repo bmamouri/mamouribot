@@ -100,3 +100,16 @@
   emails: onfailure
   filelog-stdout: logs/nb-daily.out
   filelog-stderr: logs/nb-daily.err
+
+# تغییرنام‌های کاربران تأییدشده خودکار: moves into/out of ns 0 by users who had nothing
+# beyond (auto)confirmed at the time. Daily, after nb-daily. The window is anchored on
+# calendar months (4 whole + current), so only the current month's section and the
+# «وضعیت کنونی» column change from day to day. Reads fawiki_p and centralauth_p.
+- name: ac-daily
+  command: ./task-13-move-report/run.sh --report acmoves --live
+  image: node20
+  mem: 1Gi
+  schedule: "30 5 * * *"
+  emails: onfailure
+  filelog-stdout: logs/ac-daily.out
+  filelog-stderr: logs/ac-daily.err
