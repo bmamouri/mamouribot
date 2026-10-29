@@ -317,6 +317,12 @@ def audit_dashes(text: str):
     masked = re.sub(r'\[\[([^\]|]*)(\||\]\])',
                     lambda m: '[[' + m.group(1).replace('—', ' ') + m.group(2),
                     mask_opaque(text))
+    # Nor inside the title/work parameters of a citation: an English source's title is
+    # quoted as published. One translator «fixed» «… dementia — and why churches …» in a
+    # cited interview title to satisfy this gate, which misquotes the source.
+    masked = re.sub(r'(\|\s*(?:عنوان|فصل|اثر|وبگاه|ژورنال|روزنامه|title|chapter|work|website|journal)'
+                    r'\s*=)([^|{}]*)',
+                    lambda m: m.group(1) + m.group(2).replace('—', ' '), masked)
     return [text[max(0, m.start() - 45):m.start() + 45].replace('\n', ' ')
             for m in re.finditer('—', masked)]
 
@@ -599,8 +605,18 @@ def audit_pak_page_param(text: str):
         if wrong:
             bad.append('{{پک}} uses %s — only «ص=» is read; the page is dropped'
                        % '/'.join(wrong))
-        elif 'ص' not in keys:
-            bad.append('{{پک}} with no «ص=» page parameter')
+        elif 'ص' not in keys and 'ک' not in keys:
+            # «ک=» (section/chapter/loc, e.g. «ک=§۴» or «ک=فصل ۶») is itself a
+            # locator per the template's own docs (وپ:شیوه ارجاع به منابع) —
+            # only flag when NEITHER a page NOR a section/chapter locator is
+            # given AND some OTHER named key is present too (that shape is
+            # what the dropped-page-param mistake actually looks like — e.g.
+            # a leftover «زبان=» from a botched {{sfn}}→{{پک}} conversion). A
+            # call with NO named keys at all — bare {{پک|Author|Year}} — is a
+            # deliberate whole-work citation (a short paper, an encyclopedia
+            # entry) with no finer locator to give, not a dropped page.
+            if keys:
+                bad.append('{{پک}} with no «ص=» page parameter')
     return bad
 
 
