@@ -99,7 +99,8 @@ export const RANKS: Record<string, string> = {
 export type Resolved = { rank: string; parent: string; link: string; extinct?: boolean };
 export type Plan =
   | { kind: 'create'; name: string; r: Resolved; source: 'en' | 'wd' }
-  | { kind: 'redirect'; name: string; to: string };
+  | { kind: 'redirect'; name: string; to: string }
+  | { kind: 'verbatim'; name: string; text: string };
 type Refusal = { taxon: string; why: string; article: string };
 
 /** template title → what to write, filled by getTargets */
@@ -130,15 +131,28 @@ export const redirectBody = (to: string) => `#تغییرمسیر [[${PREFIX}${to
 /** Parse a taxonomy template: null when absent, {root} for the blank root. */
 export const parseTaxonomy = (c: string | null) => {
   if (c === null) return null;
+  // The blank root says «intentionally blank» INSIDE a comment, so test that first.
+  if (c.includes('intentionally blank')) return { root: true as const };
+  // Then drop comments: الگو:Taxonomy/Poxviridae is one big <!-- … --> around a valid
+  // body, which read as rank=familia/parent=Virus while rendering as nothing at all.
+  c = c.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
   const red = c.match(/^\s*#(?:تغییرمسیر|تغییر_مسیر|REDIRECT)\s*\[\[[^\]]*Taxonomy\/([^\]|]+)\]\]/i);
   if (red) return { redirect: red[1].trim() };
-  if (c.includes('intentionally blank')) return { root: true as const };
   // [ \t]*, not \s*: on an empty `|rank=` a \s* would run over the newline and
   // read the NEXT line («|link=X») as the rank.
   const g = (k: string) => (c.match(new RegExp(`^\\s*\\|[ \\t]*${k}[ \\t]*=[ \\t]*([^\\n]*)`, 'm')) ?? [, ''])[1]
     .replace(/<!--[\s\S]*?(?:-->|$)/g, '').trim();
-  return { rank: g('rank'), parent: g('parent'), link: g('link'), extinct: g('extinct') };
+  return { rank: g('rank'), parent: g('parent'), link: g('link'), extinct: g('extinct'),
+           sameAs: g('same[ _]as') };
 };
+
+/**
+ * en's body for a `same as` variant («Eukaryota/displayed», «Crocodilia/skip»), minus
+ * the en-only protection banners. These carry no rank of their own, so they are copied
+ * as they are rather than rebuilt; the proof still decides whether they get saved.
+ */
+export const sameAsBody = (en: string) =>
+  en.replace(/<noinclude>[\s\S]*?<\/noinclude>/g, '').trim() + '\n';
 
 /** «Sepsis (fly)|Sepsis» → { target: 'Sepsis (fly)', display: 'Sepsis' } */
 export const splitLink = (link: string, name: string) => {
@@ -171,19 +185,24 @@ export const task: BotTask = {
     const articles = await categoryArticles(bot);
     console.log(`  ${articles.length} مقاله در رده`);
     if (!articles.length) return [];
-    await loadRankKeywords(bot);
 
     const out: string[] = [];
     const stale: string[] = [];
     for (const art of articles) {
-      let missing: string[], species: boolean;
-      try { ({ missing, species } = await missingFor(bot, art)); }
+      let missing: string[], genus: string | null;
+      try { ({ missing, genus } = await missingFor(bot, art)); }
       catch (e) { refused.push({ taxon: '', why: 'مقاله بازنمایی نشد', article: art }); continue; }
       // Already fixed — an earlier run created its template — but the category row is
       // only rewritten by the links update, which can lag by days. Purge it out.
       if (!missing.length) { stale.push(art); continue; }
       for (const name of missing) {
-        const r = await planChain(bot, name, species);
+        let r: Awaited<ReturnType<typeof planChain>>;
+        // One failed lookup (a lagged Wikidata, a timeout) costs this article this hour,
+        // not the whole run: on ۳۱ اکتبر ۲۰۲۶ two hourly runs died here before any edit.
+        // Only the box's own genus has to be a genus. Any other missing name is an
+        // ancestor (Brachychalcinus exists; its parent Stethaprioninae does not).
+        try { r = await planChain(bot, name, genus !== null && name.replace(/\s*\([^)]*\)$/, '') === genus); }
+        catch (e) { console.error(`  ✗ ${art}: ${(e as Error).message}`); continue; }
         if ('why' in r) { refused.push({ taxon: r.taxon, why: r.why, article: art }); continue; }
         const title = PREFIX + r.plan.name;
         if (!plans.has(title)) { plans.set(title, r.plan); out.push(title); }
@@ -201,7 +220,9 @@ export const task: BotTask = {
     if (text.trim() !== '') return { text, changed: false, note: 'صفحه از قبل وجود دارد' };
     const p = plans.get(title);
     if (!p) return { text, changed: false, note: 'حل‌نشده', manualReview: true };
-    return { text: p.kind === 'redirect' ? redirectBody(p.to) : templateBody(p.r), changed: true };
+    const body = p.kind === 'redirect' ? redirectBody(p.to)
+      : p.kind === 'verbatim' ? p.text : templateBody(p.r);
+    return { text: body, changed: true };
   },
 
   async verify(bot: Bot, title: string, _old: string, newText: string) {
@@ -321,13 +342,31 @@ async function purgeStale(bot: Bot, titles: string[]) {
   console.log(`  ${titles.length} مقاله دیگر الگوی گم‌شده ندارد؛ پیوندهایشان به‌روز شد`);
 }
 
+/**
+ * The genus a species box looks up, or null when it is not a species box or names its
+ * parent explicitly (`parent=Prunus sect. Microcerasus` is a deliberate non-genus).
+ */
+export function speciesBoxGenus(wikitext: string, title = ''): string | null {
+  const m = SPECIES_BOX.exec(wikitext);
+  if (!m) return null;
+  const box = wikitext.slice(m.index, m.index + 4000);
+  const p = (k: string) => (box.match(new RegExp(`\\|\\s*${k}\\s*=\\s*([^|}\\n]*)`)) ?? [, ''])[1]
+    .replace(/'''?|\[\[|\]\]/g, '').trim();
+  if (p('parent')) return null;
+  // With neither genus= nor taxon=, the box takes the genus from the page title's first
+  // word. «سهره پری‌شاهرخی» asked for الگو:Taxonomy/سهره, and a redirect to Fringillidae
+  // passed the category proof while printing the FAMILY in the genus row.
+  return p('genus') || p('taxon').split(/\s+/)[0] || title.split(/\s+/)[0] || null;
+}
+
 /** The الگو:Taxonomy/* titles the article's box looked for and did not find. */
 async function missingFor(bot: Bot, article: string) {
+  // (title is passed so a species box with no genus/taxon still gets its genus checked)
   const d: any = await bot.apiGet({ action: 'parse', page: article, prop: 'templates|wikitext' });
   const missing = (d.parse?.templates ?? [])
     .filter((t: any) => t.title.startsWith(PREFIX) && !t.exists)
     .map((t: any) => t.title.slice(PREFIX.length) as string);
-  return { missing, species: SPECIES_BOX.test(d.parse?.wikitext ?? '') };
+  return { missing, genus: speciesBoxGenus(d.parse?.wikitext ?? '', article) };
 }
 
 const tplCache = new Map<string, string | null>();
@@ -344,24 +383,11 @@ async function templateText(bot: Bot, name: string): Promise<string | null> {
 }
 const templateExists = async (bot: Bot, name: string) => (await templateText(bot, name)) !== null;
 
-/** Rank keywords fa's الگو:Anglicise rank knows. A rank outside this set is refused. */
-let rankKeywords: Set<string> | null = null;
-async function loadRankKeywords(bot: Bot) {
-  if (rankKeywords) return;
-  const d: any = await bot.apiGet({
-    action: 'query', titles: 'الگو:Anglicise rank', prop: 'revisions', rvprop: 'content', rvslots: 'main',
-  });
-  const src: string = d.query.pages[0].revisions[0].slots.main.content;
-  rankKeywords = new Set([...src.matchAll(/\|\s*([a-z][a-z ]*?)\s*=/g)].map(m => m[1]));
-  for (const v of Object.values(RANKS)) rankKeywords.add(v);
-}
-export const _setRankKeywords = (s: string[]) => { rankKeywords = new Set(s); };
-
 /**
  * Walk up from the missing `name` to the lowest template that can be written now
  * (its parent, or its redirect target, already exists).
  */
-async function planChain(bot: Bot, name: string, species: boolean):
+async function planChain(bot: Bot, name: string, species: boolean /* name is the species box's genus */):
     Promise<{ plan: Plan; direct: boolean } | { taxon: string; why: string }> {
   let cur = name;
   const seen = new Set<string>();
@@ -374,6 +400,9 @@ async function planChain(bot: Bot, name: string, species: boolean):
       const latin = await latinForPersian(bot, cur);
       if (!latin) return { taxon: cur, why: 'نام فارسی آرایه به نام علمی یکتایی نرسید' };
       if (await templateExists(bot, latin)) {
+        const brk = await chainBreak(bot, latin);
+        if (brk && 'broken' in brk) return { taxon: brk.broken, why: 'الگوی رده‌بندی موجود خراب است (بدون رتبه یا رستهٔ بالادست)' };
+        if (brk) { cur = brk.missing; continue; }
         if (direct && species) {
           const t = parseTaxonomy(await templateText(bot, latin));
           if (t && 'rank' in t && t.rank !== 'genus') {
@@ -390,30 +419,82 @@ async function planChain(bot: Bot, name: string, species: boolean):
     if ('why' in info) return { taxon: cur, why: info.why };
     if ('redirectTo' in info) {
       if (await templateExists(bot, info.redirectTo)) {
-        return { plan: { kind: 'redirect', name: cur, to: info.redirectTo }, direct };
+        const brk = await chainBreak(bot, info.redirectTo);
+        if (brk === null) return { plan: { kind: 'redirect', name: cur, to: info.redirectTo }, direct };
+        if ('broken' in brk) return { taxon: brk.broken, why: 'الگوی رده‌بندی موجود خراب است (بدون رتبه یا رستهٔ بالادست)' };
+        cur = brk.missing;
+        continue;
       }
       cur = info.redirectTo;
+      continue;
+    }
+    if ('sameAs' in info) {
+      // Both the template it mirrors and, when it overrides one, its parent must
+      // already have a complete chain; otherwise go and fix the break first.
+      let next: string | null = null;
+      for (const dep of [info.sameAs, info.parent].filter(Boolean) as string[]) {
+        const brk = await chainBreak(bot, dep);
+        if (brk && 'broken' in brk) return { taxon: brk.broken, why: 'الگوی رده‌بندی موجود خراب است (بدون رتبه یا رستهٔ بالادست)' };
+        if (brk) { next = brk.missing; break; }
+      }
+      if (!next) return { plan: { kind: 'verbatim', name: cur, text: info.text }, direct };
+      cur = next;
       continue;
     }
     if (direct && species && info.r.rank !== 'genus') {
       return { taxon: cur, why: `جعبهٔ گونه به سرده نیاز دارد ولی رتبهٔ این نام ${info.r.rank} است` };
     }
     if (await templateExists(bot, info.r.parent)) {
-      return { plan: { kind: 'create', name: cur, r: info.r, source: info.source }, direct };
+      // The parent existing is not enough: Cephalozoa's parent Proarticulata exists on
+      // fa but ITS parent Triploblastica does not, so Cephalozoa failed its proof every
+      // hour and nothing ever created Triploblastica. Jump to the real break instead.
+      const brk = await chainBreak(bot, info.r.parent);
+      if (brk === null) return { plan: { kind: 'create', name: cur, r: info.r, source: info.source }, direct };
+      if ('broken' in brk) return { taxon: brk.broken, why: 'الگوی رده‌بندی موجود خراب است (بدون رتبه یا رستهٔ بالادست)' };
+      cur = brk.missing;
+      continue;
     }
     cur = info.r.parent;
   }
   return { taxon: name, why: 'زنجیره بیش از حد عمیق' };
 }
 
-type Latin = { r: Resolved; source: 'en' | 'wd' } | { redirectTo: string } | { why: string };
+/**
+ * Walk the EXISTING chain above `name` to the root. null when it is complete;
+ * otherwise the first missing template, or the first one that exists but is
+ * unusable (الگو:Taxonomy/Poxviridae is entirely commented out).
+ */
+async function chainBreak(bot: Bot, name: string): Promise<null | { missing: string } | { broken: string }> {
+  let n = name;
+  const seen = new Set<string>();
+  for (let i = 0; i < 60 && !seen.has(n); i++) {
+    seen.add(n);
+    const t = parseTaxonomy(await templateText(bot, n));
+    if (t === null) return { missing: n };
+    if ('root' in t) return null;
+    if ('redirect' in t) { n = t.redirect!; continue; }
+    if (!t.parent) return { broken: n };
+    n = t.parent;
+  }
+  return null; // a loop or a very deep chain is not ours to diagnose; the proof decides
+}
+
+type Latin = { r: Resolved; source: 'en' | 'wd' } | { redirectTo: string }
+  | { sameAs: string; parent?: string; text: string } | { why: string };
 async function resolveLatin(bot: Bot, name: string): Promise<Latin> {
   const en = await enTaxonomy(bot, name);
   if (en) {
     const t = parseTaxonomy(en);
     if (t && 'redirect' in t) return { redirectTo: t.redirect! };
+    if (t && 'sameAs' in t && t.sameAs) {
+      return { sameAs: t.sameAs, parent: t.parent || undefined, text: sameAsBody(en) };
+    }
     if (t && 'rank' in t && t.rank && t.parent) {
-      if (!rankKeywords!.has(t.rank)) return { why: `رتبهٔ ناشناخته در الگوی انگلیسی (${t.rank})` };
+      // No rank whitelist here. «sectio» and «unranked» are absent from الگو:Anglicise rank
+      // yet render correctly («Section:», «(طبقه‌بندی‌نشده)»), and refusing them stranded
+      // four articles. The Wikidata path keeps its strict RANKS table, because there the
+      // rank is a QID translation of ours rather than a value copied from a working tree.
+      if (!/^[a-z][a-z ]*$/.test(t.rank)) return { why: `رتبهٔ نامعتبر در الگوی انگلیسی (${t.rank})` };
       const { target, display } = splitLink(t.link, name);
       const faTitle = await faForEn(bot, target);
       return {
@@ -448,15 +529,33 @@ async function faForEn(bot: Bot, title: string): Promise<string | null> {
   return d.query.pages[0]?.langlinks?.[0]?.title ?? null;
 }
 
-/** Persian taxon name → the P225 of the Wikidata item its fa article belongs to. */
+/**
+ * Persian taxon name → its scientific name.
+ *
+ * The fa page is resolved first, FOLLOWING redirects: editors type variants
+ * («ارتوپوکس‌ویروس» for the article «ارتوپاکس‌ویروس»), and a lookup by the literal name
+ * found nothing for any of them. Then, in order: the page's Wikidata P225, if there is
+ * exactly one; else its en interwiki, if en has a taxonomy template under that title.
+ */
 async function latinForPersian(bot: Bot, name: string): Promise<string | null> {
-  const d: any = await bot.apiGetOn(WD_API, {
-    action: 'wbgetentities', sites: 'fawiki', titles: name, props: 'claims', redirects: 'yes',
+  const d: any = await bot.apiGet({
+    action: 'query', titles: name, redirects: '1', prop: 'pageprops|langlinks',
+    ppprop: 'wikibase_item', lllang: 'en',
   });
-  const e: any = Object.values(d.entities ?? {})[0];
-  if (!e || 'missing' in e) return null;
-  const vals = (e.claims?.P225 ?? []).map((c: any) => c.mainsnak?.datavalue?.value).filter(Boolean);
-  return vals.length === 1 ? vals[0] : null;
+  const pg = d.query.pages[0];
+  if (!pg || 'missing' in pg) return null;
+  const qid: string | undefined = pg.pageprops?.wikibase_item;
+  if (qid) {
+    // maxlag is a courtesy to the wiki we WRITE to. Wikidata folds query-service lag
+    // into it, which routinely sits above 5s, so a read there with our write maxlag
+    // failed on every retry and took the whole run down with it.
+    const w: any = await bot.apiGetOn(WD_API, { action: 'wbgetentities', ids: qid, props: 'claims', maxlag: '60' });
+    const vals = (w.entities?.[qid]?.claims?.P225 ?? []).map((c: any) => c.mainsnak?.datavalue?.value).filter(Boolean);
+    if (vals.length === 1) return vals[0];
+  }
+  const enTitle: string | undefined = pg.langlinks?.[0]?.title;
+  if (enTitle && await enTaxonomy(bot, enTitle)) return enTitle;
+  return null;
 }
 
 /** rank qid, parent name and fa sitelink for one scientific name, or null if ambiguous. */

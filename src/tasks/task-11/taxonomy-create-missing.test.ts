@@ -1,5 +1,5 @@
 /** Unit tests for Task 11.  npx tsx src/tasks/task-11/taxonomy-create-missing.test.ts */
-import { task, seedResolved, seedRedirect, templateBody, redirectBody, parseTaxonomy, splitLink, RANKS, reportWikitext } from './taxonomy-create-missing.js';
+import { task, seedResolved, seedRedirect, templateBody, redirectBody, parseTaxonomy, splitLink, sameAsBody, speciesBoxGenus, RANKS, reportWikitext } from './taxonomy-create-missing.js';
 
 let pass = 0, fail = 0;
 const ok = (name: string, cond: boolean | string) => {
@@ -60,6 +60,24 @@ ok('an en template with a piped link and a commented refs line parses',
   en.rank === 'genus' && en.parent === 'Sepsinae' && en.link === 'Sepsis (fly)|Sepsis');
 const ext = parseTaxonomy("{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=X\n|parent=Y\n|extinct= <!--leave blank -->\n}}") as any;
 ok('a commented-out extinct reads as empty', ext.extinct === '');
+
+const commented = parseTaxonomy("<!---\n{{Don't edit this line {{{machine code|}}}\n|rank=familia\n|link=X\n|parent=Virus\n}}\n--->\n[[رده:الگو:آرایه‌شناسی غیرضروری]]") as any;
+ok('a template whose whole body is commented out has no rank or parent',
+  commented.rank === '' && commented.parent === '');
+
+// ---------- species boxes and same-as variants
+ok('a species box looks up the first word of taxon=',
+  speciesBoxGenus('{{جعبه اطلاعات گونه\n| taxon = Cornu aspersum\n}}') === 'Cornu');
+ok('genus= wins over taxon=', speciesBoxGenus('{{Speciesbox\n|genus=Sepsis (fly)\n|species=cynipsea\n}}') === 'Sepsis (fly)');
+ok('an explicit parent= switches the genus check off',
+  speciesBoxGenus('{{جعبه اطلاعات گونه\n|parent=Prunus sect. Microcerasus\n|taxon=Prunus prostrata}}') === null);
+ok('a species box with neither genus nor taxon takes its genus from the title',
+  speciesBoxGenus('{{جعبه اطلاعات گونه\n|species=olivaceus}}', 'سهره پری‌شاهرخی') === 'سهره');
+ok('an automatic taxobox has no genus to check', speciesBoxGenus('{{Automatic taxobox\n| taxon = Canina\n}}') === null);
+const sa = parseTaxonomy("<noinclude>{{pp-template}}</noinclude>{{Don't edit this line {{{machine code|}}}\n|same as=Eukaryota\n|always_display=yes\n}}") as any;
+ok('a same-as variant is recognised', sa.sameAs === 'Eukaryota' && sa.rank === '');
+ok('a same-as body drops en-only noinclude banners',
+  !sameAsBody("<noinclude>{{pp-template}}</noinclude>{{Don't edit this line}}").includes('pp-template'));
 
 // ---------- rank table is conservative on purpose
 ok('a known rank maps', RANKS['Q34740'] === 'genus');
