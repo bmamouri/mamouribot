@@ -150,11 +150,16 @@ export const parseTaxonomy = (c: string | null) => {
     else if (last === 'link' && cur.trim()) params.set('link', `${params.get('link')}|${cur.trim()}`);
     cur = '';
   };
-  const body = c.replace(/^[\s\S]*?\{\{\s*Don't edit this line[^|}]*/i, '').replace(/\}\}\s*$/, '');
+  c = c.replace(/<noinclude>[\s\S]*?(?:<\/noinclude>|$)/gi, '');
+  // Start after «{{Don't edit this line {{{machine code|}}}»: its triple braces would
+  // otherwise read as the call closing before the first parameter.
+  const body = c.replace(/^[\s\S]*?\{\{\s*Don't edit this line\s*(?:\{\{\{[^{}]*\}\}\})?[^|}]*/i, '');
   for (let i = 0; i < body.length; i++) {
     const two = body.slice(i, i + 2);
     if (two === '{{' || two === '[[') { depth++; cur += two; i++; continue; }
     if ((two === '}}' || two === ']]') && depth > 0) { depth--; cur += two; i++; continue; }
+    // the call's own closing braces end it: anything after (categories) is not a param
+    if (two === '}}' && depth === 0) break;
     if (body[i] === '|' && depth === 0) { flush(); continue; }
     cur += body[i];
   }
@@ -494,6 +499,9 @@ async function chainBreak(bot: Bot, name: string): Promise<null | { missing: str
     if (t === null) return { missing: n };
     if ('root' in t) return null;
     if ('redirect' in t) { n = t.redirect!; continue; }
+    // A same-as variant with no parent override («Eukaryota/displayed») inherits the
+    // parent of the template it mirrors.
+    if (!t.parent && t.sameAs) { n = t.sameAs; continue; }
     if (!t.parent) return { broken: n };
     n = t.parent;
   }

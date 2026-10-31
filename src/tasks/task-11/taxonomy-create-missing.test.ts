@@ -84,6 +84,11 @@ ok('two parameters on one line are both read', oneLine.parent === 'Life' && oneL
 const nested = parseTaxonomy("{{Don't edit this line {{{machine code|}}}\n|rank=familia\n|link=X\n|parent=Y\n|refs={{cite web|url=a|title=b}}\n}}") as any;
 ok('a pipe inside refs={{…}} does not split the call', nested.parent === 'Y' && nested.rank === 'familia');
 
+const tail = parseTaxonomy("{{Don't edit this line {{{machine code|}}}\n|rank=cladus\n|link=X\n|parent=Neodiapsida\n}}<noinclude>{{pp-semi-indef}}</noinclude>\n[[رده:الگو]]") as any;
+ok('text after the closing braces does not leak into the last parameter', tail.parent === 'Neodiapsida');
+const disp = parseTaxonomy("<noinclude>{{pp-template}}</noinclude>{{Don't edit this line {{{machine code|}}}\n|same as=Eukaryota\n|always_display=yes\n}}") as any;
+ok('a leading noinclude does not hide the call', disp.sameAs === 'Eukaryota');
+
 // ---------- rank table is conservative on purpose
 ok('a known rank maps', RANKS['Q34740'] === 'genus');
 // the three that were wrong in the first draft, pinned so they cannot regress
