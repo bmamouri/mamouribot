@@ -79,6 +79,11 @@ ok('a same-as variant is recognised', sa.sameAs === 'Eukaryota' && sa.rank === '
 ok('a same-as body drops en-only noinclude banners',
   !sameAsBody("<noinclude>{{pp-template}}</noinclude>{{Don't edit this line}}").includes('pp-template'));
 
+const oneLine = parseTaxonomy("{{Don't edit this line {{{machine code|}}}\n|rank=virus_group\n|link=گروه IV بالتیمور|parent=Life\n}}") as any;
+ok('two parameters on one line are both read', oneLine.parent === 'Life' && oneLine.link === 'گروه IV بالتیمور');
+const nested = parseTaxonomy("{{Don't edit this line {{{machine code|}}}\n|rank=familia\n|link=X\n|parent=Y\n|refs={{cite web|url=a|title=b}}\n}}") as any;
+ok('a pipe inside refs={{…}} does not split the call', nested.parent === 'Y' && nested.rank === 'familia');
+
 // ---------- rank table is conservative on purpose
 ok('a known rank maps', RANKS['Q34740'] === 'genus');
 // the three that were wrong in the first draft, pinned so they cannot regress

@@ -138,10 +138,31 @@ export const parseTaxonomy = (c: string | null) => {
   c = c.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
   const red = c.match(/^\s*#(?:تغییرمسیر|تغییر_مسیر|REDIRECT)\s*\[\[[^\]]*Taxonomy\/([^\]|]+)\]\]/i);
   if (red) return { redirect: red[1].trim() };
-  // [ \t]*, not \s*: on an empty `|rank=` a \s* would run over the newline and
-  // read the NEXT line («|link=X») as the rank.
-  const g = (k: string) => (c.match(new RegExp(`^\\s*\\|[ \\t]*${k}[ \\t]*=[ \\t]*([^\\n]*)`, 'm')) ?? [, ''])[1]
-    .replace(/<!--[\s\S]*?(?:-->|$)/g, '').trim();
+  // Split the call on top-level pipes, as MediaWiki does. Reading line by line made
+  // «|link=گروه IV …|parent=Life» (two params on one line, الگو:Taxonomy/IV) look like
+  // a template with no parent. A bare value right after link= is link's display text
+  // («|link=Sepsis (fly)|Sepsis»), so it is folded back into link.
+  const params = new Map<string, string>();
+  let depth = 0, cur = '', last = '';
+  const flush = () => {
+    const m = cur.match(/^\s*([^=]+?)\s*=([\s\S]*)$/);
+    if (m) { last = m[1].toLowerCase(); params.set(last, m[2].trim()); }
+    else if (last === 'link' && cur.trim()) params.set('link', `${params.get('link')}|${cur.trim()}`);
+    cur = '';
+  };
+  const body = c.replace(/^[\s\S]*?\{\{\s*Don't edit this line[^|}]*/i, '').replace(/\}\}\s*$/, '');
+  for (let i = 0; i < body.length; i++) {
+    const two = body.slice(i, i + 2);
+    if (two === '{{' || two === '[[') { depth++; cur += two; i++; continue; }
+    if ((two === '}}' || two === ']]') && depth > 0) { depth--; cur += two; i++; continue; }
+    if (body[i] === '|' && depth === 0) { flush(); continue; }
+    cur += body[i];
+  }
+  flush();
+  const g = (k: string) => {
+    for (const [key, v] of params) if (new RegExp(`^${k}$`).test(key)) return v.trim();
+    return '';
+  };
   return { rank: g('rank'), parent: g('parent'), link: g('link'), extinct: g('extinct'),
            sameAs: g('same[ _]as') };
 };
