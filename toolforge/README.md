@@ -22,6 +22,7 @@ them.
 | `task-01-use-dmy-dates/` | وظیفهٔ ۱ — `run.sh`, `jobs.yaml` |
 | `task-03-cite-params/` | وظیفهٔ ۳ — `run.sh`, `scan.sh`, `jobs.yaml` |
 | `task-08-musician-params/` | وظیفهٔ ۸ — `run.sh`, `jobs.yaml` |
+| `task-11-taxonomy/` | وظیفهٔ ۱۱ — `run.sh`, `jobs.yaml`; job `tx-hourly` (`45 * * * *`) drains «صفحه‌های دارای الگوی آرایه‌شناسی گم‌شده» |
 | `task-13-move-report/` | وظیفهٔ ۱۳ — `run.sh`, `jobs.yaml` |
 | `task-14-population/` | وظیفهٔ ۱۴ — `run.sh`, `jobs.yaml` |
 | `task-15-source-tags/` | وظیفهٔ ۱۵ — `run.sh`, `jobs.yaml` |

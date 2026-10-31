@@ -19,6 +19,7 @@ Consolidated ۸ اکتبر ۲۰۲۶: every job runs there, every task's resume c
 |---|---|---|---|
 | `empty-params` | وظیفهٔ ۵ | `5 3 * * *` | `bot/empty-unknown-params.py` |
 | `notelist-watch` | وظیفهٔ ۶ | `*/15 * * * *` | `mamouribot.mjs notelist-missing --live --delay 12` |
+| `tx-hourly` | وظیفهٔ ۱۱ | `45 * * * *` | `task-11-taxonomy/run.sh --live --limit 150 --delay 10` |
 | `destub-watch` | وظیفهٔ ۱۰ | `*/10 * * * *` | `cd task-10-destub && node ../destub-watch.mjs --live` |
 | `destub-inventory-monthly` | وظیفهٔ ۱۰ | `0 2 1 * *` | `cd task-10-destub && node ../destub-inventory.mjs` |
 

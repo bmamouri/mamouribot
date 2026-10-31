@@ -1,0 +1,35 @@
+# وظیفهٔ ۱۱ — missing taxonomy templates.   See run.sh.
+#
+# Hourly, at :45 — clear of cite-params-hourly (:25). The category is small (130 members
+# on ۳۱ اکتبر ۲۰۲۶) and an empty category costs one categorymembers read, so an idle
+# hour is nearly free.
+#
+# --limit 150 is a ceiling, not a target: a normal hour creates a handful of templates.
+# --delay 10 is the bot policy floor.
+#
+# NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME.
+#
+# ⚠️ `toolforge jobs load` SYNCS — it deletes scheduled jobs absent from the file it is
+# given, including every other task's job. Do NOT load this file. Create the job with:
+#
+#   toolforge jobs run tx-hourly --image node20 --mem 1Gi --schedule "45 * * * *" \
+#     --command "./task-11-taxonomy/run.sh --live --limit 150 --delay 10" \
+#     --retry 0 --emails onfailure -o logs/tx-hourly.out -e logs/tx-hourly.err
+---
+- name: tx-check
+  command: ./task-11-taxonomy/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/tx-check.out
+  filelog-stderr: logs/tx-check.err
+
+- name: tx-hourly
+  command: ./task-11-taxonomy/run.sh --live --limit 150 --delay 10
+  image: node20
+  mem: 1Gi
+  schedule: "45 * * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/tx-hourly.out
+  filelog-stderr: logs/tx-hourly.err

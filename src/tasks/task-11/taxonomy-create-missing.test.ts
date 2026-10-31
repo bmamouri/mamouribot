@@ -1,5 +1,5 @@
 /** Unit tests for Task 11.  npx tsx src/tasks/task-11/taxonomy-create-missing.test.ts */
-import { task, seedResolved, templateBody, parseTaxonomy, RANKS, reportWikitext } from './taxonomy-create-missing.js';
+import { task, seedResolved, seedRedirect, templateBody, redirectBody, parseTaxonomy, splitLink, RANKS, reportWikitext } from './taxonomy-create-missing.js';
 
 let pass = 0, fail = 0;
 const ok = (name: string, cond: boolean | string) => {
@@ -39,6 +39,27 @@ ok('fields are read off a normal template', p.rank === 'genus' && p.parent === '
 const empty = parseTaxonomy('{{Don\'t edit this line\n|rank=\n|link=X\n|parent=\n}}') as any;
 ok('an EMPTY rank/parent reads as empty, which is what makes it detectable',
   empty.rank === '' && empty.parent === '');
+
+// ---------- the widened scope (۳۱ اکتبر ۲۰۲۶)
+ok('extinct=yes is carried over when the source says so',
+  templateBody({ rank: 'genus', parent: 'X', link: 'Y', extinct: true }).includes('|extinct=yes'));
+ok('extinct is omitted otherwise', !templateBody({ rank: 'genus', parent: 'X', link: 'Y' }).includes('extinct'));
+ok('a Persian-name redirect points at the Latin taxonomy template',
+  redirectBody('Poxviridae') === '#تغییرمسیر [[الگو:Taxonomy/Poxviridae]]\n');
+seedRedirect('پاکس‌ویریده', 'Poxviridae');
+const red = task.transform('', 'الگو:Taxonomy/پاکس‌ویریده');
+ok('transform writes the redirect for a planned Persian name', red.changed && red.text.startsWith('#تغییرمسیر'));
+ok('a redirect gets its own edit summary', /Poxviridae/.test(task.perPageSummary!('الگو:Taxonomy/پاکس‌ویریده') ?? ''));
+ok('a creation keeps the task summary', task.perPageSummary!('الگو:Taxonomy/Caranginae') === undefined);
+const sl = splitLink('Sepsis (fly)|Sepsis', 'Sepsis (fly)');
+ok('en «target|display» link splits', sl.target === 'Sepsis (fly)' && sl.display === 'Sepsis');
+ok('a bare disambiguated link drops the qualifier for display',
+  splitLink('', 'Cornu (gastropod)').display === 'Cornu');
+const en = parseTaxonomy("{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=Sepsis (fly)|Sepsis\n|parent=Sepsinae\n|refs= <!--Shown on this page only; don't include <ref> tags -->\n}}") as any;
+ok('an en template with a piped link and a commented refs line parses',
+  en.rank === 'genus' && en.parent === 'Sepsinae' && en.link === 'Sepsis (fly)|Sepsis');
+const ext = parseTaxonomy("{{Don't edit this line {{{machine code|}}}\n|rank=genus\n|link=X\n|parent=Y\n|extinct= <!--leave blank -->\n}}") as any;
+ok('a commented-out extinct reads as empty', ext.extinct === '');
 
 // ---------- rank table is conservative on purpose
 ok('a known rank maps', RANKS['Q34740'] === 'genus');
