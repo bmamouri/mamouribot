@@ -174,11 +174,14 @@ export const task: BotTask = {
     await loadRankKeywords(bot);
 
     const out: string[] = [];
+    const stale: string[] = [];
     for (const art of articles) {
       let missing: string[], species: boolean;
       try { ({ missing, species } = await missingFor(bot, art)); }
       catch (e) { refused.push({ taxon: '', why: 'مقاله بازنمایی نشد', article: art }); continue; }
-      if (!missing.length) { refused.push({ taxon: '', why: 'الگوی گم‌شده‌ای در بازنمایی دیده نشد', article: art }); continue; }
+      // Already fixed — an earlier run created its template — but the category row is
+      // only rewritten by the links update, which can lag by days. Purge it out.
+      if (!missing.length) { stale.push(art); continue; }
       for (const name of missing) {
         const r = await planChain(bot, name, species);
         if ('why' in r) { refused.push({ taxon: r.taxon, why: r.why, article: art }); continue; }
@@ -189,6 +192,7 @@ export const task: BotTask = {
         else if (!witness.has(title)) witness.set(title, null);
       }
     }
+    if (stale.length) await purgeStale(bot, stale);
     console.log(`  ${out.length} الگو قابل ساخت، ${refused.length} مورد برای بازبینی انسانی`);
     return out;
   },
@@ -301,6 +305,20 @@ async function categoryArticles(bot: Bot): Promise<string[]> {
     cont = d.continue?.cmcontinue;
   } while (cont);
   return out;
+}
+
+/**
+ * Refresh the category row of articles that already render clean. A purge with
+ * forcelinkupdate is not an edit: nothing reaches the history or anyone's
+ * watchlist. Dry runs only log.
+ */
+async function purgeStale(bot: Bot, titles: string[]) {
+  if (bot.opts.dryRun) { console.log(`  ${titles.length} مقاله دیگر الگوی گم‌شده ندارد (پاک‌سازی حافظهٔ نهان در اجرای واقعی)`); return; }
+  for (let i = 0; i < titles.length; i += 20) {
+    await bot.login();
+    await bot.apiPost({ action: 'purge', forcelinkupdate: '1', titles: titles.slice(i, i + 20).join('|') });
+  }
+  console.log(`  ${titles.length} مقاله دیگر الگوی گم‌شده ندارد؛ پیوندهایشان به‌روز شد`);
 }
 
 /** The الگو:Taxonomy/* titles the article's box looked for and did not find. */
