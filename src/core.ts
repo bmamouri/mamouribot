@@ -676,6 +676,9 @@ export class Bot {
       // A page being created has no base revision to collide with; sending an
       // empty one makes the API reject the whole edit.
       ...(baserevid ? { baserevid: String(baserevid), basetimestamp } : {}),
+      // A creation has no base revision, so nothing would stop it from overwriting a
+      // page another run created a moment ago. `createonly` makes that an error instead.
+      ...(opts.allowCreate && !baserevid ? { createonly: '1' } : {}),
       maxlag: String(this.opts.maxlag),
       // Fail closed if the session lapses mid-run: without these the API would
       // happily save the edit as the exit IP / a temp account, and authorship
