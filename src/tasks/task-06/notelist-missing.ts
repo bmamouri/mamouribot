@@ -41,6 +41,17 @@ const brokenGroups = new Map<string, string[]>();
 export const seedBrokenGroups = (title: string, groups: string[]) => brokenGroups.set(title, groups);
 
 /**
+ * The namespaces {{Broken ref}} itself will ever categorize into — the same
+ * whitelist it switches on (and the one the fa system message was patched to
+ * match on 2026-11-01, after it was briefly categorizing EVERY namespace,
+ * user sandboxes included). Restricting getTargets() to just ns 0 excluded
+ * every one of these, so templates, پیش‌نویس drafts and ویکی‌پدیا project
+ * pages sat in the tracking category forever: not stale data, the bot never
+ * even looked at them.
+ */
+const TARGET_NAMESPACES = ['0', '4', '6', '10', '12', '14', '100', '118'];
+
+/**
  * `list=categorymembers` and the rendered category page are BOTH stale — one
  * reported 0 members while 35 were live, another 41 while 64 were. CirrusSearch
  * lags too, just differently. Only the union is trustworthy as an input set;
@@ -52,7 +63,7 @@ async function getTargets(bot: Bot): Promise<string[]> {
   let cont: Record<string, string> = {};
   for (;;) {
     const r = await bot.apiGet({ action: 'query', list: 'categorymembers', cmtitle: TRACKING_CAT,
-      cmlimit: '500', cmnamespace: '0', ...cont });
+      cmlimit: '500', cmnamespace: TARGET_NAMESPACES.join('|'), ...cont });
     for (const m of r.query?.categorymembers ?? []) titles.add(m.title);
     if (!r.continue) break;
     cont = r.continue;
@@ -62,7 +73,7 @@ async function getTargets(bot: Bot): Promise<string[]> {
   for (;;) {
     const r = await bot.apiGet({ action: 'query', list: 'search',
       srsearch: `incategory:"${TRACKING_CAT.replace(/^رده:/, '')}"`,
-      srlimit: '50', sroffset: String(off), srnamespace: '0' });
+      srlimit: '50', sroffset: String(off), srnamespace: TARGET_NAMESPACES.join('|') });
     for (const m of r.query?.search ?? []) titles.add(m.title);
     if (!r.continue) break;
     off = r.continue.sroffset;
@@ -98,6 +109,13 @@ export const notelistMissingTask: BotTask = {
   // good. Also gives the deferred ones (typo'd group names, cases the rules
   // cannot explain yet) another look once the code has moved on.
   recheckAfterDays: 30,
+  // getTargets() already re-renders every candidate from its own wikitext before
+  // handing it on — it only returns a title when the render JUST proved it is still
+  // broken. The checkpoint (done/deferred/clean) is therefore not a reliable filter on
+  // top of that: a page fixed once and later re-broken by a translation edit is a
+  // genuine, render-confirmed target again, but recheckAfterDays would still park it
+  // for up to 30 days. Work whatever getTargets() returns, every run.
+  ignoreCheckpoint: true,
   summary: 'افزودن فهرست یادداشت‌های جاافتاده؛ بدون آن متن یادداشت‌ها اصلاً نمایش داده نمی‌شد',
   description:
     'افزودن فهرست یادداشت‌های جاافتاده به مقاله‌هایی که یادداشت دارند اما فهرست نمایش آن را ندارند ' +
@@ -115,9 +133,11 @@ export const notelistMissingTask: BotTask = {
 
     if (c.kind === 'clean') return { text, changed: false, note: c.detail };
 
-    // a typo'd group name, or something the rules can't explain — adding a list
-    // would enshrine the mistake, so defer it for a human instead
-    if (c.kind === 'malformed' || c.kind === 'unknown')
+    // a typo'd group name, something the rules can't explain, or a container split
+    // across two spots (some notes before it, some stranded after — Cite only collects
+    // refs that precede the list, so the trailing ones are silently dropped) — none of
+    // these are safe to guess at, so they are deferred for a human instead
+    if (c.kind === 'malformed' || c.kind === 'unknown' || c.kind === 'split-container')
       return { text, changed: false, note: c.detail, manualReview: true };
 
     const fix = applyFix(text, c.kind, c.groups);

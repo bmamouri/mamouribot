@@ -102,6 +102,20 @@ export interface BotTask {
    *  tracking category keeps gaining members, so a page that gets re-broken — or
    *  one deferred by code that has since improved — is not skipped forever. */
   recheckAfterDays?: number;
+  /**
+   * Skip the checkpoint filter entirely: every title getTargets() returns is worked,
+   * whether or not it is in `done`/`deferred`/`clean`. `markDone`/`markDeferred` still
+   * run so the state file stays a useful log, but nothing reads it back to park a title.
+   *
+   * For a task whose getTargets() already re-renders each candidate from its own
+   * wikitext to confirm it is STILL broken (because the tracking category and
+   * `incategory:` search are both known to lag, in both directions — see
+   * notelist-missing's getTargets), the checkpoint is redundant as a filter and only
+   * actively harmful: a page that was fixed, got re-broken by a later edit, and is
+   * once more a genuine category member sits skipped behind `recheckAfterDays` for up
+   * to that many days even though the render just proved it needs work right now.
+   */
+  ignoreCheckpoint?: boolean;
   /** Process a target that DOES NOT EXIST, passing '' to transform(), so the
    *  task can create it. Off by default: for an ordinary cleanup task a missing
    *  page is nothing to do, and silently creating pages would be a surprise. */
@@ -791,9 +805,10 @@ export class Bot {
     let edited = 0, skipped = 0, nomatch = 0, processed = 0, regressed = 0;
     const diffs: { title: string; before: string; after: string }[] = [];
 
-    const work = targets.filter(t => !isParked(cp, t, task.recheckAfterDays));
+    const work = task.ignoreCheckpoint ? targets : targets.filter(t => !isParked(cp, t, task.recheckAfterDays));
     const revisits = work.filter(t => isKnown(cp, t)).length;
-    if (revisits) console.log(`  (از این میان ${revisits} مورد پیش‌تر دیده شده و مهلتشان سر رسیده — بازبینی دوباره)`);
+    if (task.ignoreCheckpoint && revisits) console.log(`  (از این میان ${revisits} مورد پیش‌تر دیده شده — بازبینی دوباره، زیرا این وظیفه سیاههٔ پیشرفت را برای فیلتر کردن هدف‌ها نادیده می‌گیرد)`);
+    else if (revisits) console.log(`  (از این میان ${revisits} مورد پیش‌تر دیده شده و مهلتشان سر رسیده — بازبینی دوباره)`);
     const cap = this.opts.limit ? Math.min(work.length, this.opts.limit) : work.length;
 
     if (this.opts.dryRun) {
