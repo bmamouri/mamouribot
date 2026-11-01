@@ -320,6 +320,25 @@ export type Kind =
   'clean' | 'missing-container' | 'misplaced-container' | 'split-container' | 'nested-ref' | 'malformed' | 'unknown';
 
 /**
+ * `<includeonly>`/`<noinclude>` is a strong, namespace-independent signal that this
+ * page DEFINES wikitext for other pages to transclude rather than being reader-facing
+ * content itself. A `<ref group="…">` inside one is routinely meant to be satisfied by
+ * whichever page transcludes it, not by this page having its own `<references>` —
+ * rendering the page standalone triggers the Cite error by construction, which looks
+ * identical to a genuinely missing container but means something else entirely.
+ *
+ * Added after the bot added a container straight into الگو:یادچپ (the {{efn}}-equivalent
+ * that GENERATES `<ref group="persian-alpha">` for every caller) and got reverted by two
+ * different editors before it re-added the same edit a 4th time. Namespace alone did not
+ * catch this — a template transcluded into an article can itself live in ns 0 via
+ * {{subst:}} residue, or a draft can carry test fixtures — so this checks the actual
+ * wikitext shape instead of trusting where the page sits.
+ */
+export function looksLikeTemplateDefinition(text: string) {
+  return /<includeonly>|<noinclude>/i.test(text);
+}
+
+/**
  * Decide the failure mode from wikitext + the set of groups that are broken.
  *
  * Order matters: a malformed group name is never "fixed" by adding a list, and a
@@ -328,6 +347,9 @@ export type Kind =
  */
 export function classify(text: string, groups: string[]): { kind: Kind; detail: string; groups: string[] } {
   if (!groups.length) return { kind: 'clean', detail: 'no note group needs a list', groups };
+
+  if (looksLikeTemplateDefinition(text))
+    return { kind: 'unknown', detail: `<includeonly>/<noinclude> present — this page defines wikitext for other pages, a <ref group> here is likely meant to be satisfied by whoever transcludes it (${groups.join('، ')})`, groups };
 
   const malformed = groups.filter(looksMalformed);
   if (malformed.length) return { kind: 'malformed', detail: `group= is not a group name: ${malformed.join('، ')}`, groups: malformed };

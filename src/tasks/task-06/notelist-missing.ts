@@ -41,15 +41,35 @@ const brokenGroups = new Map<string, string[]>();
 export const seedBrokenGroups = (title: string, groups: string[]) => brokenGroups.set(title, groups);
 
 /**
- * The namespaces {{Broken ref}} itself will ever categorize into — the same
- * whitelist it switches on (and the one the fa system message was patched to
- * match on 2026-11-01, after it was briefly categorizing EVERY namespace,
- * user sandboxes included). Restricting getTargets() to just ns 0 excluded
- * every one of these, so templates, پیش‌نویس drafts and ویکی‌پدیا project
- * pages sat in the tracking category forever: not stale data, the bot never
- * even looked at them.
+ * Namespaces this task will actually EDIT. Deliberately NOT the full whitelist
+ * {{Broken ref}} itself categorizes into (0, 4, 6, 10, 12, 14, 100, 118) — that
+ * widened set was tried on 2026-11-01 and broke on its first run:
+ *
+ *   - الگو:یادچپ (ns 10) IS the {{efn}}-equivalent that GENERATES
+ *     `<ref group="persian-alpha">` for every article that calls it. Rendering
+ *     the template in isolation triggers the Cite error by design — it has no
+ *     `<references>` of its own because every caller is supposed to supply one
+ *     — but "render it and see if Cite complains" is not evidence of anything
+ *     broken for a template. The bot added a container straight into the
+ *     template body, which does not fix any article and got reverted on sight
+ *     by two different human editors (twice each) before the bot re-added it
+ *     a 4th time and had to be emergency-stopped.
+ *   - الگو:شجره‌نامه هرا (a `{{Tree chart}}` family-tree template) is the same
+ *     shape: `<ref group="پ">` inside a template body transcluded elsewhere.
+ *   - ویکی‌پدیا:…/تست (ns 4) turned out to hold `<ref group="گروه">` as a
+ *     LITERAL PYTHON TEST-CASE STRING, not a rendered Cite error at all.
+ *
+ * Templates and project pages are not "mostly article-shaped with an
+ * occasional edge case" the way پیش‌نویس drafts are — a template body being
+ * re-rendered standalone routinely LOOKS broken by construction. Until the
+ * classifier can tell "this <ref group> is meant to be satisfied by whoever
+ * transcludes me" apart from "this page is just missing its own list", ns 10
+ * (الگو) and ns 4 (ویکی‌پدیا) stay OUT. پیش‌نویس (118) is kept: a draft is a
+ * future article and renders the same way one does — verified on
+ * پیش‌نویس:ایران/تاریخ, which has an ordinary missing persian-notelist on its
+ * own text, no transclusion involved.
  */
-const TARGET_NAMESPACES = ['0', '4', '6', '10', '12', '14', '100', '118'];
+const TARGET_NAMESPACES = ['0', '118'];
 
 /**
  * `list=categorymembers` and the rendered category page are BOTH stale — one
