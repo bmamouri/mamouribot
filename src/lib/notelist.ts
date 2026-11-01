@@ -55,7 +55,7 @@ export function hasContainerFor(text: string, g: string) {
  * not an fa defect. Adding another container would not help.
  */
 export function hasNestedRefTemplate(text: string, g: string) {
-  const re = new RegExp(`<ref[^>]*group\\s*=\\s*"?${esc(g)}"?[^>]*>([\\s\\S]*?)</ref>`, 'gi');
+  const re = new RegExp(`<ref(?!erences)[^>]*group\\s*=\\s*"?${esc(g)}"?[^>]*>([\\s\\S]*?)</ref>`, 'gi');
   for (const m of text.matchAll(re)) if (/\{\{ *(?:sfn|Sfn|پک|harvnb|Harvnb)\b/.test(m[1])) return true;
   return false;
 }
@@ -77,14 +77,55 @@ export function containerIsMisplaced(text: string, g: string) {
   ].map(re => text.search(re)).filter(i => i >= 0);
   if (!cont.length) return false;
 
+  // (?!erences) keeps `<references group=…>` itself — the container, already matched
+  // above — from also matching here as a "use"; `<ref` is a literal prefix of it.
   const uses = [
-    new RegExp(`<ref[^>]*group\\s*=\\s*"?${e}"?`, 'i'),
+    new RegExp(`<ref(?!erences)[^>]*group\\s*=\\s*"?${e}"?`, 'i'),
     ...(g === 'persian-alpha' ? [/\{\{ *(?:یادچپ|یاد|Efn|efn)\b/] : []),
   ].map(re => text.search(re)).filter(i => i >= 0);
   if (!uses.length) return false;
 
   // every list for this group comes before every note that should be in it
   return Math.max(...cont) < Math.min(...uses);
+}
+
+/**
+ * The container sits in the MIDDLE of this group's notes — some before it (which it
+ * collects fine), some after it (which Cite cannot, because it only collects refs that
+ * precede the list). Found live on تحریم‌های آمریکا: `<references group="persian-alpha"/>`
+ * under «توضیحات», with a further batch of bare `<ref group="persian-alpha">` tags added
+ * later under «منابع» as a (malformed) bulleted list.
+ *
+ * `containerIsMisplaced` only catches the container being entirely ABOVE every use; this
+ * is the case it cannot see, and before this function existed the page fell through every
+ * check in `classify` to 'clean' — a silent false negative, not a repeat read of stale
+ * data. The render disagreed and nothing escalated that disagreement, so the bot reported
+ * "nothing to do" on a page that was provably still broken, forever.
+ *
+ * Deliberately never auto-fixed: which of the trailing refs are genuine duplicates of an
+ * existing note, vs. new content that needs its own slot, is a judgement call the rules
+ * cannot make safely. Reported instead, same as `malformed`/`unknown`.
+ */
+export function containerIsSplit(text: string, g: string) {
+  const e = esc(g);
+  const cont = [
+    new RegExp(`\\{\\{ *(?:پانویس|یادداشت‌ها|notelist)(?!‌های تودرتو)[^}]*(?:گروه|group) *= *"?${e}"?\\s*(?:\\||\\}\\})`, 'i'),
+    new RegExp(`<references[^>]*group *= *"?${e}"?\\s*/?>`, 'i'),
+    ...(g === 'persian-alpha' ? [/\{\{ *یادداشت‌ها *(?:\|[^}]*)?\}\}/] : []),
+  ].map(re => text.search(re)).filter(i => i >= 0);
+  if (!cont.length) return false;
+  const lastContAt = Math.max(...cont);
+
+  // (?!erences) — see containerIsMisplaced: `<references group=…>` must not also
+  // count as a "use" of its own group, or every split would include its own container.
+  const uses = [
+    new RegExp(`<ref(?!erences)[^>]*group\\s*=\\s*"?${e}"?`, 'i'),
+    ...(g === 'persian-alpha' ? [/\{\{ *(?:یادچپ|یاد|Efn|efn)\b/] : []),
+  ].map(re => [...text.matchAll(new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g'))].map(m => m.index!))
+   .flat();
+  if (uses.length < 2) return false;
+
+  return uses.some(i => i < lastContAt) && uses.some(i => i > lastContAt);
 }
 
 /** drop a stranded container so it can be re-planned into the right place */
@@ -276,7 +317,7 @@ export async function renderGroups(title: string, text: string) {
 }
 
 export type Kind =
-  'clean' | 'missing-container' | 'misplaced-container' | 'nested-ref' | 'malformed' | 'unknown';
+  'clean' | 'missing-container' | 'misplaced-container' | 'split-container' | 'nested-ref' | 'malformed' | 'unknown';
 
 /**
  * Decide the failure mode from wikitext + the set of groups that are broken.
@@ -296,6 +337,11 @@ export function classify(text: string, groups: string[]): { kind: Kind; detail: 
 
   const misplaced = groups.filter(g => containerIsMisplaced(text, g));
   if (misplaced.length) return { kind: 'misplaced-container', detail: `the list for ${misplaced.join('، ')} sits above the notes it should collect`, groups: misplaced };
+
+  // checked before nested-ref: a split container can coexist with a clean nested-ref
+  // verdict, and "some notes sit after the list" is the more direct explanation
+  const split = groups.filter(g => containerIsSplit(text, g));
+  if (split.length) return { kind: 'split-container', detail: `some notes for ${split.join('، ')} sit AFTER the list that should collect them, so Cite misses them`, groups: split };
 
   const nested = groups.filter(g => hasNestedRefTemplate(text, g));
   if (nested.length) return { kind: 'nested-ref', detail: `{{sfn}} nested in a raw grouped ref (${nested.join('، ')})`, groups: nested };
