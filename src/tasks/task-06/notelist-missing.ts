@@ -69,7 +69,7 @@ export const seedBrokenGroups = (title: string, groups: string[]) => brokenGroup
  * پیش‌نویس:ایران/تاریخ, which has an ordinary missing persian-notelist on its
  * own text, no transclusion involved.
  */
-const TARGET_NAMESPACES = ['0', '118'];
+export const TARGET_NAMESPACES = ['0', '118'];
 
 /**
  * `list=categorymembers` and the rendered category page are BOTH stale — one

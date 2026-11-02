@@ -44,6 +44,7 @@ const VENDORED: Record<string, string> = {
   'checkpoint.test.ts': 'scripts/lib/checkpoint.test.ts',
   'test_gates.py': 'scripts/lib/test_gates.py',
   'notelist.ts': 'scripts/lib/notelist.ts',
+  'notelist.test.ts': 'scripts/lib/notelist.test.ts',
   'infobox-software.ts': 'scripts/lib/infobox-software.ts',
   'infobox-software-map.ts': 'scripts/lib/infobox-software-map.ts',
 };
