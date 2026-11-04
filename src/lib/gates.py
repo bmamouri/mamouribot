@@ -278,6 +278,18 @@ def audit_whitespace_tail(text: str):
     return bad
 
 
+def audit_double_lang_parens(text: str):
+    """`({{به انگلیسی|X}})` renders «((به انگلیسی: X))».
+
+    The {{به X}} family prints its own brackets, so a translator who copies the
+    en «(English: X)» habit around it doubles them. No error, no category: it
+    shipped 486 times across 55 Gifford Lectures articles before the user saw it.
+    Write `{{به انگلیسی|X}}` bare; extra matter (dates, IPA) goes in its own
+    bracket after it: `{{به انگلیسی|X}} (۱۸۲۰–۱۸۸۷)`.
+    """
+    return re.findall(r'\(\s*\{\{\s*به [^{}|]+\|[^{}]{0,60}', text)
+
+
 def audit_comments(text: str) -> bool:
     """True when <!-- --> are balanced. An unclosed comment eats real params."""
     return text.count('<!--') == text.count('-->')
@@ -823,6 +835,10 @@ _TEXT_AUDITS = [
      'collapses to one column. No error, no tracking category: %s'),
     ('braces', audit_braces,
      'brace arity != 2 (single = f-string halving, triple = unexpanded param): %s'),
+    ('double_lang_parens', audit_double_lang_parens,
+     '«({{به انگلیسی|…}})»: the template prints its own brackets, so this renders '
+     '«((به انگلیسی: …))». Drop the outer «(»…«)»; put dates/IPA in a separate '
+     'bracket after the template: %s'),
     ('broken_file_link', audit_broken_file_link,
      'File link mangled by a link sweep — the image options print as body text, '
      'with no error and no bracket-count change: %s'),
