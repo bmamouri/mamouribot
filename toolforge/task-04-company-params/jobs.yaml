@@ -1,0 +1,71 @@
+# وظیفهٔ ۴ — پارامترهای منسوخ {{جعبه اطلاعات شرکت}}.   see the ⚠️ about `jobs load` below
+#
+# Approved by Huji, ۱۳ ژوئیهٔ ۲۰۲۶ ({{مجوز دارد}}). Originally run as a ONE-OFF sweep that
+# same day (~۱۲٬۳۰۰ pages, all MamouriBot edits). The category refills anyway — new
+# articles are created with an old English/legacy param, and a page the bot already fixed
+# can be reverted back past its own edit by an unrelated content dispute (measured live on
+# «بانک آینده», «تایپ‌مون», «سناباد خودرو», «مهاب قدس», «شرکت توزیع نیروی برق تهران بزرگ» —
+# all five show the bot's July fix in their history, undone by a later revert aimed at
+# something else entirely). So this is now a daily job, the same shape as وظیفهٔ ۱: small
+# cap, because the category sits at a couple of dozen members on any given day, not a
+# frozen backlog list.
+#
+# getTargets() IS the tracking category («رده:صفحه‌هایی که از جعبه اطلاعات شرکت با
+# پارامترهای منسوخ‌شده استفاده می‌کنند»), so a title only appears if it genuinely still (or
+# again) carries a deprecated/legacy param — re-checking a previously-done title costs one
+# more render, not a re-sweep. `recheckAfterDays: 30` on the task is what lets a reverted
+# page come back into scope instead of sitting parked forever behind the July checkpoint.
+#
+# --delay 15 is the floor between writes (policy floor is 10; see docs/PACING.md).
+#
+# NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in the
+# directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127. run.sh
+# itself does `cd "$(dirname "$0")"`, so its own relative paths still resolve.
+#
+# ⚠️ `toolforge jobs load` SYNCS — it deletes scheduled jobs absent from the file it is
+# given, including every other task's jobs, which live in their own jobs.yaml and are NOT
+# protected by this one. Use `toolforge jobs run` / `delete` per job instead.
+---
+# Step 0 — preflight: credentials, the bot flag, the emergency-stop page. Makes NO edits.
+- name: cp-check
+  command: ./task-04-company-params/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/cp-check.out
+  filelog-stderr: logs/cp-check.err
+
+# Step 1 — enumerate and decide, write nothing. Prints every diff it would make. The
+# category is small (currently ~22), so this covers the whole thing in one go.
+- name: cp-dry
+  command: ./task-04-company-params/run.sh --limit 50
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/cp-dry.out
+  filelog-stderr: logs/cp-dry.err
+
+# Step 2 — the first live batch after resuming, deliberately small so every diff can be
+# audited before the daily schedule starts touching new category members unattended.
+# One-off: no `schedule:`.
+- name: cp-first
+  command: ./task-04-company-params/run.sh --live --limit 10 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0          # never silently re-run a partial edit batch
+  emails: all
+  filelog-stdout: logs/cp-first.out
+  filelog-stderr: logs/cp-first.err
+
+# Step 3 — the daily run. 35 6 * * * sits clear of وظیفهٔ ۱ (06:20) and وظیفهٔ ۱۶ (06:50).
+# --limit 50 is comfortably above the category's steady-state size (a couple of dozen),
+# so a normal day finishes well inside the cap; nothing here is a frozen target list.
+- name: cp-daily
+  command: ./task-04-company-params/run.sh --live --limit 50 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "35 6 * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/cp-daily.out
+  filelog-stderr: logs/cp-daily.err

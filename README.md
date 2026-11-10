@@ -30,7 +30,7 @@ waits what it waits, and `docs/task-NN-*.md` for each task's own decisions.
 |---|---|---|---|
 | ۱ | `task-01/` | `remove-use-dmy-dates` | Removes the imported `{{Use dmy dates}}`, which renders nothing on fa.wiki and only populates a tracking category |
 | ۳ | `task-03/` | `normalize-cite-params` | Unifies the archive parameter names in citation templates (`archive-url`/`نشانی بایگانی` → `پیوند بایگانی`/`archive-url`, `archive-date` → `تاریخ بایگانی`/`archive-date`, the `dead-url` family → `چگونگی پیوند`/`url-status` — Persian or English chosen per citation to match its OWN other parameters, never a forced language) and drops `ref=harv` |
-| ۴ | `task-04/` | `company-deprecated-params` | Renames deprecated `جعبه اطلاعات شرکت` parameters, restoring field values the template was silently dropping |
+| ۴ | `task-04/` | `company-deprecated-params` | Renames deprecated `جعبه اطلاعات شرکت` parameters, restoring field values the template was silently dropping. Runs daily (`cp-daily`) to catch new/re-broken category members, not just the original one-off sweep |
 | ۴ | `task-04/` | `citation-dedup-accessdate` | The approved addition to task ۴: removes a duplicated access-date parameter where both copies hold the same date |
 | ۵ | `task-05/` | `empty-unknown-params.py` | Removes *empty* unknown citation parameters that raise a CS1 error (Python; to be ported to pywikibot) |
 | ۶ | `task-06/` | `notelist-missing` | Adds a missing note list to articles whose notes are therefore never displayed |
@@ -82,6 +82,14 @@ the strength of one capped run that edited nothing. Measured on ۹ اکتبر ۲
 random 300 of its members, **275 (۹۲٪) are actionable under the approved scope alone**, and
 the category holds 45,126 articles. The ordering was the trap, not the population:
 `list=categorymembers` returns a leading window that is nearly all already-clean pages.
+
+**وظیفهٔ ۴ (APPROVED, running continuously).** {{مجوز دارد}} granted ۱۳ ژوئیه ۲۰۲۶. Ran once
+as a one-off sweep that day (~۱۲٬۳۰۰ pages). Converted to a daily job (`cp-daily`,
+`35 6 * * *`) on ۱۰ نوامبر ۲۰۲۶ because the category kept refilling — new articles created
+with a legacy param, and pages the bot had already fixed getting reverted back past its
+own edit by an unrelated content dispute (measured on five live pages). The task now sets
+`recheckAfterDays: 30` so a reverted page re-enters scope instead of staying parked behind
+the July checkpoint forever. See `docs/TOOLFORGE.md`.
 
 **وظیفهٔ ۱۲ (second trial done, permanent permission expected).** The ۵۰-edit trial ran
 ۹ اکتبر ۲۰۲۶ and the report is posted: 141 links rewritten, content red links 2,840 → 2,720,

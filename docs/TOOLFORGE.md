@@ -22,6 +22,7 @@ Consolidated ۸ اکتبر ۲۰۲۶: every job runs there, every task's resume c
 | `tx-hourly` | وظیفهٔ ۱۱ | `45 * * * *` | `task-11-taxonomy/run.sh --live --limit 150 --delay 10` |
 | `destub-watch` | وظیفهٔ ۱۰ | `*/10 * * * *` | `cd task-10-destub && node ../destub-watch.mjs --live` |
 | `destub-inventory-monthly` | وظیفهٔ ۱۰ | `0 2 1 * *` | `cd task-10-destub && node ../destub-inventory.mjs` |
+| `cp-daily` | وظیفهٔ ۴ | `35 6 * * *` | `task-04-company-params/run.sh --live --limit 50 --delay 15` |
 
 Layout on the tool:
 
@@ -380,7 +381,7 @@ Finished one-off jobs stay in `jobs list` until deleted — clean up stale ones.
 | Secrets | `~/bot/.env` (chmod 600, MamouriBot bot-password) |
 | Deploy | pipe file over stdin through `become` (no scp) |
 | Jobs CLI | `become mamouribot toolforge jobs {run,list,logs,delete,restart}` |
-| Current jobs | `tools.mamouribot` only: `empty-params` (وظیفهٔ ۵) daily `5 3 * * *`; `notelist-watch` (وظیفهٔ ۶) every 15 min `*/15 * * * *`; `destub-watch` (وظیفهٔ ۱۰) `*/10 * * * *`; `destub-inventory-monthly` (وظیفهٔ ۱۰) `0 2 1 * *` |
+| Current jobs | `tools.mamouribot` only: `empty-params` (وظیفهٔ ۵) daily `5 3 * * *`; `notelist-watch` (وظیفهٔ ۶) every 15 min `*/15 * * * *`; `destub-watch` (وظیفهٔ ۱۰) `*/10 * * * *`; `destub-inventory-monthly` (وظیفهٔ ۱۰) `0 2 1 * *`; `cp-daily` (وظیفهٔ ۴) daily `35 6 * * *` |
 
 For the full operational history of the first bot (speed tuning, hang
 diagnosis, wrapper-template fixes), see the `task5-toolforge-deploy` agent

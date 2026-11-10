@@ -10,7 +10,7 @@
  * RIDES ALONG with a substantive edit (never cosmetic-only), dedup/merge, clash
  * handling, the key-people fold, and the multi-line infobox formatting itself.
  */
-import { fixCompanyParams, findInfoboxSpans } from './company-deprecated-params.js';
+import { fixCompanyParams, findInfoboxSpans, companyDeprecatedParamsTask } from './company-deprecated-params.js';
 
 let pass = 0, fail = 0;
 function check(name: string, cond: boolean, detail = '') {
@@ -221,6 +221,12 @@ check('17 span count', findInfoboxSpans('x{{جعبه اطلاعات شرکت|a=1
   const once = run('{{Infobox company|homepage=a|name=X}}').text;
   const twice = run(once);
   check('26 no re-edit of formatted+done box', !twice.changed && twice.text === once, twice.text);
+}
+
+// 27) this is now a CONTINUOUS task (the category refills — reverts, new articles with
+// legacy params), so it must set recheckAfterDays rather than parking a title forever.
+{
+  check('27 recheckAfterDays set', companyDeprecatedParamsTask.recheckAfterDays === 30);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

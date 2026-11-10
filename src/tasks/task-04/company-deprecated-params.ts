@@ -588,6 +588,19 @@ export const companyDeprecatedParamsTask: BotTask = {
   taskNumber: 4,
   summary: 'به‌روزرسانی پارامترهای منسوخ جعبه اطلاعات شرکت و فارسی‌سازی نام پارامترها و فراخوانی',
   description: 'تغییرنام پارامترهای منسوخ {{جعبه اطلاعات شرکت}} به معادل کنونی (که دادهٔ پنهان را بازمی‌گرداند و رده را خالی می‌کند) و در همان ویرایش، فارسی‌سازی نام پارامترهای انگلیسی و نام فراخوانی الگو؛ فارسی‌سازی تنها همراه یک تغییر بامعنا انجام می‌شود، نه به‌تنهایی.',
+  /**
+   * Originally run as a one-off sweep (۱۳ ژوئیه ۲۰۲۶, ~۱۲٬۳۰۰ pages). The category
+   * keeps refilling anyway — a new article can be created with an old English/legacy
+   * param, or a page the bot already fixed can be reverted back past its edit by an
+   * unrelated content dispute (measured live: «بانک آینده», «تایپ‌مون», «سناباد خودرو»
+   * all did exactly this). Without expiry a title parked in `done` the first time is
+   * filtered out of every later run forever, so a page re-broken months later would sit
+   * in the category while the run reports "nothing to do". `getTargets()` is the
+   * category itself, which is authoritative — a title only appears if it genuinely still
+   * (or again) carries a deprecated/legacy param — so re-checking costs one more look at
+   * a handful of pages, not a re-sweep of the old backlog. Same shape as وظیفهٔ ۱.
+   */
+  recheckAfterDays: 30,
   async getTargets(bot: Bot): Promise<string[]> {
     const out: string[] = [];
     let cont: string | undefined;
