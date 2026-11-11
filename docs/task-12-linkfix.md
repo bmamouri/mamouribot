@@ -2,7 +2,12 @@
 
 Repairs links the mass imports left in English.
 
-## Status: filed, permission deliberately WITHHELD pending three changes
+> **Status (۱۲ نوامبر ۲۰۲۶): APPROVED.** Huji granted {{مجوز دارد}} on ۹ اکتبر ۲۰۲۶ after
+> the 50-edit trial. A scope extension is BUILT (dry runs only) but not yet filed; see
+> [Extension: red links with a Persian article under another name](#extension-red-links-with-a-persian-article-under-another-name)
+> at the end of this file. Until its follow-up is answered, the extension runs `--as-me` only.
+
+## Status history: filed, permission first WITHHELD pending three changes
 
 `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۲` was filed ۳ اکتبر ۲۰۲۶ and the
 review replied the same day, declining to grant it «تا بهانه‌ای باشد» for three requests:
@@ -164,3 +169,213 @@ recorded here rather than left as a command to re-run.
   file a Toolforge job runs. Verified present in `toolforge/mamouribot.mjs`.
 - **Identity, pacing, maxlag, the stop key and `{{nobots}}`** come from `core.ts` now
   instead of being re-implemented, which is most of what `run.py` was.
+
+---
+
+## Extension: red links with a Persian article under another name
+
+**Status: built ۱۲ نوامبر ۲۰۲۶ (dry runs only), follow-up not yet drafted or filed.** Decided with the operator:
+everything goes into ONE follow-up on the وظیفهٔ ۱۲ request (no new task number), posted in
+its `===بحث===` section **without pinging anyone** — no `{{پینگ}}`, no `{{ب|…}}`, no user
+link other than the signature. The draft goes to the companion repo's `drafts/` and is not
+posted by an agent.
+
+### The motivating case
+
+«ایمانوئل ولیکوفسکی» has 23 content red links. `[[Prometheus Books]]` and
+`[[American Association for the Advancement of Science]]` are red, but
+`کتاب‌های پرومتئوس` and `انجمن پیشبرد علوم آمریکا` exist and are sitelinked to the same
+Wikidata items. A dry run of the CURRENT code on that page (۱۲ نوامبر ۲۰۲۶) fixes 9 links
+and defers 20 — so the ladder already finds them. What is wrong is the output, and what is
+missing is coverage.
+
+### Hard rules (from the operator)
+
+1. **No false positives.** Uncertain means untouched and on the review list. Name
+   similarity, transliteration and search hits are never evidence; only a Wikidata sitelink
+   (en langlink → fa) plus an fa existence check is.
+2. **A citation keeps its own language.** Repoint the target, keep the label:
+   `[[Prometheus Books]]` → `[[کتاب‌های پرومتئوس|Prometheus Books]]`. No English redirects
+   are created: وپ:تغن says non-Persian redirects «عموماً نباید ایجاد شوند», page creation
+   is outside this task, and a redirect is a page someone then has to maintain.
+3. Use `{{پیوند با میان‌ویکی}}` and `{{بت}}` as sources of the English name.
+4. `{{بت}}` is being **retired** by its author (the operator). Convert it to
+   `{{پیوند با میان‌ویکی}}` — but **only on pages the bot is already editing for a real
+   repair**. No standalone conversion pass: a diff whose only effect is a template swap is
+   the cosmetic-edit objection, and the operator chose to avoid it.
+5. Cover article prose, infoboxes, templates (navboxes) and citations.
+
+### What changes, as six numbered items (each separable in review)
+
+| # | case | today | after |
+|---|---|---|---|
+| ۱ | **citation-context label** | `[[George O. Abell\|Abell, George O.]]` → `[[جرج آبل]]` — the author name in an English bibliography line turns Persian. **A defect in approved behaviour.** | Inside `<ref>…</ref>`, a `{{cite …}}`/`{{یادکرد …}}` call, a `{{چپ‌چین}}…{{پایان چپ‌چین}}` block, or a list item under «منابع»/«کتاب‌شناسی»/«برای مطالعهٔ بیشتر»: keep the Latin label (`[[جرج آبل\|Abell, George O.]]`). Prose and infobox keep the current Persian-label behaviour. Citation context also needs no names.json entry, so more links become fixable unattended. |
+| ۲ | **safe en redirects** | every fa target reached through an en redirect is REVIEW (`Acquanetta Warren` → the city) | Auto only when the redirect is provably the same subject: (a) exact `Last, First [M.]` inversion of the target title, or (b) the en redirect carries one of `Redirects from alternative names`, `…from long names`, `…from short names`, `…from moves`, `…from other capitalisations`, `…from modifications` — **and** none of `…with possibilities`, `…from adjectives`, `…from members`, `…from subtopics`, `…to sections`, `…from related words`, `…from eponyms`. A redirect with a `#fragment` is always REVIEW. Measured: `Homeric`→Homer carries «from adjectives» and is refused; `John Wiley & Sons` carries «from long names» and passes. |
+| ۳ | **citation parameters** | not scanned | `\|publisher=[[X]]`, `\|work=[[X]]`, `\|ناشر=[[X]]` etc. are ordinary links and follow ۱. `\|author-link=X` / `\|پیوند نویسنده=X` hold a BARE title: parameter-aware rewrite of the value only, never the visible `last=`/`first=`. |
+| ۴ | **`{{پیوند با میان‌ویکی}}`** (and redirects `پبم`, `پم`, `Link-interwiki`, `Pam`; 7,397 articles) | not touched | If param 1 is red, param 2 (on `زبان=`, default en) resolves through the ladder to an existing fa X′ **and** X′ ≠ a disambiguation page → `[[X′\|<label>]]`, label = `عنوان=` if set, else param 1 (the editor's Persian wording is kept). |
+| ۵ | **`{{بت}}`** (2,161 articles, 678 templates) | not touched | Same resolution as ۴ with `1=` / `en=`. Unresolved calls on an edited page are converted to `{{پیوند با میان‌ویکی}}` (rule 4). |
+| ۶ | **template namespace** | excluded by the approved request | ns 10 navboxes and infobox wrappers, same rules. Skips `/توضیحات`, `/تمرین`, `/آزمایشی` subpages and any page whose edit returns `protectedpage`. Called out separately in the follow-up because it widens the approved «no template edits» line. |
+
+Infoboxes need no separate code: a link in an infobox parameter is ordinary wikitext and
+already scanned. Template-*emitted* English (`{{Representative}}`) stays out of scope.
+
+### `{{بت}}` → `{{پیوند با میان‌ویکی}}` mapping
+
+Verified by rendering both on ۱۲ نوامبر ۲۰۲۶ — identical article output:
+
+| `{{بت}}` | `{{پیوند با میان‌ویکی}}` |
+|---|---|
+| `{{بت\|X\|en=Y}}` (83% of 2,618 sampled calls) | `{{پیوند با میان‌ویکی\|X\|Y}}` |
+| `{{بت\|X\|L\|en=Y}}` (17%) | `{{پیوند با میان‌ویکی\|X\|Y\|عنوان=L}}` |
+| `1=`/`2=` named forms | same, by value |
+
+Known differences, each with a decision:
+
+- the new template adds hidden «رده:مقاله‌های دارای پیوند با میان‌ویکی» in ns 0 and an
+  «(en)» superscript outside ns 0 (so on a navbox's own page only). Intended behaviour.
+- **REVIEW, not converted:** `۲=` (Persian-digit key) and `display=` — `{{بت}}` ignores both
+  today, so converting would surface a label nobody has seen (6 of 2,618). No `en=` (3 of
+  2,618): nothing to convert to. X starting with a real namespace prefix (`رده:`, `پرونده:`,
+  `الگو:` …): `{{بت}}` colon-prefixes it, `{{پیوند با میان‌ویکی}}` does not, so the page
+  would be CATEGORISED. An ordinary colon («لیگ عدالت: نفرین») is safe — test both.
+- multi-line calls with spaced `| 1 = …` are the common shape; the parser takes top-level
+  pipes only (nested `{{…}}`/`[[…]]` inside a value → REVIEW).
+- when X is already blue: replace with `[[X|L]]` only if X and Y share a Wikidata item;
+  otherwise convert and keep the English record. Blue-but-wrong exists:
+  `{{بت|Walt Disney Records|en=Hollywood Records}}`.
+
+### Refusal list — each one becomes a "must NOT change" test
+
+| trap | seen on |
+|---|---|
+| label and `en=` name different subjects | `{{بت\|Walt Disney Records\|en=Hollywood Records}}` («شبکه دیزنی») |
+| fa target is a disambiguation page (`pageprops.disambiguation`) | `BA` → fa `BA` («ریچارد بنتلی») |
+| redirect changes the concept | `Homeric` → `هومر`, `historical philology` → `زبان‌شناسی تاریخی` |
+| redirect to a section | any `tofragment` |
+| en page missing or a disambiguation | 21 of 272 `{{پیوند با میان‌ویکی}}` calls in the sample |
+| sitelink outlived the fa page | `جولیا برونلی` (existing rail) |
+| `File:`/`رده:` links, image captions | existing rail |
+| a citation label rewritten to Persian | the Abell line — the regression test for item ۱ |
+
+Plus one new post-resolution check: after the rewrite, the fa target's
+`wikibase_item` must equal the en source's item. A langlink is per-page and can be stale;
+the pageprops on fa are what the reader actually lands on.
+
+### Measured (۱۲ نوامبر ۲۰۲۶, 100 pages: 60 random from the pbm category, 40 random `{{بت}}`)
+
+| | calls | already blue | red, fixable via langlink | red, via en redirect | red, en has no fa | en missing |
+|---|---|---|---|---|---|---|
+| `{{پیوند با میان‌ویکی}}` | 272 | 24 | 5 | 4 | 214 | 21 |
+| `{{بت}}` | 1,047 | 112 | 25 | 7 | 890 | 12 |
+
+So **~2.5% of red template calls** become fixable — low rate, large population. The
+follow-up states the rate as measured. Script:
+`archive/task12-ill-bt-sample.py` (git-ignored, local only).
+
+### Measured (۱۲ نوامبر ۲۰۲۶) — `archive/task12-ext-measure.py`
+
+Three samples, each link classified by where it sits (citation context vs prose) and what
+its target resolves to. "fixable" = en page has an fa langlink, the fa page exists and is
+not a disambiguation page.
+
+| sample | pages | red Latin links | fixable direct | + via redirect gate | citation context |
+|---|---|---|---|---|---|
+| random ns 0 | 400 | 401 targets / 127 pages | 69 | 18 | 35 of 495 links (7%) |
+| ns 0 with `{{چپ‌چین}}` and a Latin link | 300 | 837 targets / 106 pages | 129 | 26 | 288 of 1,048 (27%) |
+| random ns 10 | 400 | 1,404 targets / 58 pages | 187 | 33 | 3 of 1,459 |
+
+- **Item ۱ is real but concentrated**: in a random article only 7% of Latin links sit in
+  a citation, but in articles with an English bibliography it is 27%, and that is where
+  every shipped "author name turned Persian" diff came from. 22 of the 63 fixable citation
+  links in the second sample carry a label the old code would have translated.
+- **Item ۲ adds ~20%** on top of direct langlinks (18/69, 26/129, 33/187). Every
+  accepted redirect in the samples carried «Redirects from moves», «…modifications»,
+  «…short names» or «…other capitalisations»; the refused ones were «related words» and
+  «subtopics» (Finnish paganism → Baltic Finnic paganism, Odinism → Heathenry). 5–14
+  redirects per sample carry NO category at all and stay REVIEW
+  (`Canadian Albums Chart` → `Billboard Canadian Albums`, `Hephthalite Empire` →
+  `Hephthalites`) — some are the same subject, but nothing machine-readable says so.
+  Wikidata aliases were checked as an alternative signal and rejected: `Finnish paganism`
+  is an alias of the item it was refused for.
+- **Item ۶ is the biggest single pool by yield**: 58 of 400 templates have a red Latin
+  link, averaging 3.8 fixable each. Navboxes are transcluded, so one template edit fixes
+  the link on every article that carries it.
+
+### Build order
+
+1. ✅ **Item ۱** (۱۲ نوامبر ۲۰۲۶). `foreign_text_spans` in `gates.py` is the single
+   definition of "this Latin label is the source's own text" — the publish gate's
+   `latin_display_label` exemption and the bot's keep-the-label rule both read it, so they
+   cannot disagree. Widened from «`{{یادکرد}}` with non-Persian `زبان`» to: any citation
+   template with a non-Persian language or (with none declared) English-only values; a
+   `<ref>` whose visible text is English-only; a line in `{{چپ‌چین}}` or a list line under
+   a bibliography heading whose visible text is English-only. Checked against the old gate
+   on 400 live pages: 1,324 → 974 hits, **0 newly firing**, and all 30 sampled newly-exempt
+   hits are labels in English-language references. Inside such a span only the fa re-point
+   applies (label kept); an interwiki or plain-text repair there goes to REVIEW. 10 gate
+   fixtures, 10 task tests. Dry run on «ایمانوئل ولیکوفسکی»:
+   `[[George O. Abell|Abell, George O.]]` → `[[جرج آبل|Abell, George O.]]`,
+   `[[Prometheus Books]]` → `[[کتاب‌های پرومتئوس|Prometheus Books]]`.
+2. ✅ **Item ۲** (`resolve.ts::sameSubjectRedirect`). Accepted: an exact `Last, First`
+   inversion, or a same-subject rcat (moves, modifications, short/long/full/former/
+   alternative names, capitalisation, spelling, diacritics). Vetoed by any rcat matching
+   `DIFFERENT_SUBJECT_RCAT` (possibilities, subtopics, members, adjectives, eponyms,
+   related words, sections/anchors, ambiguous, «connected to a Wikidata item», works,
+   people …), by a `#fragment`, and by an entry redirecting INTO a `List of …`
+   (`Trout Lake Airport (Washington)` → `List of airports in Washington`, «moves» only).
+   No rcat = REVIEW. Live check on 300 bibliography pages + 465 templates: 108 accepted,
+   149 refused; every accepted one read by hand, the two wrong accepts above are now tests.
+   Also new for every target, redirect or not: en disambiguation → REVIEW, fa
+   disambiguation → REVIEW (`BA`), and the fa page's Wikidata item must equal the en
+   page's (`mediawikiFaInfo`).
+3. ✅ **Items ۳–۵** (`templates.ts`). `{{پیوند با میان‌ویکی}}` (+ پبم, پم, Link-interwiki,
+   Pam) and `{{بت}}`: a red call whose en title resolves to fa X′ becomes `[[X′|label]]`,
+   the label being `عنوان=`/`2=` or the call's own fa title. Refused: label and `en=`
+   naming different subjects (a Latin «fa» title is resolved too and must land on the same
+   X′), namespace prefix, nested markup, Persian-digit or unknown parameters, bare
+   positional after `1=`, no en title, non-en `زبان`. `{{بت}}` → `{{پیوند با میان‌ویکی}}`
+   **only** on a page with at least one real repair (the page's `applied` count excludes
+   conversions, so a conversion can never be the reason an edit happens); such an edit
+   gets its own summary via `perPageSummary`. CS1 `*-link` parameters (author/editor/
+   translator/contributor/interviewer/subject/title/series/episode) hold a bare title,
+   re-pointed in place; nothing visible moves. 28 tests in `templates.test.ts`.
+4. ✅ **Item ۶**. `TARGET_NAMESPACE=0|10` widens the transclusion/category selectors;
+   namespace is read from the API, never from the title (a colon is not a namespace).
+   `/توضیحات`, `/تمرین`, `/آزمایشی`, `/doc`, `/sandbox`, `/testcases` are skipped. The
+   first template dry run (465 random templates, 32 with a repair) found three faults,
+   fixed and now tests: `[[Template:X|X]]`/`[[Help:…]]`/`[[Wikipedia:…]]` were treated as
+   article links (the English namespace names joined `SKIP_PREFIXES`); a link inside
+   `<nowiki>` in a doc example was re-pointed (opaque regions are now skipped); and a link
+   inside an untranslated English sentence (`This user is a [[Citizenship|citizen]] of the
+   …`) was re-pointed to a Persian title mid-English — `inEnglishProse` now defers those
+   to whoever translates the template. A protected template is not special-cased: the
+   edit returns `protectedpage`, core.ts defers that one page, the run continues.
+5. ✅ **gateDiff fixed.** It compared gate MESSAGES before/after; a message quotes the
+   text around each hit, so repairing a link beside an inherited em dash made the dash
+   look new and refused «اریک هابسبام» and «شبکه دیزنی». It now compares per-audit hit
+   counts (`audit_counts` in gates.py, `auditCounts` in gates.ts).
+6. ✅ **No regression on approved behaviour.** The 49 pages of the October trial,
+   resolved with the approved resolver and rewritten by the old and new `rewrite.ts`:
+   48 byte-identical, 1 different — `| format = [[CSV]]` in an English citation keeps
+   `CSV` as its label, which is item ۱ working. (`archive/task12-regress.ts`)
+7. ✅ **The new scope is switched off for the bot.** `lf-trial` in
+   `toolforge/task-12-linkfix/jobs.yaml` runs `--live` as MamouriBot, and without a gate
+   it would now carry unapproved scope. `EXTENSION` (in `linkfix.ts`) turns on items ۲–۶
+   only under `--as-me`, in a dry run (unless `LINKFIX_EXTENSION=0`, which previews the
+   approved scope exactly), or with `LINKFIX_EXTENSION=1` — set that in `run.sh` **after**
+   the follow-up is answered, not before. Item ۱ and the safety checks (dab, Wikidata item,
+   project namespaces, `<nowiki>`, English prose, count-based gate) are always on: each
+   only makes an edit smaller or refuses one, and item ۱ corrects the approved behaviour.
+8. Next: dry run ~50 pages read with the operator, an `--as-me` trial on the new cases
+   only, and the follow-up draft in `drafts/`.
+
+### Code map
+
+| file | what |
+|---|---|
+| `scripts/lib/gates.py` (+ vendored copy) | `foreign_text_spans`, `audit_counts`, CLI modes `foreign` / `counts` |
+| `src/lib/gates.ts` | `foreignSpans`, `linkContext` (foreign + opaque spans), `auditCounts` |
+| `src/tasks/task-12/resolve.ts` | `sameSubjectRedirect`, `isNameInversion`, `mediawikiFaInfo`, redirect rcats in `mediawikiLookup` |
+| `src/tasks/task-12/rewrite.ts` | kept label in foreign spans, `inEnglishProse`, opaque skip, count-based `gateDiff` |
+| `src/tasks/task-12/templates.ts` | ILL / بت parsing, repair, conversion; CS1 `*-link` parameters |
+| `src/tasks/task-12/linkfix.ts` | wiring, `TARGET_NAMESPACE`, `repairPage`, per-page summary |
