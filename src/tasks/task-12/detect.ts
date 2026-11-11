@@ -24,6 +24,12 @@ export const SKIP_PREFIXES = [
   'en:', ':en:', 'w:', ':w:', 's:', ':s:', 'd:', ':d:',
   'commons:', ':commons:', 'wikt:', ':wikt:',
   'پرونده:', 'رده:', 'ویکی‌پدیا:', 'الگو:', 'پودمان:', 'بحث:',
+  // Project namespaces in their English (canonical) form. `[[Template:X|X]]` in an error
+  // message or `[[Help:IPA/Mandarin|IPA]]` in an infobox label point at project pages, not
+  // articles; a re-point there dropped the label and printed «الگو:X» (۱۲ نوامبر ۲۰۲۶).
+  'template:', 'wikipedia:', 'wp:', 'help:', 'portal:', 'user:', 'user talk:', 'talk:',
+  'module:', 'mediawiki:', 'special:', 'draft:', 'project:',
+  'راهنما:', 'درگاه:', 'کاربر:', 'بحث کاربر:', 'مدیاویکی:', 'ویژه:', 'پیش‌نویس:', 'وپ:',
 ] as const;
 
 export const PERSIAN = /[؀-ۿ]/;

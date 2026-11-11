@@ -16,7 +16,7 @@
  *
  * Ported from the Python `scripts/linkfix/rewrite.ts`, which this replaces.
  */
-import { checkWikitext } from '../../lib/gates.js';
+import { auditCounts, checkWikitext, linkContext } from '../../lib/gates.js';
 import { linkRe, PERSIAN, skipped } from './detect.js';
 import { EN, FA, PLAIN, REVIEW, SKIP, type Names, type Resolution } from './resolve.js';
 
@@ -57,9 +57,24 @@ export function displayFor(
   return resolution.display ?? null;
 }
 
+/**
+ * In a FOREIGN span (a citation to an English source, an English bibliography line) the
+ * label is the source's own text and stays as written: `[[Prometheus Books]]` becomes
+ * `[[کتاب‌های پرومتئوس|Prometheus Books]]`, and `[[George O. Abell|Abell, George O.]]`
+ * keeps `Abell, George O.`. Translating it would misquote the source, and the shipped
+ * code did exactly that on «ایمانوئل ولیکوفسکی» until extension ۱.
+ *
+ * Only the fa re-point keeps the label. An interwiki or plain-text repair inside a foreign
+ * span would gain nothing a reader can see, so those stay REVIEW there.
+ */
 export function render(
   target: string, old: string | null, resolution: Resolution, names: Names,
+  foreign = false,
 ): string {
+  if (foreign && resolution.kind === FA) {
+    const label = old ?? target;
+    return resolution.link === label ? `[[${label}]]` : `[[${resolution.link}|${label}]]`;
+  }
   const display = displayFor(target, old, resolution, names);
   if (resolution.kind === PLAIN) return display ?? '';
   if (resolution.kind === FA) {
@@ -75,29 +90,73 @@ export interface Applied { text: string; applied: number; deferred: string[] }
  * Untouched for REVIEW/unknown targets: leaving a defect in place is always better than
  * guessing at it.
  */
+/**
+ * A link set in ENGLISH running text: the line around it, link removed, reads as English
+ * words and has no Persian. Untranslated templates are full of these
+ * (`|info=This user is a [[Citizenship|citizen]] of the …`); re-pointing one gives
+ * «This user is a [[شهروندی]] of the», which is no better for anyone. Left for whoever
+ * translates the text.
+ *
+ * A bare list item `* [[Ibn Masarra]]` or a cell `|[[Argentine real|Real]]<br/>1813` has
+ * no running text at all, and stays repairable.
+ */
+export function inEnglishProse(text: string, at: number): boolean {
+  const ls = text.lastIndexOf('\n', at - 1) + 1;
+  const le = text.indexOf('\n', at);
+  let line = text.slice(ls, le < 0 ? text.length : le);
+  line = line.replace(/^\s*[|!]?\s*[\w\s-]{1,40}=/, '');           // a template/table parameter name
+  let prev: string | null = null;
+  while (prev !== line) { prev = line; line = line.replace(/\{\{[^{}]*\}\}/g, ' '); }
+  line = line.replace(/\[\[[^\]]*\]\]/g, ' ').replace(/<[^>]*>/g, ' ')
+    .replace(/\[(?:https?:)?\/\/\S+[^\]]*\]/g, ' ').replace(/&[#\w]+;/g, ' ');
+  if (PERSIAN.test(line)) return false;
+  return (line.match(/\b[A-Za-z]{2,}\b/g) ?? []).length >= 2;
+}
+
 export function applyResolutions(
   text: string, resolutions: Map<string, Resolution>, names: Names,
+  ctx: { foreign: [number, number][]; opaque: [number, number][] } = linkContext(text),
 ): Applied {
   let applied = 0;
   const deferred: string[] = [];
-  const out = text.replace(linkRe(), (whole, rawTarget: string, rawOld?: string) => {
+  const within = (xs: [number, number][], at: number) => xs.some(([s, e]) => s <= at && at < e);
+  const out = text.replace(linkRe(), (whole, rawTarget: string, rawOld: string | undefined, at: number) => {
     const target = rawTarget.trim();
     const old = rawOld === undefined ? null : rawOld;
     if (skipped(target)) return whole;
+    // `"the [[Netherlands]]"` inside <nowiki> in a template's documentation is an example.
+    if (within(ctx.opaque, at)) return whole;
     const res = resolutions.get(target);
     if (res === undefined) return whole;
     if (res.kind === REVIEW || res.kind === SKIP) { deferred.push(target); return whole; }
+    const foreign = within(ctx.foreign, at);
+    if (foreign && res.kind !== FA) { deferred.push(target); return whole; }
+    if (!foreign && inEnglishProse(text, at)) { deferred.push(target); return whole; }
     applied++;
-    return render(names.remap?.[target] ?? target, old, res, names);
+    return render(names.remap?.[target] ?? target, old, res, names, foreign);
   });
   return { text: out, applied, deferred };
 }
 
-/** Problems this edit INTRODUCES; inherited ones are returned separately, not raised. */
+/**
+ * Problems this edit INTRODUCES; inherited ones are returned separately, not raised.
+ *
+ * "Introduced" is an audit whose hit COUNT rose. Comparing the messages instead refused
+ * clean edits: a message quotes the text around each hit, so repairing a link beside an
+ * inherited em dash changed the quote and the dash read as new («اریک هابسبام»,
+ * ۱۲ نوامبر ۲۰۲۶).
+ */
 export function gateDiff(
   title: string, before: string, after: string,
 ): { introduced: string[]; inherited: string[] } {
-  const was = new Set(checkWikitext(title, before));
-  const now = checkWikitext(title, after);
-  return { introduced: now.filter(p => !was.has(p)), inherited: [...was].sort() };
+  const was = auditCounts(title, before), now = auditCounts(title, after);
+  const rose = Object.keys(now).filter(k => (now[k] ?? 0) > (was[k] ?? 0));
+  const inherited = checkWikitext(title, before);
+  if (!rose.length) return { introduced: [], inherited };
+  const detail = checkWikitext(title, after);
+  return {
+    introduced: rose.map(k => `${k} ${was[k] ?? 0}→${now[k]}: `
+      + (detail.find(p => p.includes(k.replace(/_/g, ' '))) ?? detail[0] ?? '')),
+    inherited,
+  };
 }

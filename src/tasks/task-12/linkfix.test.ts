@@ -10,11 +10,11 @@
  */
 import { PERSIAN, scan, type Finding } from './detect.js';
 import {
-  EN, FA, PLAIN, REVIEW, Resolver, loadNames,
+  EN, FA, PLAIN, REVIEW, Resolver, loadNames, isNameInversion, sameSubjectRedirect,
   type LookupInfo, type Names, type Resolution,
 } from './resolve.js';
-import { applyResolutions, gateDiff, numericDisplay } from './rewrite.js';
-import { contentRedLinks } from './linkfix.js';
+import { applyResolutions, gateDiff, inEnglishProse, numericDisplay } from './rewrite.js';
+import { contentRedLinks, repairPage, __setResolutionsForTest } from './linkfix.js';
 
 let pass = 0;
 const fails: string[] = [];
@@ -45,7 +45,35 @@ const LOOKUP: Record<string, LookupInfo> = {
   'Julia Brownley':       { enExists: true,  faTitle: 'جولیا برونلی', viaRedirect: false },
   'Monte Nido, California': { enExists: true, faTitle: null, viaRedirect: false },
   'Mayor:':               { enExists: false, faTitle: null, viaRedirect: false },
+  'Prometheus Books':     { enExists: true,  faTitle: 'کتاب‌های پرومتئوس', viaRedirect: false },
+  'George O. Abell':      { enExists: true,  faTitle: 'جرج آبل', viaRedirect: false },
+  // Extension ۲ fixtures, each the real rcat set measured on en ۱۲ نوامبر ۲۰۲۶.
+  'Gardner, Martin':      { enExists: true, faTitle: 'مارتین گاردنر', viaRedirect: true,
+    redirectFrom: 'Gardner, Martin', redirectTo: 'Martin Gardner', redirectCats: [] },
+  'John Wiley & Sons':    { enExists: true, faTitle: 'جان وایلی و پسران', viaRedirect: true,
+    redirectFrom: 'John Wiley & Sons', redirectTo: 'Wiley (publisher)',
+    redirectCats: ['Printworthy redirects', 'Redirects from long names', 'Redirects from moves'] },
+  'Homeric':              { enExists: true, faTitle: 'هومر', viaRedirect: true,
+    redirectFrom: 'Homeric', redirectTo: 'Homer',
+    redirectCats: ['Redirects from adjectives', 'Redirects from eponyms'] },
+  'Odinism':              { enExists: true, faTitle: 'هیثنری', viaRedirect: true,
+    redirectFrom: 'Odinism', redirectTo: 'Heathenry (new religious movement)',
+    redirectCats: ['Printworthy redirects', 'Redirects connected to a Wikidata item',
+                   'Redirects from subtopics', 'Redirects from moves'] },
+  'Canadian Albums Chart': { enExists: true, faTitle: 'بیلبورد کانادا', viaRedirect: true,
+    redirectFrom: 'Canadian Albums Chart', redirectTo: 'Billboard Canadian Albums', redirectCats: [] },
+  'Bob Smith discography': { enExists: true, faTitle: 'باب اسمیت', viaRedirect: true,
+    redirectFrom: 'Bob Smith discography', redirectTo: 'Bob Smith', redirectFragment: 'Discography',
+    redirectCats: ['Redirects from moves'] },
+  'BA':                   { enExists: true, faTitle: 'BA', viaRedirect: false },
+  'Mercury':              { enExists: true, faTitle: 'مرکوری', viaRedirect: false, enDisambig: true },
+  'Walt Disney Records':  { enExists: true, faTitle: 'والت دیزنی رکوردز', viaRedirect: false, enItem: 'Q1' },
 };
+/** fa disambiguation flags and items, as mediawikiFaInfo reports them. */
+const FA_META = new Map([
+  ['BA', { disambig: true, item: 'Q2' }],
+  ['والت دیزنی رکوردز', { disambig: false, item: 'Q999' }],
+]);
 
 function resolver(faLive?: Set<string>) {
   return new Resolver(
@@ -54,6 +82,7 @@ function resolver(faLive?: Set<string>) {
     NAMES,
     faLive === undefined ? undefined
       : async (ts: string[]) => new Set(ts.filter(t => faLive.has(t))),
+    async (ts: string[]) => new Map(ts.filter(t => FA_META.has(t)).map(t => [t, FA_META.get(t)!])),
   );
 }
 async function rewriteText(text: string, faLive?: Set<string>) {
@@ -161,6 +190,136 @@ ok('a word is not numeric', numericDisplay('Antelope Valley') === null);
   ok('a file link survives a rewrite unchanged', text.includes('[[پرونده:X.svg|100px|thumb|شرح]]'), text);
 }
 
+console.log('\n== extension ۱: a citation keeps its own language ==');
+{
+  // «ایمانوئل ولیکوفسکی», 2026-11-12: the shipped code turned the author name in an
+  // English bibliography line Persian. The label is the source's text; only the target moves.
+  const before = '== منابع ==\n{{چپ‌چین}}\n*[[George O. Abell|Abell, George O.]] (1981). '
+    + 'Scientists and Velikovsky, edited by [[Kendrick Frazier]], [[Prometheus Books]].\n{{پایان چپ‌چین}}';
+  const { text } = await rewriteText(before);
+  ok('the author label stays as the source prints it',
+     text.includes('[[جرج آبل|Abell, George O.]]'), text);
+  ok('an unlabelled publisher keeps its English name as the label',
+     text.includes('[[کتاب‌های پرومتئوس|Prometheus Books]]'), text);
+}
+{
+  const before = 'متن.<ref>Gardner (1957). [[Prometheus Books]].</ref>';
+  const { text } = await rewriteText(before);
+  ok('inside an English <ref> too', text.includes('[[کتاب‌های پرومتئوس|Prometheus Books]]'), text);
+}
+{
+  const before = '{{cite book |last=Abell |title=Paranormal Borderlands |publisher=[[Prometheus Books]]}}';
+  const { text } = await rewriteText(before);
+  ok('inside a cite template whose values are English',
+     text.includes('|publisher=[[کتاب‌های پرومتئوس|Prometheus Books]]'), text);
+}
+{
+  const { text } = await rewriteText('کتاب را [[Prometheus Books]] منتشر کرد.');
+  ok('in Persian prose the label still becomes Persian (approved behaviour unchanged)',
+     text === 'کتاب را [[کتاب‌های پرومتئوس]] منتشر کرد.', text);
+}
+{
+  // An interwiki with a Persian label inside an English citation helps no reader and
+  // translates the source; it is left alone.
+  const before = '<ref>Smith (2001). [[Antelope Valley]] history.</ref>';
+  const { text, deferred } = await rewriteText(before);
+  ok('en-only target inside an English citation is left untouched', text === before, text);
+  ok('and deferred for review', deferred.includes('Antelope Valley'), JSON.stringify(deferred));
+}
+{
+  const before = '== منابع ==\n*[[Prometheus Books]] (۱۳۸۰). کتابی فارسی.';
+  const { text } = await rewriteText(before);
+  ok('a PERSIAN bibliography line is prose for this purpose',
+     text.includes('[[کتاب‌های پرومتئوس]] (۱۳۸۰)'), text);
+}
+{
+  const before = '𝑥 متن.<ref>Gardner (1957). [[Prometheus Books]].</ref>';
+  const { text } = await rewriteText(before);
+  ok('an astral character before the span does not shift it',
+     text.includes('[[کتاب‌های پرومتئوس|Prometheus Books]]'), text);
+}
+{
+  const before = 'متن.<ref>Gardner (1957). [[Prometheus Books]].</ref>';
+  const { text: after } = await rewriteText(before);
+  const { introduced } = gateDiff('نمونه', before, after);
+  ok('the gate accepts the kept English label', introduced.length === 0, JSON.stringify(introduced));
+}
+
+console.log('\n== extension ۲: an en redirect is followed only when it is the same subject ==');
+{
+  const res = await resolver().resolveMany(Object.keys(LOOKUP));
+  const k = (t: string) => res.get(t)!.kind;
+  ok('a catalogue inversion «Gardner, Martin» is followed', k('Gardner, Martin') === FA,
+     JSON.stringify(res.get('Gardner, Martin')));
+  ok('«Redirects from long names» is followed', k('John Wiley & Sons') === FA,
+     JSON.stringify(res.get('John Wiley & Sons')));
+  ok('an adjective → person redirect («Homeric» → Homer) is refused', k('Homeric') === REVIEW);
+  ok('«subtopics» vetoes even beside «moves» (Odinism)', k('Odinism') === REVIEW);
+  ok('a redirect with NO rcat is refused', k('Canadian Albums Chart') === REVIEW);
+  ok('a redirect to a section is refused', k('Bob Smith discography') === REVIEW);
+  ok('Acquanetta Warren (no rcat fixture) is still refused', k('Acquanetta Warren') === REVIEW);
+  ok('an fa disambiguation target is refused (BA)', k('BA') === REVIEW, JSON.stringify(res.get('BA')));
+  ok('an en disambiguation page is refused', k('Mercury') === REVIEW);
+  ok('fa page on a different Wikidata item than the en page is refused',
+     k('Walt Disney Records') === REVIEW, JSON.stringify(res.get('Walt Disney Records')));
+}
+ok('inversion needs the exact same words', !isNameInversion('Gardner, Martin', 'Martin Gardiner'));
+ok('a place name with a comma is not an inversion',
+   !isNameInversion('Fontana, California', 'California Fontana State'));
+ok('an entry redirecting into a list is not the list (Trout Lake Airport)',
+   !sameSubjectRedirect({ enExists: true, faTitle: 'فهرست فرودگاه‌های واشینگتن', viaRedirect: true,
+     redirectFrom: 'Trout Lake Airport (Washington)', redirectTo: 'List of airports in Washington',
+     redirectCats: ['Redirects from moves'] }));
+ok('«from ambiguous terms» vetoes (The Diplomat → Diplomat (disambiguation))',
+   !sameSubjectRedirect({ enExists: true, faTitle: 'دیپلمات (ابهام‌زدایی)', viaRedirect: true,
+     redirectFrom: 'The Diplomat', redirectTo: 'Diplomat (disambiguation)',
+     redirectCats: ['Redirects from ambiguous terms', 'Redirects from modifications'] }));
+ok('a renamed list is still followed',
+   sameSubjectRedirect({ enExists: true, faTitle: 'x', viaRedirect: true,
+     redirectFrom: 'List of Iranian poets', redirectTo: 'List of Persian poets',
+     redirectCats: ['Redirects from moves'] }));
+ok('a non-redirect is never a same-subject redirect',
+   !sameSubjectRedirect({ enExists: true, faTitle: 'x', viaRedirect: false }));
+
+console.log('\n== extension ۶: what a template dry run taught (۱۲ نوامبر ۲۰۲۶) ==');
+{
+  for (const t of ['[[Template:Songkick|Songkick]]', '[[Help:IPA/Mandarin|IPA]]',
+                   '[[Wikipedia:Subpages|subpage]]', '[[راهنما:آی‌پی‌ای|IPA]]']) {
+    ok(`a project-namespace link is not an article link: ${t}`, scan(t).length === 0, JSON.stringify(scan(t)));
+  }
+}
+{
+  const before = 'a link such as <nowiki>"the [[Los Angeles Times]]"</nowiki> works';
+  const { text } = await rewriteText(before);
+  ok('a link inside <nowiki> is an example, not a link', text === before, text);
+}
+{
+  const before = '|info=This user is a [[Los Angeles Times|citizen]] of the state.';
+  const { text, deferred } = await rewriteText(before);
+  ok('a link in an untranslated English sentence is left for the translator', text === before, text);
+  ok('and deferred', deferred.includes('Los Angeles Times'));
+}
+ok('a bare list item is not English prose', !inEnglishProse('* [[Ibn Masarra]]', 3));
+ok('a table cell with a year is not English prose', !inEnglishProse('|[[Argentine real|Real]]<br/>1813', 2));
+ok('a Persian sentence is not English prose', !inEnglishProse('او به [[Prometheus Books]] رفت', 7));
+ok('an infobox parameter holding just a link is not prose', !inEnglishProse('|country = [[Argentina]]', 12));
+
+console.log('\n== the unapproved scope stays off for the bot ==');
+{
+  const g = { enExists: true, faTitle: 'مارتین گاردنر', viaRedirect: true,
+    redirectFrom: 'Gardner, Martin', redirectTo: 'Martin Gardner', redirectCats: [] };
+  const look = async (ts: string[]) => new Map(ts.map(t => [t, g]));
+  const off = await new Resolver(look, NAMES, undefined, undefined, false).resolveMany(['Gardner, Martin']);
+  ok('with the extension off, a same-subject redirect is still REVIEW',
+     off.get('Gardner, Martin')!.kind === REVIEW, JSON.stringify(off.get('Gardner, Martin')));
+  const res = new Map<string, Resolution>([['May 68', { kind: FA, link: 'مه ۶۸', reason: 't' }]]);
+  __setResolutionsForTest(res, NAMES, new Set(['مه ۶۸']), false);
+  const t = '{{بت|می ۶۸|en=May 68}}';
+  ok('with the extension off, a {{بت}} call is not touched', repairPage(t).text === t, repairPage(t).text);
+  __setResolutionsForTest(res, NAMES, new Set(['مه ۶۸']), true);
+  ok('with it on, it is', repairPage(t).text === '[[مه ۶۸|می ۶۸]]', repairPage(t).text);
+}
+
 console.log('\n== the gate fires on what the edit introduces ==');
 {
   // These pages carry ~13k inherited Latin display labels; a whole-text gate would block
@@ -175,6 +334,18 @@ console.log('\n== the gate fires on what the edit introduces ==');
   const { introduced } = gateDiff('نمونه', 'متن ساده', 'متن [[لس آنجلس تایمز|Los Angeles Times]]');
   ok('an introduced problem is caught', introduced.some(p => p.includes('LATIN display')),
      JSON.stringify(introduced));
+}
+
+{
+  // «اریک هابسبام», ۱۲ نوامبر ۲۰۲۶: repairing a link right beside an inherited em dash
+  // changed the quoted context, and the message-comparing gate called the dash new.
+  const before = 'جنبش [[May 68|می ۶۸]] پاریس را محکوم کرد — قدرت گرفت.';
+  const after = 'جنبش [[مه ۶۸|می ۶۸]] پاریس را محکوم کرد — قدرت گرفت.';
+  const { introduced } = gateDiff('نمونه', before, after);
+  ok('an inherited em dash beside the repaired link is not "introduced"', introduced.length === 0,
+     JSON.stringify(introduced));
+  const { introduced: added } = gateDiff('نمونه', before, after + ' و — دیگر');
+  ok('a second em dash IS introduced', added.some(p => p.startsWith('dashes 1→2')), JSON.stringify(added));
 }
 
 console.log('\n== the shipped names table ==');
