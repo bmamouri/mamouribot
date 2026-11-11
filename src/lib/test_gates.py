@@ -198,6 +198,46 @@ expect('latin_display_label', gates.audit_latin_display_label,
        '{{یادکرد کتاب |عنوان=[[سارکاندرا|Sarcandra]] |ناشر=نشر نی '
        '|سال=۱۳۹۰ |زبان=fa}}', True,
        'latin label in a Persian-language citation is still residue')
+
+# وظیفهٔ ۱۲ extension ۱ (2026-11-12): the link-repair bot keeps a Latin label
+# exactly where this exemption applies, so the exemption now also covers a
+# hand-written ENGLISH reference — «ایمانوئل ولیکوفسکی»'s bibliography names
+# `Abell, George O.` as the source prints him. Each fixture below is a pair:
+# the English shape stays quiet, the Persian shape still fires.
+_LD = gates.audit_latin_display_label
+expect('latin_display_label', _LD,
+       '== منابع ==\n*[[جرج آبل|Abell, George O.]] (1981). Scientists and '
+       'Velikovsky. [[کتاب‌های پرومتئوس|Prometheus Books]].', False,
+       'English bibliography line under منابع')
+expect('latin_display_label', _LD,
+       '== منابع ==\n*[[جرج آبل|Abell, George O.]] (۱۳۶۰). دانشمندان و '
+       'ولیکوفسکی.', True,
+       'Persian bibliography line with a Latin label is still residue')
+expect('latin_display_label', _LD,
+       'متن.<ref>Gardner (1957). [[انتشارات داور|Dover]].</ref>', False,
+       'English <ref>')
+expect('latin_display_label', _LD,
+       'متن.<ref>گاردنر (۱۹۵۷). [[انتشارات داور|Dover]].</ref>', True,
+       'Persian <ref> with a Latin label is still residue')
+expect('latin_display_label', _LD,
+       '{{cite book |last=Gardner |title=Fads |publisher=[[انتشارات داور|Dover]]}}',
+       False, 'cite book without a language param whose values read English')
+expect('latin_display_label', _LD,
+       '{{یادکرد کتاب |نام خانوادگی=گاردنر |عنوان=بدعت‌ها '
+       '|ناشر=[[انتشارات داور|Dover]]}}', True,
+       'Persian-valued citation without زبان still fires')
+expect('latin_display_label', _LD,
+       '{{cite book |title=Fads |publisher=[[انتشارات داور|Dover]] |language=fa}}',
+       True, 'language=fa wins over Latin-looking values')
+expect('latin_display_label', _LD,
+       '{{چپ‌چین}}\n*[[جرج آبل|Abell, George O.]] (1981).\n{{پایان چپ‌چین}}',
+       False, 'line inside an LTR block')
+expect('latin_display_label', _LD,
+       '== منابع ==\nاین بخش [[جرج آبل|Abell]] را می‌آورد.', True,
+       'a PROSE line under منابع is not a bibliography entry')
+expect('latin_display_label', _LD,
+       '== تاریخچه ==\n*[[جرج آبل|Abell, George O.]] (1981).', True,
+       'an English-looking list line outside a bibliography section still fires')
 expect('latin_display_label', gates.audit_latin_display_label,
        '{{یادکرد کتاب |عنوان=[[سارکاندرا|Sarcandra]] |ناشر=نشر نی}}', True,
        'citation with no زبان at all is not exempted')

@@ -113,6 +113,57 @@ export function templateCalls(
 }
 
 /**
+ * Spans `[start, end)` where a LATIN link label is the source's own text: a citation to a
+ * foreign source, an English `<ref>`, an English bibliography line. Offsets are JS
+ * (UTF-16) offsets into `text`.
+ *
+ * The definition is `foreign_text_spans` in gates.py — the same one that exempts these
+ * labels from the publish gate — so a bot that keeps a Latin label exactly here can never
+ * be refused by the gate for doing so.
+ */
+export function foreignSpans(text: string): [number, number][] {
+  return linkContext(text).foreign;
+}
+
+/**
+ * Both span lists in one call: `foreign` as above, and `opaque` — comments, `<nowiki>`,
+ * `<pre>` and the other regions whose links are display text, never links to repair.
+ */
+export function linkContext(text: string): { foreign: [number, number][]; opaque: [number, number][] } {
+  const r = spawnSync('python3', [script()], {
+    input: JSON.stringify({ mode: 'foreign', text }),
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  if (r.error) throw new Error(`foreign-span scanner could not run: ${r.error.message}`);
+  if (!r.stdout) throw new Error(`foreign-span scanner failed: ${r.stderr || 'no output'}`);
+  // Python counts code points, JS counts UTF-16 units: map one to the other, or a page
+  // with a single astral character (𝑥, an emoji) shifts every span after it.
+  const cpToJs: number[] = [];
+  let js = 0;
+  for (const ch of text) { cpToJs.push(js); js += ch.length; }
+  cpToJs.push(js);
+  const out = JSON.parse(r.stdout) as { spans: [number, number][]; opaque: [number, number][] };
+  const conv = (xs: [number, number][]) => xs.map(([s, e]) => [cpToJs[s], cpToJs[e]] as [number, number]);
+  return { foreign: conv(out.spans), opaque: conv(out.opaque) };
+}
+
+/**
+ * Untruncated hit count per audit (`audit_counts` in gates.py). For gating a DIFF: an
+ * audit whose count rose is a problem the edit introduced, whatever the messages say.
+ */
+export function auditCounts(title: string, text: string): Record<string, number> {
+  const r = spawnSync('python3', [script()], {
+    input: JSON.stringify({ mode: 'counts', title, text }),
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  if (r.error) throw new Error(`gate counts could not run: ${r.error.message}`);
+  if (!r.stdout) throw new Error(`gate counts failed: ${r.stderr || 'no output'}`);
+  return (JSON.parse(r.stdout) as { counts: Record<string, number> }).counts;
+}
+
+/**
  * Gate a publish. Throws with every problem listed rather than returning, so a
  * batch aborts on the first bad page instead of shipping it and continuing.
  */

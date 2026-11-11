@@ -484,30 +484,135 @@ def audit_en_interwiki_persian(text: str):
 _FA_LANG = {'fa', 'fa-ir', 'per', 'fas', 'فارسی', 'پارسی', 'فا'}
 
 
-def _foreign_citation_spans(text: str):
-    """Spans of `{{یادکرد …}}` calls that declare a non-Persian `زبان`.
+_LANG_KEYS = {'زبان', 'language', 'lang'}
+#: Parameters whose value says nothing about the language of the cited work.
+_CITE_NEUTRAL_KEYS = re.compile(
+    r'^(url|نشانی|archive-?url|پیوند بایگانی|نشانی بایگانی|access-?date|تاریخ دسترسی|'
+    r'archive-?date|تاریخ بایگانی|date|تاریخ|year|سال|url-status|چگونگی پیوند|'
+    r'تاریخ بازدید|isbn|issn|doi|oclc|pmid|pmc|bibcode|jstor|id|شابک|ref|df|mode|'
+    r'[a-z-]*-?link\d*|[a-z]+\d*-link)$', re.I)
+#: Headings of the sections that hold a bibliography rather than prose.
+_REF_SECTION_RE = re.compile(
+    r'^(=+)\s*(منابع|کتاب‌شناسی|کتابشناسی|برای مطالعهٔ بیشتر|برای مطالعه بیشتر|'
+    r'مطالعهٔ بیشتر|مطالعه بیشتر|پانویس|پانویس‌ها|پانوشت|یادداشت‌ها|منابع و پانویس|'
+    r'آثار|References|Bibliography|Further reading|Sources|Notes)\s*\1\s*$', re.M)
 
-    A Latin link label inside one of these is correct and must not be reported:
+
+def _visible(s: str) -> str:
+    """Rough reader-visible text of a wikitext fragment: template calls dropped,
+    a link replaced by its label (or its target when it has none), tags gone."""
+    prev = None
+    while prev != s:
+        prev, s = s, re.sub(r'\{\{[^{}]*\}\}', ' ', s)
+    s = re.sub(r'\[\[(?:[^\]|]*\|)?([^\]]*)\]\]', r'\1', s)
+    s = re.sub(r'\[(?:https?:)?//\S+\s*([^\]]*)\]', r'\1', s)
+    s = re.sub(r'<[^>]+>', ' ', s)
+    return s
+
+
+def _reads_latin(s: str) -> bool:
+    v = _visible(s)
+    return bool(re.search(r'[A-Za-z]', v)) and not re.search(r'[؀-ۿ]', v)
+
+
+def _split_args(body: str) -> list[str]:
+    """Split a template body at pipes outside nested {{…}} and [[…]]."""
+    parts, cur, depth, i = [], [], 0, 0
+    while i < len(body):
+        two = body[i:i + 2]
+        if two in ('{{', '[['):
+            depth += 1; cur.append(two); i += 2; continue
+        if two in ('}}', ']]') and depth:
+            depth -= 1; cur.append(two); i += 2; continue
+        if body[i] == '|' and depth == 0:
+            parts.append(''.join(cur)); cur = []; i += 1; continue
+        cur.append(body[i]); i += 1
+    parts.append(''.join(cur))
+    return parts
+
+
+def _is_citation_name(name: str) -> bool:
+    n = (name or '').strip().replace('_', ' ').lower()
+    return n.startswith('یادکرد') or n.startswith('cite') or n == 'citation'
+
+
+def foreign_text_spans(text: str):
+    """Spans where a LATIN link label is the source's own text, not residue.
+
+    A Latin label inside one of these is correct and must not be reported:
     `|دانشنامه=[[دانشنامه اسلام|Encyclopaedia of Islam]]` in a `زبان=en`
     citation links the fa article while printing the work's real title, which is
     exactly what a citation to an English source should do. Flagging it sent a
     true-positive-looking report about two already-correct articles.
 
-    Conditioned on `زبان` rather than on the parameter name: `|عنوان=` holding
-    an English label in a citation to a *Persian* source really is residue, so
-    the exemption has to be evidence-based and stay narrow.
+    The same holds in a hand-written English reference: on «ایمانوئل ولیکوفسکی»
+    the bibliography line `*[[George O. Abell|Abell, George O.]] (1981). …`
+    names the author as the source prints him, and re-pointing that link to
+    `جرج آبل` must keep `Abell, George O.` as the label (وظیفهٔ ۱۲, extension ۱).
+
+    Every case is evidence-based, so a Latin label in PERSIAN text keeps firing:
+
+      * a citation template (`{{یادکرد …}}`, `{{cite …}}`, `{{citation}}`) that
+        declares a non-Persian `زبان`/`language`/`lang` — or declares none and
+        whose descriptive values read entirely Latin;
+      * a `<ref>` whose own visible text reads entirely Latin;
+      * a line inside `{{چپ‌چین}}…{{پایان چپ‌چین}}`, or a list line in a
+        bibliography section (منابع, کتاب‌شناسی, …), whose visible text reads
+        entirely Latin.
+
+    Also the definition the link-repair bot uses to decide which label to keep
+    (`foreignSpans` in gates.ts), so the bot and this gate cannot disagree.
     """
     spans = []
-    for s, e, name, args in iter_template_calls(text, mask=True):
-        if not (name or '').startswith('یادکرد'):
+    masked = mask_opaque(text)
+    for s, e, name, _args in iter_template_calls(text, mask=True):
+        if not _is_citation_name(name):
             continue
-        for a in args:
+        lang, values = None, []
+        # iter_template_calls splits on EVERY depth-1 pipe, including the one in
+        # `|publisher=[[انتشارات داور|Dover]]`, which would cut the label off its
+        # value; re-split respecting [[…]] too.
+        for a in _split_args(text[s + 2:e - 2])[1:]:
             k, sep, v = a.partition('=')
-            if sep and k.strip() == 'زبان':
-                if v.strip().lower() not in _FA_LANG:
-                    spans.append((s, e))
-                break
+            if not sep:
+                continue
+            k = k.strip()
+            if k in _LANG_KEYS:
+                lang = v.strip().lower()
+            elif not _CITE_NEUTRAL_KEYS.match(k):
+                values.append(v)
+        if lang is not None:
+            # An EMPTY `زبان =` stays exempt, as it always was: narrowing that
+            # here would make this gate fire on pages it has passed until now.
+            if lang not in _FA_LANG:
+                spans.append((s, e))
+        elif values and _reads_latin(' '.join(values)):
+            spans.append((s, e))
+    for m in re.finditer(r'<ref\b[^>/]*>(.*?)</ref\s*>', masked, re.S | re.I):
+        if _reads_latin(text[m.start(1):m.end(1)]):
+            spans.append((m.start(), m.end()))
+    # (start, end, any_line): inside an LTR block every line counts; under a
+    # bibliography heading only list lines do, so a prose paragraph there is
+    # still judged as Persian text.
+    blocks = [(m.start(), m.end(), True) for m in re.finditer(
+        r'\{\{\s*چپ‌چین\s*\}\}.*?(?:\{\{\s*پایان چپ‌چین\s*\}\}|\Z)', masked, re.S)]
+    heads = list(re.finditer(r'^(=+)[^=\n].*?\1\s*$', masked, re.M))
+    for i, h in enumerate(heads):
+        if _REF_SECTION_RE.match(h.group(0)):
+            end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+            blocks.append((h.end(), end, False))
+    for bs, be, any_line in blocks:
+        for line in re.finditer(r'^.*$', masked[bs:be], re.M):
+            ls, le = bs + line.start(), bs + line.end()
+            raw = text[ls:le]
+            if not raw.strip():
+                continue
+            if (any_line or raw.lstrip().startswith(('*', '#'))) and _reads_latin(raw):
+                spans.append((ls, le))
     return spans
+
+
+_foreign_citation_spans = foreign_text_spans
 
 
 def audit_latin_display_label(text: str):
@@ -1022,6 +1127,35 @@ def check_wikitext(title: str, text: str, api=None, skip=()) -> list[str]:
 #
 #   echo '{"mode":"calls","text":"...","top_level_only":true}' | python3 scripts/lib/gates.py
 #   -> {"calls": [{"start":0,"end":9,"name":"خرد","args":[]}, ...]}   exit 0
+#
+# And the foreign-text spans, so the link-repair bot keeps a Latin label exactly
+# where this gate would accept one:
+#
+#   echo '{"mode":"foreign","text":"..."}' | python3 scripts/lib/gates.py
+#   -> {"spans": [[12, 80], ...], "opaque": [[…], …]}   exit 0
+#   ("opaque" = comments, <nowiki>, <pre> …: a link there is display text)
+#
+# And per-audit hit counts, so a diff gate can ask "did this edit add one?":
+#
+#   echo '{"mode":"counts","title":"...","text":"..."}' | python3 scripts/lib/gates.py
+#   -> {"counts": {"dashes": 3, ...}}   exit 0
+
+def audit_counts(title: str, text: str) -> dict:
+    """Untruncated hit count per text audit, for a caller that has to tell what an
+    EDIT introduced from what the page already had.
+
+    Comparing check_wikitext() messages before and after does not work: a message
+    quotes ~60 characters around each hit, so repairing a link next to an
+    inherited em dash changes the quote and the old dash reads as a new one. A
+    link-repair run refused «اریک هابسبام» and «شبکه دیزنی» exactly that way
+    (2026-11-12). A count rising is what "introduced" means.
+    """
+    out = {}
+    for name, fn, _msg in _TEXT_AUDITS:
+        out[name] = len(fn(text, title) if name == 'braces' else fn(text))
+    out['comments'] = 0 if audit_comments(text) else 1
+    return out
+
 
 def _cli_calls(payload) -> dict:
     calls = [
@@ -1046,6 +1180,15 @@ if __name__ == '__main__':
         _sys.exit(2)
     if _payload.get('mode') == 'calls':
         print(_json.dumps(_cli_calls(_payload), ensure_ascii=False))
+        _sys.exit(0)
+    if _payload.get('mode') == 'counts':
+        print(_json.dumps({'counts': audit_counts(_payload.get('title', ''),
+                                                  _payload.get('text', ''))}))
+        _sys.exit(0)
+    if _payload.get('mode') == 'foreign':
+        _t = _payload.get('text', '')
+        print(_json.dumps({'spans': foreign_text_spans(_t),
+                           'opaque': [[m.start(), m.end()] for m in _OPAQUE_RE.finditer(_t)]}))
         _sys.exit(0)
     _p = check_wikitext(_payload.get('title', ''), _payload.get('text', ''),
                         skip=tuple(_payload.get('skip', ())))
