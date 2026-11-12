@@ -9,15 +9,13 @@
  *
  * WHY ALL THE NETWORK WORK IS IN getTargets. `transform` must be pure and synchronous
  * (`docs/BUILDING-A-TASK.md` §2), and this task's decision needs the RENDER of the page:
- * §3.0 is explicit that the wikitext alone cannot be trusted, because infoboxes pull
+ * «What counts as a source» is explicit that the wikitext alone cannot be trusted, because infoboxes pull
  * Wikidata references and authority-control templates emit URLs. So every page is
  * rendered, measured and cached here, and `transform` is a lookup plus pure rules.
  *
  * RUNNING: **approved** ۱۲ اکتبر ۲۰۲۶ ({{مجوز دارد}}, Huji), so this runs as MamouriBot
  * — no `--as-me`. The request promises روزانه با سقف ۲۰۰ ویرایش, which is enforced by the
  * `--limit` in `toolforge/task-15-source-tags/jobs.yaml`, not in this file.
- *
- * Decision 8 (`--as-me` only) applied to the pre-approval trial and no longer holds.
  *
  *   npx tsx src/run.ts source-tags --limit 20            # dry run, read every diff
  *   npx tsx src/run.ts source-tags --live --limit 25 --delay 15
@@ -33,14 +31,14 @@ import {
   addBanner, removeStaleTag, monthStamp, BANNERS, REPORT_PAGE, type BannerName,
 } from './banners.js';
 
-/** Authority-control and wiki hosts, which are not sources (§12.1). */
+/** Authority-control and wiki hosts, which are not sources («How the source detector works»). */
 const NOT_A_SOURCE_HOST =
   /(wikidata\.org|wikimedia\.org|wikipedia\.org|wikisource\.org|wiktionary\.org|geohack|toolforge|wmflabs|viaf\.org|d-nb\.info|id\.loc\.gov|isni|orcid|worldcat\.org\/identities|idref|bnf\.fr|catalogo\.bne|nla\.gov\.au|snaccooperative|nkp\.cz|nlg\.gr|ndl\.go\.jp|nukat|kb\.nl|nli\.org|libris|trove|musicbrainz|openstreetmap|geonames|bibliotheken\.nl|nsk\.hr|kulturnav|google\.com\/search|books\.google|scholar\.google)/i;
 
 /**
  * References in rendered HTML.
  *
- * NOT a plain match on `id="cite_note-`, which §12.1 specifies and which silently counts
+ * NOT a plain match on `id="cite_note-`, which «How the source detector works» specifies and which silently counts
  * **zero on every page**: MediaWiki escapes the underscore in id attributes, so the
  * markup is `id="cite&#95;note-1"`. «جنگ کره» renders 46 references and matched none.
  *
@@ -67,7 +65,7 @@ async function renderOf(bot: Bot, title: string, text: string): Promise<string> 
   return String(r.parse?.text ?? '');
 }
 
-/** Searches that find candidates. Counts are from §0.5, measured ۱۰ اکتبر ۲۰۲۶. */
+/** Searches that find candidates. Counts are from «Finding candidates», measured ۱۰ اکتبر ۲۰۲۶. */
 const QUERIES = {
   add: '-insource:"<ref" -insource:"http" -hastemplate:"بدون منبع" ' +
        '-hastemplate:"جعبه اطلاعات روستای ایران" -intitle:فهرست',
@@ -81,7 +79,7 @@ const decisions = new Map<string, Decision>();
 const refusals: Refusal[] = [];
 const done: { title: string; what: string }[] = [];
 
-/** Deterministic shuffle, so a run is not fifty footballers in a row (§7). */
+/** Deterministic shuffle, so a run is not fifty footballers in a row («Finding candidates»). */
 function shuffle<T>(rows: T[], seed = 20261012): T[] {
   let s = seed;
   const rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
@@ -93,7 +91,7 @@ function shuffle<T>(rows: T[], seed = 20261012): T[] {
   return out;
 }
 
-/** CirrusSearch, stopping before the offset-10,000 hard error (§0.5). */
+/** CirrusSearch, stopping before the offset-10,000 hard error («Finding candidates»). */
 async function search(bot: Bot, srsearch: string, want: number): Promise<string[]> {
   const titles: string[] = [];
   for (let offset = 0; titles.length < want && offset < 10000; offset += 50) {
@@ -114,7 +112,7 @@ async function search(bot: Bot, srsearch: string, want: number): Promise<string[
 
 /**
  * Make sure each banner's monthly category exists, creating it when it does not, and
- * report which ones are now usable (§5).
+ * report which ones are now usable («The date»).
  *
  * WHY THE BOT CREATES THEM. `پودمان:Message box` builds `<base> از <month year>` and
  * files the article in `رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو` when that page
@@ -258,7 +256,7 @@ async function getTargets(bot: Bot): Promise<string[]> {
 
   let candidates = [...explicit, ...fromFile];
   if (!candidates.length) {
-    // Both populations in one run (decision 3: no phases). The stale-removal set is
+    // Both populations in one run (no phases). The stale-removal set is
     // small and finite, so it is taken whole and the rest of the budget goes to adds.
     const stale = await search(bot, QUERIES.stale, Math.ceil(cap / 3));
     const adds = await search(bot, QUERIES.add, cap);
@@ -328,7 +326,7 @@ export const sourceTagsTask: BotTask = {
     'افزودن {{بهبود منبع}} و {{منبع زنده}} تنها در حالت‌های بسیار روشن، و برداشتن {{بدون منبع}} از مقاله‌هایی که ' +
     'اکنون منبع دارند. هر مقاله پیش از تصمیم‌گیری نمایش داده می‌شود و هر مورد مشکوک به‌جای ویرایش گزارش می‌شود.',
 
-  /** §6: the summary names the banner and the measured reason for it. */
+  /** «Edit summaries»: the summary names the banner and the measured reason for it. */
   perPageSummary(title: string) {
     const d = decisions.get(title);
     return d ? (summaryFor(d) || undefined) : undefined;
@@ -371,7 +369,7 @@ export const sourceTagsTask: BotTask = {
   },
 
   /**
-   * This task's own risk, checked before anything is written (§11).
+   * This task's own risk, checked before anything is written («Checks before saving»).
    *
    * The built-in guard counts error markers, which neither a wrong banner nor a wrongly
    * removed one produces. What must be proved here is that the page really does end up
@@ -392,7 +390,7 @@ export const sourceTagsTask: BotTask = {
       prop: 'text|categories', disablelimitreport: '1',
     });
     const html = String(r.parse?.text ?? '');
-    // The stray U+200F in «همه مقاله‌های زندگی‌نامه زندگان بدون منبع‏‏» is real (§1.4);
+    // The stray U+200F in «همه مقاله‌های زندگی‌نامه زندگان بدون منبع‏‏» is real («Checks before saving»);
     // compare on the stripped form so a category match cannot turn on an invisible mark.
     const cats = (r.parse?.categories ?? [])
       .map((c: { category: string }) => c.category.replace(/_/g, ' ').replace(/[‎‏]/g, ''));

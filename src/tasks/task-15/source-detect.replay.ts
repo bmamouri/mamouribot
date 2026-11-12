@@ -13,11 +13,11 @@
  * mismatches:
  *
  * - **genref_lines** under «جستارهای وابسته» / «See also». The prototype counted any long
- *   bullet there as a general reference; §12.1 says the port should not, because a
+ *   bullet there as a general reference; «How the source detector works» says the port should not, because a
  *   see-also entry is a wikilink and counting it would block a correct {{بدون منبع}}.
  * - **strict** on pages whose only ref is a یادکرد-ویکی. The prototype required
- *   `refs == 0`; §1.9 says یادکرد-ویکی is not a source, so this port treats those as
- *   unsourced. §0.5 confirms they are meant to be in the population.
+ *   `refs == 0`; «What counts as a source» says یادکرد-ویکی is not a source, so this port treats those as
+ *   unsourced. «Finding candidates» confirms they are meant to be in the population.
  *
  * Anything else is a bug in the port. In particular `onlyPrototype` must stay at zero:
  * a page the prototype called sourced and this port calls unsourced would be a false
@@ -29,7 +29,7 @@ import rows from '../../../docs/data/task-15/random-2000.json' with { type: 'jso
 
 interface Row extends SourceFeatures { title: string; list: boolean; dab: boolean; blp: boolean }
 
-/** When `random-2000.json` was measured (§0 of the task doc). */
+/** When `random-2000.json` was measured (see «How the source detector works» in the task doc). */
 const MEASURED_AT = '2026-10-10T23:59:59Z';
 
 const arg = (n: string) => {
@@ -100,9 +100,9 @@ async function main() {
     else if (!a && b) {
       onlyMine++;
       // Two differences are intended, and anything else is a bug:
-      //   1. the page's only refs are یادکرد-ویکی (§1.9),
+      //   1. the page's only refs are یادکرد-ویکی («What counts as a source»),
       //   2. the prototype's ONLY reason for calling it sourced was a general-reference
-      //      line, which on these pages is a see-also wikilink (§12.1).
+      //      line, which on these pages is a see-also wikilink («How the source detector works»).
       // Widened ۱۲ اکتبر ۲۰۲۶ after the «مولکول» revert: a reference that cites only the
       // فرهنگستان word list, or only another Wikipedia, supports nothing the article
       // says. The prototype counted both as sources, so the port is now strict on pages
@@ -147,7 +147,7 @@ async function main() {
   //     are sourced by the refs regardless.
   //   isbn            — the prototype missed a {{شابک}} inside a ref body; the port sees
   //     it, which can only make the port more conservative.
-  //   genref_lines    — the see-also refinement of §12.1.
+  //   genref_lines    — the see-also refinement («How the source detector works»).
   // refs / refs_real / refs_ykw_only / ykw / http have no licence to differ.
   // `http` may differ only in the safe direction. A URL the port MISSES can produce a
   // false {{بدون منبع}}; one it counts spuriously only makes it skip a page. Both

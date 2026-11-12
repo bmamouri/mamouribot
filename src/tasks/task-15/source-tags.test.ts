@@ -1,9 +1,9 @@
 /**
  * Offline tests for وظیفهٔ ۱۵'s rules and wikitext surgery.
  *
- * The fixture list is §11 of `docs/task-15-source-tags.md`. Nearly all of them assert a
+ * The rules these fixtures check are in `docs/task-15-source-tags.md`. Nearly all of them assert a
  * REFUSAL, because that is where this task's risk lives: a wrong banner is a public
- * claim about someone's article, and §3 buys safety by declining whenever a test is not
+ * claim about someone's article, and «Rules for adding» buys safety by declining whenever a test is not
  * clearly passed.
  */
 import {
@@ -31,11 +31,11 @@ const facts = (over: Partial<PageFacts> = {}): PageFacts => ({ ...CLEAN, ...over
 const act = (text: string, title = 'آزمون', over: Partial<PageFacts> = {}) =>
   decide(text, title, facts(over));
 
-// ---- §3.1 the happy path, and then everything that must stop it ----------------------
+// ---- «Rules for adding» the happy path, and then everything that must stop it ----------------------
 check('an unsourced article is tagged', act('متن ساده بدون هیچ منبعی.').act === 'add');
 check('…with the right banner',
   (act('متن.') as { banner?: string }).banner === 'بدون منبع');
-check('a BLP gets the BLP banner (§3.2)',
+check('a BLP gets the BLP banner («Rules for adding»)',
   (act('متن.', 'کسی', { isBlp: true }) as { banner?: string }).banner === 'بدون منبع زنده');
 
 check('a disambiguation page is refused',
@@ -54,7 +54,7 @@ for (const t of ['۴ تیر', '۱۲ مرداد', '۳ ژانویه', 'سده پن
 // …without catching real places that merely start with the same word.
 check('«سده لنجان» is a city, not a century', act('متن.', 'سده لنجان').act === 'add');
 check('«تیر» alone is not a date page', act('متن.', 'تیر (ابهام‌زدایی ندارد)').act === 'add');
-check('an Iranian village is refused (decision 5)',
+check('an Iranian village is refused («What it leaves alone»)',
   act('متن.', 'روستا', { hasVillageInfobox: true }).act === 'skip');
 check('a redirect is refused', act('#تغییرمسیر [[الف]]', 'الف', { isRedirect: true }).act === 'skip');
 check('a page edited in the last 7 days is refused',
@@ -68,14 +68,14 @@ for (const name of ['بدون منبع', 'منبع', 'مدرک', 'بهبود م�
     act(`{{${name}}}\nمتن.`).act !== 'add');
 }
 
-// ---- the render is the second opinion (§3.0) -----------------------------------------
+// ---- the render is the second opinion («What counts as a source») -----------------------------------------
 check('wikitext says unsourced but the render shows refs → report, not tag',
   act('متن.', 'الف', { renderedRefs: 3 }).act === 'report');
 check('wikitext says unsourced but the render has an external link → report',
   act('متن.', 'الف', { foreignLinks: 1 }).act === 'report');
 check('a failed render never tags', act('متن.', 'الف', { renderFailed: true }).act === 'skip');
 
-// ---- §3.3 / §3.4 narrow tiers ---------------------------------------------------------
+// ---- «What it changes» narrow tiers ---------------------------------------------------------
 // Real citations, not «یک»/«دو»: a three-character ref body cites nothing.
 const twoRefs = 'متن.<ref>{{یادکرد کتاب|عنوان=الف|ناشر=ب}}</ref> متن.<ref>{{یادکرد وب|نشانی=https://example.com|عنوان=ج}}</ref>';
 check('800 words with 2 sources gets بهبود منبع',
@@ -87,13 +87,13 @@ check('a BLP with 2 sources and 300 words gets منبع زنده',
 check('a BLP with 2 sources and 299 words gets nothing',
   act(twoRefs, 'کسی', { isBlp: true, proseWords: 299 }).act !== 'add');
 
-// ---- §3.5 report-only, confirmed with the operator ۱۲ اکتبر ۲۰۲۶ ---------------------
+// ---- «What it leaves alone» report-only, confirmed with the operator ۱۲ اکتبر ۲۰۲۶ ---------------------
 const oneRef = 'متن.<ref>{{یادکرد کتاب|عنوان=الف|ناشر=ب}}</ref>';
 const one = act(oneRef, 'الف', { proseWords: 400 });
 check('a single-source article is reported, never tagged',
   one.act === 'report' && (one as { kind?: string }).kind === 'یک منبع');
 
-// ---- §4 placement ---------------------------------------------------------------------
+// ---- «Placement» placement ---------------------------------------------------------------------
 const furniture =
   '{{دیگر کاربردها}}\n{{توصیف کوتاه|یک چیز}}\n{{جعبه اطلاعات شخص\n| نام = الف\n}}\nمتن.';
 const placed = addBanner(furniture, 'بدون منبع', 'اکتبر ۲۰۲۶')!;
@@ -116,7 +116,7 @@ check('…and the new banner is a line inside it',
 check('a page with two existing banners is reported, not given a third',
   act(multi).act === 'report');
 
-// ---- §5 the date -----------------------------------------------------------------------
+// ---- «The date» the date -----------------------------------------------------------------------
 check('a date is written when the monthly category exists',
   bannerCall('بدون منبع', 'اکتبر ۲۰۲۶') === '{{بدون منبع|تاریخ=اکتبر ۲۰۲۶}}');
 check('no date at all when it does not (never a bad date)',
@@ -124,7 +124,7 @@ check('no date at all when it does not (never a bad date)',
 check('the stamp is Persian digits',
   /^[^\d]+ [۰-۹]{4}$/.test(monthStamp(new Date('2026-10-12T00:00:00Z'))), monthStamp());
 
-// ---- §3.9 removal ----------------------------------------------------------------------
+// ---- «Removing a stale tag» removal ----------------------------------------------------------------------
 const stale = '{{بدون منبع|تاریخ=مه ۲۰۲۰}}\nمتن.<ref>{{یادکرد کتاب|عنوان=الف}}</ref>'
   + '<ref>{{یادکرد وب|نشانی=https://example.com|عنوان=ب}}</ref>';
 check('a stale tag on a now-sourced article is removed',

@@ -3,7 +3,7 @@
  *
  * Every case here is the boundary, not the happy path, and most assert that something is
  * NOT read as unsourced. A false "no sources" becomes a {{بدون منبع}} banner on a page
- * that cites its work, which is the one outcome §3 is built to avoid.
+ * that cites its work, which is the one outcome «Rules for adding» is built to avoid.
  *
  * The port's agreement with the research prototype is checked separately and over real
  * pages by `source-detect.replay.ts`; that one needs the network and is excluded from
@@ -23,7 +23,7 @@ const unsourced = (name: string, text: string) =>
 const sourced = (name: string, text: string) =>
   check(name, !isStrictUnsourced(sourceFeatures(text)), JSON.stringify(sourceFeatures(text)));
 
-// ---- each source kind in §3.0 must be recognised -------------------------------------
+// ---- each source kind in «What counts as a source» must be recognised -------------------------------------
 sourced('a plain ref', 'متن.<ref>کتابی، تهران ۱۳۹۰</ref>');
 sourced('a citation template inside a ref', 'متن.<ref>{{یادکرد کتاب|عنوان=الف}}</ref>');
 sourced('a citation template outside a ref', 'متن.\n{{یادکرد خبر|عنوان=الف}}');
@@ -33,7 +33,7 @@ sourced('an ISBN', 'متن. شابک ۹۷۸-۳-۱۶-۱۴۸۴۱۰-۰');
 sourced('a general reference under منابع',
   'متن.\n\n== منابع ==\n* نویسنده، «عنوان مقاله»، نشریه، ۱۳۹۰، ص ۱۲.\n');
 
-// ---- §1.9: یادکرد-ویکی is not a source -----------------------------------------------
+// ---- «What counts as a source»: یادکرد-ویکی is not a source -----------------------------------------------
 unsourced('a ref containing only یادکرد-ویکی', 'متن.<ref>{{یادکرد-ویکی|عنوان=X|زبان=en}}</ref>');
 unsourced('a bare یادکرد-ویکی outside a ref', 'متن.\n{{یادکرد-ویکی|عنوان=X|زبان=en}}');
 unsourced('یادکرد-ویکی as the only general reference',

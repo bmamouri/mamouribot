@@ -5,7 +5,7 @@
  * Pure and synchronous so the whole rule set is testable offline. The network work that
  * produces `PageFacts` happens in `getTargets`; see `docs/BUILDING-A-TASK.md` §2.
  *
- * EVERY PATH THAT IS NOT A CONFIDENT YES IS A REFUSAL WITH A REASON. That is §3's
+ * EVERY PATH THAT IS NOT A CONFIDENT YES IS A REFUSAL WITH A REASON. That is «Rules for adding»'s
  * asymmetric refusal, and it is the whole design: a missed page costs nothing, a wrong
  * banner costs trust in the bot. The reasons are what the report page publishes, so they
  * are written to be read by an editor, not by a developer.
@@ -40,7 +40,7 @@ export interface PageFacts {
   daysSinceEdit: number;
   /** Persian prose words, from وظیفهٔ ۱۰'s extractProse/countWords */
   proseWords: number;
-  /** per banner: does its dated monthly category exist yet? (§5) */
+  /** per banner: does its dated monthly category exist yet? («The date») */
   datedCategoryExists: Partial<Record<BannerName, boolean>>;
 }
 
@@ -66,13 +66,13 @@ export type ReportKind =
   | 'شلوغی بنر' | 'بسته‌بندی تک‌بنری' | 'ناسازگاری متن و نمایش'
   | 'چند برچسب بدون منبع' | 'ردهٔ دستی بدون منبع';
 
-/** Titles that are lists, years or dates — explicitly out (§3.1). */
+/** Titles that are lists, years or dates — explicitly out («Rules for adding»). */
 // `\b` would be wrong here for the third time in this task: JavaScript's word
 // boundary is ASCII-only, so `^فهرست\b` matches no Persian title at all.
 const LIST_TITLE = /^(فهرست|سیاههٔ|سیاهه)(\s|$)/;
 
 /**
- * Date pages, which are explicitly out (§3.1).
+ * Date pages, which are explicitly out («Rules for adding»).
  *
  * Not a style preference: HujiBot وظیفهٔ ۷ went through and *removed* {{بدون منبع}} from
  * date pages, so adding it back is reverting a community decision. A bare-number test is
@@ -103,7 +103,7 @@ const DATE_PAGE = new RegExp(
   `|^(سده|دهه|هزاره) ([۰-۹0-9]+|${ORDINAL})( |$)` +
   '|^[۰-۹0-9]{1,4}( \\((میلادی|قمری|خورشیدی|پیش از میلاد)\\))?$');
 
-/** The stale tags §3.9 may remove, plus their redirects. */
+/** The stale tags «Removing a stale tag» may remove, plus their redirects. */
 export const STALE_NAMES = new Set(['بدون منبع', 'بدون منبع زنده', 'منبع', 'بی‌منبع',
   'بی منبع', 'فاقد منبع', 'بدون مرجع', 'unreferenced', 'blp unreferenced']);
 
@@ -127,7 +127,7 @@ export function hasSourceBanner(text: string): string | null {
 }
 
 /**
- * Maintenance banners already at the top, for the "do not add a third" rule (§4).
+ * Maintenance banners already at the top, for the "do not add a third" rule («Placement»).
  *
  * Counts only the LEADING run of templates, which is what "banners at the top" means.
  * The first version counted every template in the opening 600 characters, so an article
@@ -177,13 +177,13 @@ export function decide(text: string, title: string, f: PageFacts): Decision {
   const stop = names.find(n => STOP_TEMPLATES.has(n));
   if (stop) return { act: 'skip', why: `الگوی «${stop}» روی صفحه است` };
 
-  // Someone may be mid-cleanup; en's "actively expanded" caution (§3.1).
+  // Someone may be mid-cleanup; en's "actively expanded" caution («Rules for adding»).
   if (f.daysSinceEdit < 7) return { act: 'skip', why: 'در ۷ روز گذشته ویرایش شده' };
 
   const feats: SourceFeatures = sourceFeatures(text);
   const strict = isStrictUnsourced(feats);
 
-  // ---- §3.9 remove a stale tag -------------------------------------------------------
+  // ---- «Removing a stale tag» remove a stale tag -------------------------------------------------------
   const staleName = [...STALE_NAMES].find(n => {
     const t = findTemplate(text, n);
     return t && !isSectionUse(t.body);
@@ -245,7 +245,7 @@ export function decide(text: string, title: string, f: PageFacts): Decision {
     //    `isStrictUnsourced`, because for ADDING a banner every doubt must block, and a
     //    bibliography is doubt. The two directions are deliberately asymmetric.
     // 2. The count has to keep up with the article. One footnote on 500 words of prose is
-    //    not a sourced article; the floor scales with length (§3.9).
+    //    not a sourced article; the floor scales with length («Removing a stale tag»).
     //
     // Measured on the day's own removals: genuinely-sourced articles run 27–95 words per
     // citation («کازرون» 27, «روی» 37, «ترابری ریلی» 79, «کمونالیسم» 95), while the two
@@ -270,10 +270,10 @@ export function decide(text: string, title: string, f: PageFacts): Decision {
       why: 'دو بنر نگهداری یا بیشتر از پیش دارد؛ بسته‌بندی‌شان کار آدم است' };
   }
 
-  // ---- §3.1 / §3.2: no source of any kind --------------------------------------------
+  // ---- «Rules for adding»: no source of any kind --------------------------------------------
   if (strict) {
     // The render is the second opinion: templates can emit refs and links the wikitext
-    // scan never sees (§3.0). Disagreement is a refusal, not a tie-break.
+    // scan never sees («What counts as a source»). Disagreement is a refusal, not a tie-break.
     if (f.renderedRefs > 0 || f.foreignLinks > 0) {
       return { act: 'report', kind: 'ناسازگاری متن و نمایش',
         why: `ویکی‌متن منبعی ندارد ولی نمایش ${f.renderedRefs} پانویس و ` +
@@ -283,7 +283,7 @@ export function decide(text: string, title: string, f: PageFacts): Decision {
     return { act: 'add', banner, why: 'هیچ منبعی ندارد' };
   }
 
-  // ---- the narrow tiers (§3.3 / §3.4) ------------------------------------------------
+  // ---- the narrow tiers («What it changes») ------------------------------------------------
   // The «مولکول» rule: count only what sources the CONTENT. {{یادکرد فرهنگستان}} and a
   // link to another Wikipedia are references to something, but not to anything the
   // article claims, so they must not lift a page over a tier threshold either.
@@ -300,7 +300,7 @@ export function decide(text: string, title: string, f: PageFacts): Decision {
     }
   }
 
-  // ---- report-only kinds (§3.5–§3.7) -------------------------------------------------
+  // ---- report-only kinds («What it leaves alone») -------------------------------------------------
   // Confirmed with the operator on ۱۲ اکتبر ۲۰۲۶: these stay report-only. The banners
   // are judgement calls — «یک منبع»'s own doc says it is not a policy violation, and
   // «اصلاح ترجمه» tells readers the page will be nominated for deletion within two
@@ -312,7 +312,7 @@ export function decide(text: string, title: string, f: PageFacts): Decision {
   return { act: 'skip', why: 'شرایط هیچ برچسبی را ندارد' };
 }
 
-/** The Persian edit summary for a decision (§6). */
+/** The Persian edit summary for a decision («Edit summaries»). */
 export function summaryFor(d: Decision): string {
   if (d.act === 'add' && d.banner === 'بدون منبع') {
     return 'افزودن الگوی {{بدون منبع}}: مقاله هیچ منبعی ندارد (یادکرد-ویکی منبع به‌شمار نمی‌آید)';

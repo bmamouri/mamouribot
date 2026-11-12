@@ -2,7 +2,7 @@
  * وظیفهٔ ۱۵ — "does this article cite anything?", decided from wikitext alone.
  *
  * This is a port of the research prototype (`archive/task-15-research/classify.py`),
- * whose logic is recorded in §12.1 of `docs/task-15-source-tags.md` because the archive
+ * whose logic is recorded in «How the source detector works» of `docs/task-15-source-tags.md` because the archive
  * is git-ignored and exists on one machine. The field names below deliberately match the
  * prototype's, so `source-detect.replay.ts` can diff this against the 2,000-page
  * measurement in `docs/data/task-15/random-2000.json` page by page. Unit tests would not
@@ -12,7 +12,7 @@
  * THE ONE THING THIS FILE MUST NEVER DO IS OVERCOUNT ZERO. Everything downstream keys on
  * "no source of any kind": a page that really has a reference but is read as having none
  * gets a {{بدون منبع}} banner that is simply false, and that is the cost the whole task
- * is designed around (§3, asymmetric refusal). So every ambiguous construct is resolved
+ * is designed around («Rules for adding», asymmetric refusal). So every ambiguous construct is resolved
  * in favour of "this is a source": a line we cannot classify counts, a template we half
  * recognise counts. The render check in the task is the second, independent opinion.
  */
@@ -154,7 +154,7 @@ const isSfnTemplate = (name: string) =>
  *
  * `جستارهای وابسته` / `See also` is in the prototype's list and must be treated
  * carefully: a see-also bullet is a wikilink, not a source, so counting it would block a
- * correct {{بدون منبع}} on any stub that happens to have a see-also list. §12.1 flags
+ * correct {{بدون منبع}} on any stub that happens to have a see-also list. «How the source detector works» flags
  * this; `isGeneralReference` below requires content beyond the links.
  */
 const REF_HEADING =
@@ -201,7 +201,7 @@ export function sourceFeatures(wikitext: string): SourceFeatures {
    * «پری» cites `<ref><nowiki>https://sid.ir/…</nowiki></ref>` and «برت مایر» does the
    * same: a genuine reference whose URL is escaped. Reading that body from the
    * nowiki-blanked view made it empty, dropping a real source from `refs_real` — and
-   * `refs_real` is what the §3.3/§3.4 thresholds count, so an undercount there is a
+   * `refs_real` is what the «What it changes» thresholds count, so an undercount there is a
    * wrong {{بهبود منبع}} on a properly cited page.
    */
   const loose = blankComments(wikitext);
@@ -257,7 +257,7 @@ export function sourceFeatures(wikitext: string): SourceFeatures {
 }
 
 /**
- * STRICT unsourced: nothing on the page supports anything it says (§3.0).
+ * STRICT unsourced: nothing on the page supports anything it says («What counts as a source»).
  *
  * This uses the `*_sourcing` fields, not the prototype-comparable ones, and the
  * difference is the مولکول revert: its single reference was `{{یادکرد فرهنگستان}}`, the

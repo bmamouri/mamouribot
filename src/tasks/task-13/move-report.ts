@@ -1,11 +1,11 @@
 /**
  * وظیفهٔ ۱۳ — ویکی‌پدیا:گزارش دیتابیس/مقاله‌های نیازمند تغییرنام
  *
- *   npx tsx src/tasks/task-13/move-report-cli.ts              # dry run: prints the wikitext
- *   npx tsx src/tasks/task-13/move-report-cli.ts --live       # publishes the report page
- *   npx tsx src/tasks/task-13/move-report-cli.ts --refresh    # re-enumerate titles, ignore the cache
- *   npx tsx src/tasks/task-13/move-report-cli.ts --sample 50  # dry run against the first N titles
- *   npx tsx src/tasks/task-13/move-report-cli.ts --backend ssh|direct   # override replica access
+ *   npx tsx src/tasks/task-13/reports-cli.ts              # dry run: prints the wikitext
+ *   npx tsx src/tasks/task-13/reports-cli.ts --live       # publishes the report page
+ *   npx tsx src/tasks/task-13/reports-cli.ts --refresh    # re-enumerate titles, ignore the cache
+ *   npx tsx src/tasks/task-13/reports-cli.ts --sample 50  # dry run against the first N titles
+ *   npx tsx src/tasks/task-13/reports-cli.ts --backend ssh|direct   # override replica access
  *
  * Rezabot published this report daily until it stopped in مهر ۱۴۰۰ (October 2021),
  * and the page has been frozen since. It lists article titles whose spelling or

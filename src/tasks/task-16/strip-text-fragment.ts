@@ -186,7 +186,7 @@ export const stripTextFragmentTask: BotTask = {
   async getTargets(bot: Bot): Promise<string[]> {
     const out: string[] = [];
     let offset = 0;
-    // CirrusSearch regex search; see docs/task-16-text-fragment.md §«فهرست نامزدها».
+    // CirrusSearch regex search; see docs/task-16-text-fragment.md «Targets».
     // Capped at the 10,000-offset hard limit CirrusSearch imposes, same guard as task-15.
     const want = bot.opts.limit ? Math.max(bot.opts.limit * 6, 200) : 10000;
     while (out.length < want && offset < 10000) {
