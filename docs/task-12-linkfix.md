@@ -3,7 +3,7 @@
 Repairs links the mass imports left in English.
 
 > **Status (۱۲ نوامبر ۲۰۲۶): APPROVED.** Huji granted {{مجوز دارد}} on ۹ اکتبر ۲۰۲۶ after
-> the 50-edit trial. A scope extension is built and trialled (97 edits `--as-me`), follow-up not yet posted; see
+> the 50-edit trial. A scope extension is built and trialled (97 edits `--as-me`), follow-up posted and awaiting review; see
 > [Extension: red links with a Persian article under another name](#extension-red-links-with-a-persian-article-under-another-name)
 > at the end of this file. Until its follow-up is answered, the extension runs `--as-me` only.
 
@@ -174,7 +174,7 @@ recorded here rather than left as a command to re-run.
 
 ## Extension: red links with a Persian article under another name
 
-**Status: built and trialled ۱۲ نوامبر ۲۰۲۶ (97 live edits `--as-me`); follow-up drafted, not yet posted.** Decided with the operator:
+**Status: built and trialled ۱۲ نوامبر ۲۰۲۶ (97 live edits `--as-me`); follow-up posted (rev 44966592), awaiting review.** Decided with the operator:
 everything goes into ONE follow-up on the وظیفهٔ ۱۲ request (no new task number), posted in
 its `===بحث===` section **without pinging anyone** — no `{{پینگ}}`, no `{{ب|…}}`, no user
 link other than the signature. The draft goes to the companion repo's `drafts/` and is not
@@ -385,9 +385,10 @@ not a disambiguation page.
    with their English label kept, 199 template calls repaired, 23 citation `*-link`
    values, 1,702 `{{بت}}` replaced across 39 pages, 935 targets to review. Run data in
    `.state/task12-ext-run/` (git-ignored).
-10. Follow-up drafted at `drafts/brfa-task12-extension-followup.wiki` in the companion
-    repo (no pings; talk gate and wikitext gate clean; renders with 0 red links). **Not
-    posted** — the operator posts it. an `--as-me` trial on the new cases
+10. ✅ **Follow-up posted** ۱۲ نوامبر ۲۰۲۶ as `==== گسترش دامنه: … ====` at the end of the
+    request page, rev 44966592, no pings (source: `drafts/brfa-task12-extension-followup.wiki`
+    in the companion repo). Awaiting the reviewer. On approval: set `LINKFIX_EXTENSION=1`
+    in `toolforge/task-12-linkfix/run.sh`, and only then let the bot run the new scope. an `--as-me` trial on the new cases
    only, and the follow-up draft in `drafts/`.
 
 ### Code map
