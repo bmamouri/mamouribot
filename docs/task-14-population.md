@@ -1,34 +1,30 @@
 # وظیفهٔ ۱۴: درج {{جمعیت ایران}} در مقاله‌های آبادی‌های ایران
 
-This task adds a census trend box to Iranian village articles. The edit carries no
-numbers: the bot inserts one template call, and the module reads the figures live from the
-article's own Wikidata item. The bot decides where the box goes; the data is already on
-Wikidata.
+This task adds a census trend box to Iranian village articles. The edit carries no numbers:
+the bot inserts one `{{جمعیت ایران}}` call, and `پودمان:جمعیت ایران` reads the figures live
+from the article's own Wikidata item. The bot only decides where the box goes.
 
-| | |
-|---|---|
-| Code | `src/tasks/task-14/population-box.ts` (+ `.test.ts`, 28 assertions) |
-| Task id | `population-box` |
-| Deployment | `toolforge/task-14-population/` |
-| Upstream project | `scripts/population/` in the parent repo (`RFC-rollout-bot.md`, `PLAN.md`, `README.md`) |
-| Report page | `کاربر:MamouriBot/وظیفه ۱۴/گزارش` |
-| BRFA | `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۴` |
+## Status
+
+- **Not approved yet.** Filed as `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۴`.
+  The code, the tests and the Toolforge jobs are ready. It has not run live.
+- Huji's objection is not technical: with the figures read from Wikidata, a wrong number has
+  to be caught on Wikidata, where there are far fewer Persian-speaking patrollers. The task
+  needs a short نظرخواهی that answers this before it can run (`TODO.md` §7b).
+- Report page: `کاربر:MamouriBot/وظیفه ۱۴/گزارش`.
 
 ## Where the numbers come from
 
-1. **Source:** the Statistical Center of Iran settlement censuses of **۱۳۸۵ (2006)**,
-   **۱۳۹۰ (2011)** and **۱۳۹۵ (2016)**, at the آبادی level.
-2. **Wikidata:** `scripts/population/import_bot.py` wrote `P1082` (plus P1538/P1540/P1539)
-   qualified with `P585` + `P459=Q39825` and a `P854` reference to the exact per-province
-   SCI file, with ۱۳۹۵ at preferred rank. Audit: **MATCH 154,330, MISSING 0, DIFFER 0**,
-   positive control 30/30, 0 contamination.
-3. **Display:** `پودمان:جمعیت ایران` reads `entity.claims` (not `getBestStatements`, which
-   would hide the normal-rank ۱۳۸۵ value behind the preferred ۱۳۹۵ one), maps each P585 year
-   to its Jalali census label, and outputs a centred `{{جمعیت تاریخی}}`.
-4. **This task:** inserts `{{جمعیت ایران}}`. Nothing else changes.
+- **Source:** the Statistical Center of Iran settlement censuses of ۱۳۸۵ (2006), ۱۳۹۰ (2011)
+  and ۱۳۹۵ (2016), at آبادی level.
+- **Wikidata:** `P1082` (plus P1538/P1540/P1539) qualified with `P585` and `P459=Q39825`, with
+  a `P854` reference to the per-province SCI file, and ۱۳۹۵ at preferred rank. They were
+  written by `scripts/population/import_bot.py` in the parent repo.
+- **Display:** `پودمان:جمعیت ایران` reads `entity.claims` (not `getBestStatements`, which would
+  hide the normal-rank years behind the preferred ۱۳۹۵ value), maps each year to its Jalali
+  census label, and outputs a centred `{{جمعیت تاریخی}}`.
 
-Live example: [[بنه رازی]] shows ۱۳۸۵→۴۱ · ۱۳۹۰→۱۸ · ۱۳۹۵→۵۹ with the percentage change
-worked out, and 0 errors.
+Example: [[بنه رازی]] shows ۱۳۸۵→۴۱ · ۱۳۹۰→۱۸ · ۱۳۹۵→۵۹ with the percentage change.
 
 ## Which articles
 
@@ -42,92 +38,81 @@ SELECT DISTINCT ?item WHERE {
 }
 ```
 
-The `wdt:P31 wd:Q532` line is required. The census import is keyed on P1010, and provinces,
-counties and cities have one too. Without the filter the set is 17,048 and starts with
-«تهران» and «استان اردبیل». With it, it is **16,594**, all villages, which is the approved
-scope. Cities and higher divisions are a later phase that needs its own case.
+- `wdt:P31 wd:Q532` keeps the set to villages, which is the filed scope (about 16,594
+  articles). Provinces, counties and cities also have P1010.
+- Titles come from `wbgetentities`, not from WDQS, because `schema:name` drops ZWNJ (U+200C)
+  and those titles then don't exist. Don't merge this into one query.
 
-Titles come from `wbgetentities`, not from WDQS. `schema:name` drops U+200C: a SPARQL pass
-returned 0 of 17,271 titles with a ZWNJ, where the API gives 58 in 400. Every title that
-lost its ZWNJ 404s, which showed up as "14% of candidates missing", a number plausible
-enough to believe. Don't merge this into one query.
+## What it changes
 
-## The four kinds of article
+| article | what the bot does |
+|---|---|
+| has `== جمعیت ==`, no box (most articles) | insert `{{جمعیت ایران}}` directly under the heading |
+| has a hand-written `{{جمعیت تاریخی}}` | replace it, only if nothing is lost (below) |
+| has no population section | create `== جمعیت ==` before the first end section |
+| already has `{{جمعیت ایران}}` | skip |
 
-Measured on 400 random candidates (`scripts/population/1390-CENSUS-GAP.md` §2):
+Refused and reported instead:
 
-| shape | share | what the bot does |
-|---|---|---|
-| `== جمعیت ==`, no box | 89.5% | insert `{{جمعیت ایران}}` directly under the heading |
-| a hand-written `{{جمعیت تاریخی}}` | 6.3% | **replace it, only with proof (see below)** |
-| no population section at all | 4.0% | create `== جمعیت ==` before the first section at the end of the article |
-| already has `{{جمعیت ایران}}` | 0.2% | skip |
+- a population heading that is not exactly `== جمعیت ==`, such as `== جمعیت‌شناسی ==`,
+  `== [[جمعیت]] ==` or `=== جمعیت ===`, because a new section would give the article two;
+- no end section (منابع، پانویس، جستارهای وابسته …) to place a new section before.
 
-Two cases are refused and reported instead of guessed at:
+`== جمعیّت ==` with a shadda counts as the same heading.
 
-- **a population heading that is not exactly `== جمعیت ==`**, such as `== جمعیت‌شناسی ==`,
-  `== [[جمعیت]] ==` or `=== جمعیت ===`. Creating a section here would give the article two
-  population sections, and nothing would flag it.
-- **nowhere safe to create the section**: no end section (منابع، پانویس، جستارهای وابسته …)
-  to put it before.
+### Replacing a hand-written box
 
-`== جمعیّت ==` with a shadda counts as the same heading. It occurs on live pages (آق‌چه‌کند)
-and looks almost identical, and the heading regex accepts it. A plain `/جمعیت/` match misses
-it and the article gets a second section.
+A hand-written box may hold something Wikidata does not, such as ۱۳۷۵ or a different figure.
+`verify()` renders the proposed wikitext and refuses to save unless every (year, value) pair
+the old box showed appears in the new render. A box that would lose anything is reported and
+left as it is. The render-error check can't do this, because a box that drops a row shows no
+error (`lessons/scripts-and-batch/never-wholesale-replace-article.md`).
 
-## Replacing a hand-written box
+Edit summary: `درج جدول روند جمعیت بر پایهٔ داده‌های سرشماری مرکز آمار ایران (از ویکی‌داده)`.
 
-Until ۸ اکتبر ۲۰۲۶ those hand-written boxes were the only machine-readable copy of the ۱۳۹۰
-figures at village level. Wikidata held only ۱۳۸۵ and ۱۳۹۵, while 92% of the boxes also
-showed ۱۳۹۰, so replacing them would have quietly deleted a sourced census row from about a
-thousand articles. That is fixed now, since ۱۳۹۰ is imported and audited. But a single box
-may still hold something else, such as ۱۳۷۵, or a figure that disagrees with the SCI file.
+## Safety checks
 
-So `verify()` checks that nothing is lost, which is what `BotTask.verify` is for. It renders
-the proposed wikitext and refuses to save unless **every (year, value) pair the old box
-showed** appears in the new render. The built-in render check can't do this: it counts
-error markers, and a box that drops a row produces none
-(`lessons/scripts-and-batch/never-wholesale-replace-article.md`,
-`enrich-must-not-drop-blue-seealso.md`).
-
-A box that would lose anything is reported and left as it is.
-
-## Safety
-
-- The built-in render check (error markers before and after) plus `verifySaved`, which
-  parses the **saved** revision again by `oldid` and reverts its own edit if things got
-  worse. It is the only check that catches the kind of defect task ۳ shipped twice.
-- `gates.py check_wikitext` on the change only. Run on the whole page it fails on problems
-  the article already had and that this task is not allowed to fix, so it checks that the
-  inserted line adds none (the same approach as وظیفهٔ ۱۰ and ۱۲).
-- `assert=user` + `assertuser=MamouriBot` on every save, and `baserevid`/`basetimestamp`,
-  so a concurrent human edit produces a conflict instead of being overwritten.
-- `maxlag=5` on every request, `Retry-After` honoured, and `کاربر:MamouriBot/توقف` read
-  before every edit.
-- Templates are located by matching braces, never with a regex capture. A capture stops at
-  the first `}}`, which in a box containing `{{formatnum:}}` closes the inner template and
-  leaves a stray `}}` in the article.
-- Resumable: `~/state/population-box.json`. No `recheckAfterDays`: this task goes over the
-  pages once, not over a category that keeps refilling, and going over 16.6k pages again
-  would only add load.
-- Edit summary **under 150 characters** (AbuseFilter #221), in Persian, describing the
-  content only.
+- The render-error check, plus `verifySaved`, which parses the saved revision again by `oldid`
+  and reverts the bot's own edit if things got worse.
+- `gates.py check_wikitext` on the change only, so problems the article already had don't
+  block it.
+- `assert=user` + `assertuser=MamouriBot` on every save, and `baserevid`/`basetimestamp`, so a
+  concurrent edit gives a conflict instead of being overwritten.
+- `maxlag=5`, `Retry-After` honoured, and `کاربر:MamouriBot/توقف` read before every edit.
+- Templates are located by matching braces, never with a regex capture, which would stop at
+  the first inner `}}`.
+- Edit summary under 150 characters (AbuseFilter #221).
+- No `recheckAfterDays`: the task goes over the pages once.
 
 ## Running it
 
 ```bash
-npx tsx src/run.ts population-box --limit 40              # dry run, classify only
-npx tsx src/run.ts population-box --live --limit 50 --delay 15   # the BRFA trial
+npx tsx src/tasks/task-14/population-box.test.ts                  # offline tests
+npx tsx src/run.ts population-box --limit 40                      # dry run, classify only
+npx tsx src/run.ts population-box --live --limit 50 --delay 15    # the trial
 ```
 
-On Toolforge: `toolforge jobs load toolforge/task-14-population/jobs.yaml`, then run
-`pop-check` → `pop-dry` → `pop-trial`. Create `pop-full` only after checking the trial's
-diffs and renders.
+Deployment is `toolforge/task-14-population/`. On Toolforge, start each job on its own with
+`toolforge jobs run`, in order `pop-check` → `pop-dry` → `pop-trial` (50 edits). Don't use
+`toolforge jobs load` on this `jobs.yaml`: it replaces the whole job list and deletes every
+other task's scheduled jobs. Create `pop-trial` only after approval, and `pop-full`
+only after checking the trial's diffs and rendered pages.
 
-## Still to do
+To stop it, blank `کاربر:MamouriBot/توقف`. The checkpoint is `~/state/population-box.json`.
 
-- **Cities and higher divisions** (the 454 non-village items the P31 filter leaves out) are
-  a later phase and need their own case. The aggregate rows are already in
+## Open
+
+- Cities and higher divisions (the 454 non-village items the P31 filter leaves out) are a
+  later phase and need their own request. The aggregate rows are already in
   `settlements.csv`.
-- **Retiring `پودمان:جمعیت روستای ایران/داده/*`**, the local fallback data, once Wikidata
-  coverage is complete.
+- Retire `پودمان:جمعیت روستای ایران/داده/*`, the local fallback data, once Wikidata coverage
+  is complete.
+
+## Code
+
+| file | what |
+|---|---|
+| `src/tasks/task-14/population-box.ts` | the task (`population-box`): targets, placement, `verify()` |
+| `src/tasks/task-14/population-box.test.ts` | offline tests |
+| `toolforge/task-14-population/` | `run.sh`, `jobs.yaml` |
+| `scripts/population/` in the parent repo | the Wikidata import and the project notes (`RFC-rollout-bot.md`, `PLAN.md`, `README.md`) |

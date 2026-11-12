@@ -1,65 +1,57 @@
 # وظیفهٔ ۴: deprecated parameters in {{جعبه اطلاعات شرکت}}
 
 This task replaces deprecated and legacy parameters in `{{جعبه اطلاعات شرکت}}` with the
-current ones.
+current ones. The template no longer reads the old names, so their values are hidden in the
+infobox. Renaming them brings the field back and takes the page out of the tracking category.
 
-**Status (۱۰ نوامبر ۲۰۲۶): approved and running continuously.** Huji gave
-`{{مجوز دارد}}` on ۱۳ ژوئیهٔ ۲۰۲۶. It runs as MamouriBot, daily at 06:35 UTC, with at most
-50 edits per run.
+## Status
 
-| | |
-|---|---|
-| Code | `src/tasks/task-04/company-deprecated-params.ts` (+ `.test.ts`, 27 assertions) |
-| Task id | `company-deprecated-params` |
-| Deployment | `toolforge/task-04-company-params/` → job `cp-daily` |
+- **Approved.** Request page:
+  `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۴`.
+- Runs as MamouriBot, job `cp-daily`, daily at 06:35 UTC (`35 6 * * *`), at most 50 edits
+  per run with `--delay 15`.
+- The original backlog (about 12,300 pages) is done. The job keeps up with new articles
+  created with old parameters, and with pages reverted past the bot's edit in unrelated
+  disputes. The category normally holds a couple of dozen pages, so `--limit 50` covers a
+  normal day.
 
-## From a one-off sweep to a daily job
+## What it changes
 
-The request (`ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۴`) was for a
-one-off sweep, and it ran that way on ۱۳ ژوئیه ۲۰۲۶: about 12,300 pages, all now in the
-`done` bucket of `.state/company-deprecated-params.json`.
+- A deprecated or legacy key becomes its current Persian name: `|location=…` →
+  `|دفتر مرکزی=…`, `|homepage=…` → `|وبگاه=…`.
+- In the same edit, the rest of that infobox is made Persian: English keys get their Persian
+  names and `{{Infobox company}}` becomes `{{جعبه اطلاعات شرکت}}`. This only happens alongside
+  a real rename. The bot never makes a cosmetic-only edit.
 
-By ۱۰ نوامبر ۲۰۲۶ the tracking category
-(`رده:صفحه‌هایی که از جعبه اطلاعات شرکت با پارامترهای منسوخ‌شده استفاده می‌کنند`) held 22
-pages again. The original backlog had been cleared (over 99.8%). These were new, from two
-sources, and I confirmed both on live pages before changing anything:
+Edit summary: `به‌روزرسانی پارامترهای منسوخ جعبه اطلاعات شرکت و فارسی‌سازی نام پارامترها و
+فراخوانی`.
 
-1. New articles created with a legacy or English parameter, e.g. «الف آلفا» (created
-   ۱۸ سپتامبر ۲۰۲۶ with `مکان` instead of the current field), «تینکینگ ماشینز لب»
-   (created ۲۷ اکتبر) and «مجله لومینا» (created ۵ نوامبر). None of these existed in July.
-2. Pages the bot had already fixed that were later reverted to a revision from before its
-   edit, by a content dispute or a vandalism rollback that had nothing to do with the
-   infobox. Five pages: «بانک آینده», «تایپ-مون», «سناباد خودرو»,
-   «شرکت توزیع نیروی برق تهران بزرگ», «مهاب قدس». Each shows MamouriBot's July edit in its
-   history, undone later by someone reverting something else.
+## Rules
 
-The old checkpoint marked a title done forever, so it could see neither case: a title was
-skipped in every later run, and the runs reported "nothing to do" while the category filled
-up. I gave it the same fix as وظیفهٔ ۱ (`recheckAfterDays: 30`) rather than re-running it
-by hand whenever someone noticed the category again.
+- Only keys inside a `{{جعبه اطلاعات شرکت}}` call (or one of its redirects) are touched. A
+  parameter with the same name in another template is left alone.
+- Values are never changed, only key names and the template name.
+- An empty or identical duplicate is merged. A real clash on a field that shows something
+  skips the whole article for review. A clash on a cosmetic field keeps both keys.
+- A few ambiguous legacy names are reported, not renamed: «توضیح», «نام‌های تجاری»,
+  «شکل‌بندی بدنه».
 
-## Why re-checking is safe and cheap
+## Targets
 
-`getTargets()` reads the tracking category itself, so a title only appears if it still (or
-again) has a deprecated or legacy parameter in the infobox. There is no separate target
-list to rebuild. Re-checking a title that was done before costs one more render of a page
-that is already in the category, not a new pass over the 12,300 pages. The category
-normally holds a couple of dozen pages, so `--limit 50` easily covers a normal day.
+`getTargets()` reads the tracking category
+`رده:صفحه‌هایی که از جعبه اطلاعات شرکت با پارامترهای منسوخ‌شده استفاده می‌کنند`, so a title
+only appears while it still has a deprecated parameter. The task sets
+`recheckAfterDays: 30`, so a page that was fixed and later reverted comes back into scope.
 
-## Rollout, ۱۰ نوامبر ۲۰۲۶
+## Running it
 
-| what | outcome |
-|---|---|
-| `--check` | credentials, bot flag, stop page all clean |
-| dry run (`--limit 50`) | 22 targets, 21 ready, 1 no-change (`کارخانه قند میاندوآب`: no infobox call found; an old oddity, not a bug) |
-| first live batch (`--live --limit 5`) | 5/5 edited, summaries carry the BRFA link, bot flag set |
-| rendered before/after on those 5 | error-marker count unchanged on every page (0→0 ×2, 2→2 ×2, 18→18 ×1) |
-| remaining batch (`--live --limit 25`) | 16 more edited, 1 no-change (the same page), 0 self-reverts |
-| rendered before/after on 6 more of those | error-marker count unchanged on all 6 |
-| category after the run | 22 → 1 (the page with no infobox call) |
-| `cp-daily` scheduled | `35 6 * * *` UTC, clear of `ud-daily` (06:20) and `tf-daily` (06:50) |
+```sh
+npx tsx src/tasks/task-04/company-deprecated-params.test.ts   # offline tests
+npx tsx src/run.ts company-deprecated-params --limit 50        # dry run
+```
 
-## Operating it
+Deployment is `toolforge/task-04-company-params/` (jobs `cp-check`, `cp-dry`, `cp-first`,
+`cp-daily`).
 
 ```bash
 ssh mamouri@login.toolforge.org 'become mamouribot toolforge jobs logs cp-daily'
@@ -67,16 +59,23 @@ ssh mamouri@login.toolforge.org 'become mamouribot toolforge jobs restart cp-dai
 ```
 
 Don't run `toolforge jobs load` on this task's `jobs.yaml`. A load syncs the whole job list
-and deletes every other task's scheduled jobs. Use `toolforge jobs run` and `delete` per
-job.
+and deletes every other task's scheduled jobs. Use `toolforge jobs run` and `delete` per job.
 
 To stop it, blank `کاربر:MamouriBot/توقف`, or run `toolforge jobs delete cp-daily`. The
-checkpoint in `~/state/company-deprecated-params.json` means a restart carries on where it
-stopped instead of starting over.
+checkpoint is `~/state/company-deprecated-params.json`, so a restart carries on where it
+stopped.
 
-## The one page the task has never touched
+## Open
 
-`کارخانه قند میاندوآب` is in the tracking category, but `fixCompanyParams()` reports
-«جعبه اطلاعات شرکت یافت نشد»: the category and the search for the infobox call disagree.
-It needs a look by hand (the infobox may be inside a transcluded template, or the category
-may be stale). The task is right to leave it, since it has no edit it can justify.
+- `کارخانه قند میاندوآب` is in the tracking category, but `fixCompanyParams()` reports
+  «جعبه اطلاعات شرکت یافت نشد». It needs a look by hand: the infobox may be inside a
+  transcluded template, or the category may be stale.
+
+## Code
+
+| file | what |
+|---|---|
+| `src/tasks/task-04/company-deprecated-params.ts` | the task (`company-deprecated-params`): the name map, `fixCompanyParams()`, targets |
+| `src/tasks/task-04/company-deprecated-params.test.ts` | offline tests |
+| `src/tasks/task-04/validate-company-params.ts` | read-only check over the whole category |
+| `toolforge/task-04-company-params/` | `run.sh`, `jobs.yaml` |

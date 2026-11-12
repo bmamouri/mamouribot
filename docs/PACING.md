@@ -1,121 +1,72 @@
 # How the bot decides when to edit
 
-I wrote this on ۸ اکتبر ۲۰۲۶ after Huji raised it in the وظیفهٔ ۱۲ review:
+The bot waits between writes according to what the server reports, not a fixed number. The
+code is `src/pacing.ts` (`Pacer`, `RunRegistry`), called from `writeGapMs` in `src/core.ts`.
+Tests are in `src/pacing.test.ts`.
 
-> «PWB هوشمند تر است و وقفه‌اش را تصادفی انتخاب نمی‌کند بلکه بر اساس بار سرورها — که از
-> طریق رابط برنامه‌نویسی کاربردی مدیاویکی به اطلاع ربات می‌رسد — آن را تعیین می‌کند»
+## What the server tells a bot
 
-The code is `src/pacing.ts`, with tests in `src/pacing.test.ts`.
-
-## In short
-
-No API endpoint tells a bot that now is a good time to edit, and pywikibot doesn't use one.
-The server only tells you to slow down once you are already going too fast. What the bot
-needed was to follow that signal properly, and it now does.
-
-## What the API offers
-
-I tested each of these against fa.wikipedia:
+No API endpoint says "now is a good time to edit". The signals are:
 
 | mechanism | when you get it | what it gives |
 |---|---|---|
-| `maxlag=N` on a request | on rejection | `error.code='maxlag'` with exact `lag` and the lagging `host` |
-| **`Retry-After`** header | on a maxlag rejection and on 429 | how many seconds to wait. **5** on WMF wikis |
+| `maxlag=N` on a request | on rejection | `error.code='maxlag'` with `lag` and `host` |
+| `Retry-After` header | on a maxlag rejection and on 429 | seconds to wait (5 on WMF wikis) |
 | `X-Database-Lag` header | same | current lag |
-| `meta=siteinfo&siprop=dbrepllag` | on request, no write | `[{host, lag}]` right now |
+| `meta=siteinfo&siprop=dbrepllag` | on request | current replica lag |
 
-```
-siprop=dbrepllag                     → [{"host":"db2208","lag":0.878}]
-maxlag=-1  (can never be satisfied)  → error maxlag, lag 0.080, host 10.192.32.15
-                                        Retry-After: 5     X-Database-Lag: 0
-plain query / maxlag=5 (satisfied)   → NO Retry-After, NO X-Database-Lag
-```
+Successful responses carry neither header, so `dbrepllag` is the only way to see lag before
+being rejected.
 
-The last line matters most: successful responses don't carry these headers. The only way
-to see lag before being rejected is to ask for it with `dbrepllag`. Everything else arrives
-after the fact.
+## How the gap is chosen
 
-## What pywikibot does
+For the bot account the gap is:
 
-`pywikibot/throttle.py::get_delay`:
+1. The floor, `--delay` (default 10s). Each job's value is in its command; see
+   `TOOLFORGE.md`.
+2. Raised by measured lag. `dbrepllag` is read every 25 writes. At 1s of lag or less the
+   floor applies; at `maxlag` (5s) or more the ceiling applies; in between the gap slides
+   linearly. The ceiling is `max(6 × --delay, 60s)`.
+3. Raised to the server's `Retry-After` if it asked for more. `Retry-After` is read from
+   every response and can exceed the ceiling.
+4. Multiplied by the number of live runs, so overlapping jobs share one rate.
+5. Randomised by ±10%, but never below the floor.
 
-```python
-current_delay = max(self.mindelay,       # config.minthrottle — LOCAL
-                    self.retry_after,    # from the Retry-After header — SERVER
-                    min(self.writedelay, self.maxdelay))   # config.put_throttle — LOCAL
-return current_delay * self.process_multiplicity
-```
+With a 10s floor and a 60s ceiling:
 
-So the delay is:
+| lag | gap |
+|---|---|
+| 0.45s | 10s |
+| 2s | 22.5s |
+| 3s | 35s |
+| 4.5s | 53.8s |
+| 20s | 60s |
 
-1. a minimum set in the local configuration,
-2. raised to whatever the server last asked for in `Retry-After`,
-3. multiplied by the number of pywikibot processes running for the same user, so N bots
-   share one rate instead of each using it.
+Every gap longer than 1.5 × `--delay` is logged with its reason.
 
-None of these predicts anything. It doesn't read `dbrepllag`, doesn't estimate load, and
-doesn't pick a quiet hour. pywikibot follows `Retry-After` and splits its rate among its own
-processes; it does not wait for a moment when the servers are idle.
+This is the same `max()` pywikibot uses (`throttle.py::get_delay`: a local floor, the server's
+`Retry-After`, times `process_multiplicity`), plus the lag reading, which makes the bot slow
+down before the server starts refusing it.
 
-## Node.js libraries
+## Sharing the rate between runs
 
-`mwn` (3.0.3, maintained, by SD0001 of Toolforge) is the main framework here and is written
-in TypeScript. On maxlag it reads `retry-after` from the response, the same as pywikibot.
-Otherwise its batch helper waits a fixed `delay = 5000`. It never asks for `dbrepllag`.
-`m3api`, `nodemw` and `wikiapi` are thinner clients.
+Each run writes a heartbeat file to `$BOT_STATE_DIR/runs/`. A run counts as live if its
+heartbeat is under two minutes old; stale files are deleted. The gap is multiplied by the
+number of live runs. It is not a lock: a second run is slowed down, never blocked, so an
+overlap can't turn into a job that silently does nothing.
 
-None of them does what Huji described, because the API does not offer it. Moving to `mwn`
-would give me its `Retry-After` handling, which is about forty lines, and lose things
-`core.ts` has and `mwn` doesn't: the `assert`/`assertuser` identity checks, the stop page on
-the wiki, `{{nobots}}`, the publish check, and checking the render after saving with a
-self-revert. I decided it was not worth it.
+## Under my own account (`--as-me`)
 
-## What the bot does now
+The gap is drawn uniformly from 30–120s after every write, as the companion repository's
+rules require. Lag and `Retry-After` can make it longer, never shorter. `PACE_LO` and
+`PACE_HI` (seconds) override the range for one run, and a `--delay` above 30 raises the
+floor.
 
-It takes the same `max()` as pywikibot, with two additions:
+## Why the bot needs its own rule
 
-- **`Retry-After` is read from every response** and used by both the retry loop and the
-  maxlag handling. Before this, both used their own numbers (an exponential backoff, and
-  `lag + 1`) and ignored the figure the server sent.
-- **The pause moves between a minimum and a maximum depending on measured lag**, read from
-  `dbrepllag` every 25 writes. This is more cautious than pywikibot, which ignores lag until
-  a request is refused; this slows down before that happens. Measured behaviour with a 10s
-  minimum and a 60s maximum:
+MamouriBot has `noratelimit` and `apihighlimits` on fa, so the API puts no limit on it. Every
+pause is the bot's own choice, which is why it follows the rule above instead of an
+arbitrary number.
 
-  | lag | gap | reason |
-  |---|---|---|
-  | 0.45s (real reading) | 10s | floor |
-  | 2s | 22.5s | lag |
-  | 3s | 35s | lag |
-  | 4.5s | 53.8s | lag |
-  | 20s | 60s | ceiling |
-
-- **Runs at the same time share one rate** (`RunRegistry`), like pywikibot's
-  `process_multiplicity`. Each run writes a heartbeat to `$BOT_STATE_DIR/runs/`, and the
-  pause is multiplied by the number of live runs. Without this, two overlapping Toolforge
-  jobs would each wait 10s and together edit every 5s. It is not a lock: a second run is
-  slowed down but never blocked, because blocking would turn an overlap into a job that
-  quietly does nothing.
-
-Every pause longer than 1.5 times the minimum is logged with its reason, so anyone reviewing
-the bot can see when and why it slowed down.
-
-## Two pauses that are not about server load
-
-- **The 30–120s range under my own account is a fixed rule, not a load setting.** The
-  companion repository's rules ask for «a random 30–120s after every write (not a fixed
-  cadence)», so under `--as-me` the pause is picked evenly from that whole range. Lag or
-  `Retry-After` can make it longer, never shorter. An early version of `pacing.ts` added a
-  proportional random amount to the minimum and could produce a 15s pause for a 30s
-  minimum. A test caught it.
-- **MamouriBot has `noratelimit` and `apihighlimits`** on fa (`groups: ['bot', …]`, checked
-  ۸ اکتبر ۲۰۲۶). The API sets no limit on it at all, and every pause the bot makes is its
-  own choice. Since nothing outside would stop it going too fast, the pauses should follow
-  a clear rule instead of an arbitrary number.
-
-## Going further
-
-The only signal that could predict load is historical. Wikimedia publishes traffic and lag
-graphs on Grafana, and a bot could learn the quiet hours for the database section `fawiki`
-is on and prefer them. That is a question of scheduling, not of the API, and on Toolforge
-the answer is the cron schedule, not code inside the bot.
+Choosing quiet hours is a scheduling question, not an API one. On Toolforge that is the cron
+schedule in each `jobs.yaml`.
