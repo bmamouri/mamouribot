@@ -23,7 +23,7 @@
  * WHERE THE PERSIAN NAME COMES FROM — Wikidata, never a guess and never a
  * transliteration invented by the bot: the taxon item whose P225 (scientific name)
  * is exactly the template's subpage name, then that item's fawiki sitelink. The
- * whole map is pulled from WDQS in one query at the start of a run and cached.
+ * map is looked up on WDQS in batches, only for the templates that still need it.
  *
  * REFUSALS (the template is left Latin, which is the correct outcome):
  *   - `link=` already contains a Persian letter → already localized, skip (idempotent)
@@ -33,8 +33,6 @@
  *   - the target page does not exist on fa.wiki → never introduce a red link
  *   - no `link=` line, or the replacement would alter any other byte of the page
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { dirname } from 'path';
 import { BOT_UA, type Bot, type BotTask } from '../../core.js';
 
 const WDQS = 'https://query.wikidata.org/sparql';
@@ -60,86 +58,61 @@ export const linkLineFor = (faTitle: string) => {
 };
 
 /**
- * Latin scientific name → fa article title, for every taxon Wikidata knows about.
- * One query (~36k rows). A per-taxon lookup would be tens of thousands of API calls;
- * `haswbstatement:P225=` search is unreliable and is deliberately not used.
+ * Latin scientific name → fa article title, for the taxa given.
  *
- * A Latin name with two different fa articles is dropped from the map entirely —
- * picking one of them is an editorial judgement, not a mechanical fix.
+ * Looked up in batches of 200 names with `VALUES`, only for templates whose `link=` is
+ * still Latin. Pulling every taxon with an fa article in one go no longer finishes inside
+ * WDQS's 60-second limit: the response is cut off mid-JSON with a TimeoutException.
+ *
+ * A Latin name with two different fa articles is dropped from the map, because picking
+ * one of them is an editorial judgement, not a mechanical fix.
  */
-async function wikidataTaxonMap(): Promise<Map<string, string>> {
-  // PAGED BY INITIAL LETTER, deliberately. The unpaged query answers ~10 MB, and from
-  // Toolforge that body comes back truncated at a FIXED offset every single time (it
-  // parsed fine from a laptop, so it is the network path, not the query): undici then
-  // throws a SyntaxError from inside r.json() and takes the whole run down. 27 small
-  // responses cost a few extra seconds and always arrive whole.
-  const shards = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(L => `FILTER(STRSTARTS(?t,"${L}"))`);
-  shards.push('FILTER(!REGEX(?t,"^[A-Za-z]"))'); // scientific names should all start A–Z; prove it rather than assume
-  const queryFor = (filter: string) => `SELECT ?t ?a WHERE {
+export async function wikidataTaxonMap(taxa: string[]): Promise<Map<string, string>> {
+  const BATCH = 200;
+  const lit = (t: string) => '"' + t.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+  const queryFor = (names: string[]) => `SELECT ?t ?a WHERE {
+    VALUES ?t { ${names.map(lit).join(' ')} }
     ?item wdt:P225 ?t .
     ?a schema:about ?item ; schema:isPartOf <https://fa.wikipedia.org/> .
-    ${filter}
   }`;
 
-  // The parsed map is cached in the state dir, so a resumed run does not re-fetch it
-  // at all (targets are re-verified on-wiki anyway).
-  const cachePath = `${process.env.BOT_STATE_DIR ?? '.state'}/taxon-fa-map.json`;
-  const MAX_AGE_MS = 7 * 24 * 3600 * 1000;
-  try {
-    const c = JSON.parse(readFileSync(cachePath, 'utf8'));
-    if (Date.now() - c.at < MAX_AGE_MS && Object.keys(c.map).length > 20000) {
-      console.log(`  نگاشت ویکی‌داده از حافظهٔ نهانی (${Object.keys(c.map).length} آرایه)`);
-      return new Map(Object.entries(c.map as Record<string, string>));
-    }
-  } catch { /* no cache yet, or unreadable → fetch */ }
-
   type Row = { t: { value: string }; a: { value: string } };
-  const rows: Row[] = [];
-  for (const filter of shards) {
+  const multi = new Map<string, Set<string>>();
+  const uniq = [...new Set(taxa)];
+  for (let i = 0; i < uniq.length; i += BATCH) {
+    const names = uniq.slice(i, i + BATCH);
     let got: Row[] | null = null;
     for (let attempt = 1; attempt <= 4 && !got; attempt++) {
       try {
-        const r = await fetch(`${WDQS}?query=${encodeURIComponent(queryFor(filter))}`, {
-          headers: { Accept: 'application/sparql-results+json', 'User-Agent': UA },
-          signal: AbortSignal.timeout(300000),
+        const r = await fetch(WDQS, {
+          method: 'POST',
+          headers: { Accept: 'application/sparql-results+json', 'User-Agent': UA,
+                     'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ query: queryFor(names) }),
+          signal: AbortSignal.timeout(120000),
         });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        // read as TEXT and parse here: a truncated body must be OUR error to retry,
-        // not an opaque SyntaxError thrown from inside undici's json()
+        // Parsed here from text: a body cut off by a WDQS timeout is our error to retry.
         const parsed = JSON.parse(await r.text());
         if (!Array.isArray(parsed.results?.bindings)) throw new Error('پاسخ بدون bindings');
         got = parsed.results.bindings as Row[];
       } catch (e) {
-        console.log(`  … شارد ${filter.slice(0, 28)} ناموفق (تلاش ${attempt}): ${(e as Error).message}`);
+        console.log(`  … ویکی‌داده، دستهٔ ${i / BATCH + 1} ناموفق (تلاش ${attempt}): ${(e as Error).message}`);
         if (attempt === 4) throw new Error(`WDQS پس از ۴ تلاش ناموفق: ${(e as Error).message}`);
-        await new Promise(r => setTimeout(r, 20000 * attempt));
+        await new Promise(r => setTimeout(r, 10000 * attempt));
       }
     }
-    rows.push(...got!);
-  }
-  // Plausibility floor: a complete pull is tens of thousands of rows. Building a run on
-  // a short answer would silently mean "no Persian article exists" for thousands of taxa.
-  if (rows.length < 20000) throw new Error(`پاسخ ویکی‌داده کوتاه است (${rows.length} ردیف) — اجرا متوقف شد`);
-  console.log(`  ویکی‌داده: ${rows.length} ردیف در ${shards.length} بخش`);
-
-  const multi = new Map<string, Set<string>>();
-  for (const row of rows) {
-    const title = decodeURIComponent(row.a.value.split('/wiki/')[1]).replace(/_/g, ' ');
-    (multi.get(row.t.value) ?? multi.set(row.t.value, new Set()).get(row.t.value)!).add(title);
+    for (const row of got!) {
+      const title = decodeURIComponent(row.a.value.split('/wiki/')[1]).replace(/_/g, ' ');
+      (multi.get(row.t.value) ?? multi.set(row.t.value, new Set()).get(row.t.value)!).add(title);
+    }
   }
   const out = new Map<string, string>();
   for (const [latin, titles] of multi) if (titles.size === 1) out.set(latin, [...titles][0]);
-  try {
-    mkdirSync(dirname(cachePath), { recursive: true });
-    writeFileSync(cachePath, JSON.stringify({ at: Date.now(), map: Object.fromEntries(out) }));
-  } catch { /* cache is an optimisation, never fatal */ }
   return out;
 }
 
 async function getTargets(bot: Bot): Promise<string[]> {
-  const faMap = await wikidataTaxonMap();
-  console.log(`  نگاشت ویکی‌داده: ${faMap.size} آرایه با مقالهٔ فارسی`);
-
   // 1) every Taxonomy/* template
   const titles: string[] = [];
   let cont: Record<string, string> = {};
@@ -151,9 +124,8 @@ async function getTargets(bot: Bot): Promise<string[]> {
   }
   console.log(`  الگوهای ردهبندی: ${titles.length}`);
 
-  // 2) keep the ones whose link= is still Latin AND that have a Persian article
-  const candidates: string[] = [];
-  const wanted = new Map<string, string>(); // fa title → taxon, for the existence pass
+  // 2) the ones whose link= is still Latin
+  const latin: string[] = [];
   for (let i = 0; i < titles.length; i += 50) {
     const r = await bot.apiGet({
       action: 'query', titles: titles.slice(i, i + 50).join('|'),
@@ -164,18 +136,27 @@ async function getTargets(bot: Bot): Promise<string[]> {
       const text: string = p.revisions?.[0]?.slots?.main?.content ?? '';
       const line = text.match(LINK_LINE);
       if (!line || PERSIAN.test(line[0])) continue;      // absent, or already Persian
-      const taxon = (p.title as string).slice(PREFIX.length);
-      const fa = faMap.get(taxon);
-      if (!fa || !PERSIAN.test(fa)) continue;            // no fa article, or a Latin-titled one
-      candidates.push(p.title);
-      wanted.set(fa, taxon);
+      latin.push(p.title);
     }
-    // the scan is 800+ batched reads; without a heartbeat a long run looks hung
-    if ((i / 50) % 100 === 0) console.log(`    … ${Math.min(i + 50, titles.length)}/${titles.length} بررسی شد، ${candidates.length} نامزد`);
+    if ((i / 50) % 100 === 0) console.log(`    … ${Math.min(i + 50, titles.length)}/${titles.length} بررسی شد، ${latin.length} با link لاتین`);
+  }
+  console.log(`  با link لاتین: ${latin.length}`);
+
+  // 3) of those, the ones whose taxon has a Persian article on Wikidata
+  const faMap = await wikidataTaxonMap(latin.map(t => t.slice(PREFIX.length)));
+  console.log(`  نگاشت ویکی‌داده: ${faMap.size} آرایه با مقالهٔ فارسی`);
+  const candidates: string[] = [];
+  const wanted = new Map<string, string>(); // fa title → taxon, for the existence pass
+  for (const title of latin) {
+    const taxon = title.slice(PREFIX.length);
+    const fa = faMap.get(taxon);
+    if (!fa || !PERSIAN.test(fa)) continue;              // no fa article, or a Latin-titled one
+    candidates.push(title);
+    wanted.set(fa, taxon);
   }
   console.log(`  نامزدها: ${candidates.length}`);
 
-  // 3) the link target must really exist on fa.wiki — a Wikidata sitelink can be
+  // 4) the link target must really exist on fa.wiki — a Wikidata sitelink can be
   //    stale, and shipping a red link is exactly what the wiki asks bots not to do.
   //    `redirects=1` resolves a redirect so the taxobox links the real article.
   const faTitles = [...wanted.keys()];
@@ -204,7 +185,7 @@ async function getTargets(bot: Bot): Promise<string[]> {
   }
   console.log(`  هدف با مقصد موجود: ${withTarget.length}`);
 
-  // 4) Hold back HIGH-USE templates. One edit to a rank near the root of the tree
+  // 5) Hold back HIGH-USE templates. One edit to a rank near the root of the tree
   //    changes a row on thousands of articles at once (الگو:Taxonomy/Amorphea feeds
   //    4,428), which is a different conversation from localizing a single genus. The
   //    permission request explicitly promises these stay out until that is answered.
@@ -237,6 +218,7 @@ async function getTargets(bot: Bot): Promise<string[]> {
 export const taxonomyLinkLocalizeTask: BotTask = {
   id: 'taxonomy-link-localize',
   taskNumber: 9,
+  recheckAfterDays: 30,
   summary: 'نمایش نام فارسی آرایه در جعبهٔ ردهبندی',
   description:
     'در الگوهای «الگو:Taxonomy/…» که جعبهٔ ردهبندی خودکار از آن‌ها ساخته می‌شود، مقدار پارامتر link ' +

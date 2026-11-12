@@ -27,7 +27,7 @@
  *     the same infobox row, the WHOLE ARTICLE is left alone for manual review;
  *   - an empty duplicate of the target is merged away (the filled value wins).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'fs';
 import type { Bot, BotTask } from '../../core.js';
 
 /** Template names (and redirects) whose calls we may edit. */
@@ -379,6 +379,7 @@ export function fixMusicianParams(text: string): TransformResult {
 export const musicianParamsTask: BotTask = {
   id: 'musician-params',
   taskNumber: 8,
+  recheckAfterDays: 30,
   summary: 'اصلاح نام پارامترهای قدیمی جعبه اطلاعات هنرمند موسیقی به نام کنونی',
   description:
     'تغییرنام کلیدهای قدیمی/نادرست {{جعبه اطلاعات هنرمند موسیقی}} به نامی که الگو می‌خواند',
@@ -389,7 +390,9 @@ export const musicianParamsTask: BotTask = {
     // makes the trial audit meaningful.
     const dir = process.env.BOT_STATE_DIR ?? '.state';
     const cache = `${dir}/musician-params.targets.json`;
-    if (existsSync(cache)) {
+    // The list is rebuilt once it is a week old, so the weekly job also sees articles
+    // created or changed since.
+    if (existsSync(cache) && Date.now() - statSync(cache).mtimeMs < 6 * 86400_000) {
       const t = JSON.parse(readFileSync(cache, 'utf8')) as string[];
       console.log(`فهرست هدف از حافظهٔ نهان: ${t.length} صفحه (${cache})`);
       return t;

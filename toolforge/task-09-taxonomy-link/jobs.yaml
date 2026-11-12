@@ -1,0 +1,21 @@
+# وظیفهٔ ۹ — taxonomy-link-localize.   Don't use `toolforge jobs load` on this file: it deletes every other task's
+# scheduled jobs. Create each job with `toolforge jobs run` (see docs/TOOLFORGE.md §5).
+---
+- name: tl-check
+  command: ./task-09-taxonomy-link/run.sh --check
+  image: node20
+  mem: 512Mi
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/tl-check.out
+  filelog-stderr: logs/tl-check.err
+
+- name: tl-weekly
+  command: ./task-09-taxonomy-link/run.sh --live --limit 200 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "30 7 * * 4"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/tl-weekly.out
+  filelog-stderr: logs/tl-weekly.err

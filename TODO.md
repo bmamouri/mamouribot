@@ -34,7 +34,7 @@ with the first.
    `archiveurl`/`last=` equivalent.
 3. Decide whether a follow-up pass is worth it: rename only the archive family to match
    `citationScript`. If it goes beyond the approved scope, post a note on the request page
-   first (`lessons/api-and-permissions/repo-folder-is-not-the-approved-scope.md`).
+   first.
 
 ### 0b. Fix past edits that wrote an English `url-status` value
 
@@ -157,14 +157,14 @@ that is cosmetic, which the request says the bot never makes. Roughly 60 pages a
 **Background.** The task is approved for article links. The extension (red links whose
 Persian article has another name, `{{بت}}` and `{{پیوند با میان‌ویکی}}`, citation `*-link`
 parameters, templates) was posted with a 97-edit trial on ۱۲ نوامبر ۲۰۲۶ and is waiting for
-review.
+review. It already runs daily as `lf-daily`, with approval in principle.
 
 **Check.** Read the end of `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۲`.
 
 **Trigger.** Huji or another reviewer answers.
 
-**Then.** If approved, set `LINKFIX_EXTENSION=1` in `toolforge/task-12-linkfix/run.sh`, add
-an `lf-full` job to `jobs.yaml`, and create only that job with `toolforge jobs run`.
+**Then.** If approved, nothing to change. If not, set `LINKFIX_EXTENSION=0` in
+`toolforge/task-12-linkfix/run.sh`, re-upload it, and reply on the request page.
 
 Also open, for me to decide: whether to move this repository under
 `PersianWikipedia/fawikibot`, as Huji suggested, or link to it from there.

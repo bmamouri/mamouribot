@@ -20,12 +20,12 @@ only copies of what was reviewed when each task was approved.
 | ۴ | `task-04/` | `citation-dedup-accessdate` | Removes a duplicated access-date parameter where both copies hold the same date | Approved as part of task ۴. No scheduled job |
 | ۵ | `task-05/` | `empty-unknown-params.py` | Removes empty unknown citation parameters that cause a CS1 error (Python) | Approved. Daily, `empty-params` |
 | ۶ | `task-06/` | `notelist-missing` | Adds a missing notes list to articles whose notes are never shown | Approved. Every 15 minutes, `notelist-watch` |
-| ۷ | `task-07/` | `infobox-software-params` | Updates old `جعبه اطلاعات نرم‌افزار` parameter names | Approved. No scheduled job |
-| ۸ | `task-08/` | `musician-params` | Fixes `جعبه اطلاعات هنرمند موسیقی` parameter names the template ignores | Approved. No scheduled job |
-| ۹ | `task-09/` | `taxonomy-link-localize` | Points `link=` in the taxonomy templates at the Persian article | Approved. No scheduled job |
+| ۷ | `task-07/` | `infobox-software-params` | Updates old `جعبه اطلاعات نرم‌افزار` parameter names | Approved. Weekly, `sw-weekly` |
+| ۸ | `task-08/` | `musician-params` | Fixes `جعبه اطلاعات هنرمند موسیقی` parameter names the template ignores | Approved. Weekly, `mp-weekly` |
+| ۹ | `task-09/` | `taxonomy-link-localize` | Points `link=` in the taxonomy templates at the Persian article | Approved. Weekly, `tl-weekly` |
 | ۱۰ | `task-10/` | `destub` | Removes stub tags from articles that are no longer stubs | Approved. `destub-watch` every 10 minutes, `destub-inventory-monthly` |
 | ۱۱ | `task-11/` | `taxonomy-create-missing` | Creates the missing `الگو:Taxonomy/*` pages behind «Missing taxonomy template» | Trial permission. Hourly, `tx-hourly` |
-| ۱۲ | `task-12/` | `linkfix` | Repairs links the mass imports left in English | Approved for article links. The extension (red links whose Persian article has another name, `{{بت}}`, `{{پیوند با میان‌ویکی}}`, templates) is waiting for review |
+| ۱۲ | `task-12/` | `linkfix` | Repairs links the mass imports left in English | Approved for article links; the extension is waiting for review and runs as well. Daily, `lf-daily`, at most 100 edits |
 | ۱۳ | `task-13/` | `reports-cli` | Publishes the database reports. Writes report pages only, never an article | No permission needed. Daily and weekly jobs, unflagged |
 | ۱۴ | `task-14/` | `population-box` | Adds `{{جمعیت ایران}}`, fed from Wikidata, to Iranian village articles | Filed, waiting for review and a نظرخواهی. Not run live |
 | ۱۵ | `task-15/` | `source-tags` | Adds `{{بدون منبع}}` and related banners to unsourced articles, removes stale ones | Approved. Daily, `st-daily`, at most 200 edits |

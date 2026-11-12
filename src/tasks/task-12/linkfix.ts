@@ -132,7 +132,22 @@ async function candidatePagesRaw(bot: Bot, ns: string): Promise<string[]> {
       cont = d.continue?.cmcontinue;
     } while (cont);
   }
-  return [...new Set(titles)];
+  // CirrusSearch queries, `||`-separated. Each one is read in random order, so a scheduled
+  // run looks at a different sample of the same population every day.
+  const cap = Number(process.env.TARGET_CAP ?? '0') || Infinity;
+  for (const q of (process.env.TARGET_SEARCH ?? '').split('||').map(s => s.trim()).filter(Boolean)) {
+    let offset = 0;
+    while (titles.length < cap && offset < 9500) {
+      const d = await bot.apiGet({ action: 'query', list: 'search', srsearch: q, srnamespace: ns,
+        srlimit: '500', srsort: 'random', sroffset: String(offset), srinfo: '', srprop: '' });
+      const got = (d.query?.search ?? []).map((p: any) => p.title as string);
+      titles.push(...got);
+      if (!got.length || d.continue?.sroffset === undefined) break;
+      offset = d.continue.sroffset;
+    }
+  }
+  const uniq = [...new Set(titles)];
+  return Number.isFinite(cap) ? uniq.slice(0, cap) : uniq;
 }
 
 async function fetchSources(bot: Bot, titles: string[]): Promise<Map<string, string>> {

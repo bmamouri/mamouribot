@@ -30,3 +30,13 @@
   emails: all
   filelog-stdout: logs/lf-trial.out
   filelog-stderr: logs/lf-trial.err
+
+- name: lf-daily
+  command: ./task-12-linkfix/run.sh --live --limit 100 --delay 15
+  image: node20
+  mem: 2Gi
+  schedule: "0 8 * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/lf-daily.out
+  filelog-stderr: logs/lf-daily.err

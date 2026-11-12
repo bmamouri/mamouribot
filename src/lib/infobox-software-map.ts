@@ -137,8 +137,8 @@ export const RENAME: Record<string, string> = {
   'شرح تصویر': 'توضیح تصویر',
   'توضیح تصویری': 'توضیح تصویر',
   'توضیح': 'توضیح تصویر',
-  'logo_upright': 'logo upright',
-  'screenshot_upright': 'screenshot upright',
+  // logo_upright / screenshot_upright are read by the template as aliases, so they are
+  // valid as they are and not renamed.
 
   // other
   'مخزن نرم‌افزاری': 'مخزن',

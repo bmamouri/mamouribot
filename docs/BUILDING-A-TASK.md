@@ -8,8 +8,7 @@ The conventions and the `BotTask` interface. Read `../README.md` (layout, runnin
 
 1. Find the permission-request number and confirm it on the wiki. List
    `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/` and read the request. A `task-NN/`
-   directory is a filing decision, not an approval
-   (`lessons/api-and-permissions/repo-folder-is-not-the-approved-scope.md`).
+   directory is a filing decision, not an approval.
 2. Read the request's `===بحث===` section as well as the proposal. Reviewers attach
    conditions there.
 3. Check what scope is approved. Anything not approved runs under `--as-me` (my own

@@ -9,9 +9,10 @@ whose Persian article exists under a different name.
 
 - **Approved** for article links (`latin_target`, `persian_digit_target`) in the main namespace.
 - **Waiting for review:** red links whose Persian article has another name,
-  `{{پیوند با میان‌ویکی}}` and `{{بت}}` calls, citation `*-link` parameters, and templates.
-  Posted on the request page with a 97-edit trial (rev 44966592). Until it is approved these
-  run only under `--as-me`, in a dry run, or with `LINKFIX_EXTENSION=1`.
+  `{{پیوند با میان‌ویکی}}` and `{{بت}}` calls, citation `*-link` parameters, and templates
+  (rev 44966592 on the request page). I run it already, with approval in principle.
+- Runs as MamouriBot, job `lf-daily`, daily at 08:00 UTC, at most 100 edits. Each run reads a
+  random sample of up to 1,500 articles and templates found by `TARGET_SEARCH` in `run.sh`.
 
 Request page: `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۲`.
 
@@ -141,13 +142,15 @@ passed as arguments. `TARGET_FILE` takes a JSON list or one title per line.
 | variable | effect |
 |---|---|
 | `TARGET_TITLES`, `TARGET_FILE`, `TARGET_CATEGORY`, `TARGET_TRANSCLUDING` | which pages to read |
+| `TARGET_SEARCH`, `TARGET_CAP` | CirrusSearch queries separated by `\|\|`, read in random order, and a cap on the pages read |
 | `TARGET_NAMESPACE` | `0` (default) or `0\|10` to include templates |
 | `LINKFIX_EXTENSION` | `1` turns on the parts waiting for review for a bot run; `0` turns them off in a dry run, to see exactly what the bot does now |
 | `LINKFIX_NAMES` | a different name table for one run |
 | `LINKFIX_REPORT` | where the review list goes (default `$BOT_STATE_DIR/linkfix-review.json`) |
 
-Deployment is `toolforge/task-12-linkfix/` (jobs `lf-check`, `lf-dry`, `lf-trial`). When the
-extension is approved, set `LINKFIX_EXTENSION=1` in its `run.sh`.
+Deployment is `toolforge/task-12-linkfix/`. Its `run.sh` sets the search, the cap,
+`TARGET_NAMESPACE=0|10` and `LINKFIX_EXTENSION=1`. Jobs: `lf-daily` (scheduled), and
+`lf-check`, `lf-dry`, `lf-trial` as one-offs.
 
 ## The review list
 

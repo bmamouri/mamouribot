@@ -1,4 +1,5 @@
-# MamouriBot jobs on Toolforge.   toolforge jobs load jobs.yaml
+# MamouriBot jobs on Toolforge. Don't `toolforge jobs load` this file: it deletes every other
+# task's scheduled jobs. Create each job with `toolforge jobs run` (docs/TOOLFORGE.md §5).
 #
 # Both jobs run the SAME bundle; only the flags differ. The trial is deliberately
 # a separate job so its 100 edits finish and can be audited before the full run is
@@ -49,3 +50,14 @@
   emails: all
   filelog-stdout: logs/full.out
   filelog-stderr: logs/full.err
+
+# Recurring: the target list is rebuilt weekly, so new articles are picked up.
+- name: mp-weekly
+  command: ./task-08-musician-params/run.sh --live --limit 100 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "45 7 * * 2"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/mp-weekly.out
+  filelog-stderr: logs/mp-weekly.err

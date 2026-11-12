@@ -102,6 +102,7 @@ async function getTargets(bot: Bot): Promise<string[]> {
 export const infoboxSoftwareParamsTask: BotTask = {
   id: 'infobox-software-params',
   taskNumber: 7,
+  recheckAfterDays: 30,
   summary:
     'ربات: به‌روز کردن نام پارامترهای جعبه اطلاعات نرم‌افزار به نام‌های کنونی الگو (اطلاعاتی که نمایش داده نمی‌شد بازگشت)',
   description:

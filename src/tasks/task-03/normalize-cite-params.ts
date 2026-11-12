@@ -426,9 +426,7 @@ const ALL_FIELDS: FieldDef[] = [
  *
  * They therefore stay OFF. A bot editing outside its approval is the kind of thing a
  * flag gets pulled for, and the failure is silent: every one of those edits is
- * individually correct and still unauthorised. Compare
- * lessons/api-and-permissions/repo-folder-is-not-the-approved-scope.md, where the same
- * confusion went the other way.
+ * individually correct and still unauthorised.
  *
  * To enable them, do BOTH: get them approved on the request page, and set
  * `CITE_WIDENED_SCOPE=1`. The env var alone is not permission.

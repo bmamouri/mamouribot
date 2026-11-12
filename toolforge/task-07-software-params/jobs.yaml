@@ -1,0 +1,21 @@
+# وظیفهٔ ۷ — infobox-software-params.   Don't use `toolforge jobs load` on this file: it deletes every other task's
+# scheduled jobs. Create each job with `toolforge jobs run` (see docs/TOOLFORGE.md §5).
+---
+- name: sw-check
+  command: ./task-07-software-params/run.sh --check
+  image: node20
+  mem: 512Mi
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/sw-check.out
+  filelog-stderr: logs/sw-check.err
+
+- name: sw-weekly
+  command: ./task-07-software-params/run.sh --live --limit 100 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "15 7 * * 2"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/sw-weekly.out
+  filelog-stderr: logs/sw-weekly.err
