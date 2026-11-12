@@ -3,7 +3,7 @@
 Repairs links the mass imports left in English.
 
 > **Status (۱۲ نوامبر ۲۰۲۶): APPROVED.** Huji granted {{مجوز دارد}} on ۹ اکتبر ۲۰۲۶ after
-> the 50-edit trial. A scope extension is BUILT (dry runs only) but not yet filed; see
+> the 50-edit trial. A scope extension is built and trialled (97 edits `--as-me`), follow-up not yet posted; see
 > [Extension: red links with a Persian article under another name](#extension-red-links-with-a-persian-article-under-another-name)
 > at the end of this file. Until its follow-up is answered, the extension runs `--as-me` only.
 
@@ -174,7 +174,7 @@ recorded here rather than left as a command to re-run.
 
 ## Extension: red links with a Persian article under another name
 
-**Status: built ۱۲ نوامبر ۲۰۲۶ (dry runs only), follow-up not yet drafted or filed.** Decided with the operator:
+**Status: built and trialled ۱۲ نوامبر ۲۰۲۶ (97 live edits `--as-me`); follow-up drafted, not yet posted.** Decided with the operator:
 everything goes into ONE follow-up on the وظیفهٔ ۱۲ request (no new task number), posted in
 its `===بحث===` section **without pinging anyone** — no `{{پینگ}}`, no `{{ب|…}}`, no user
 link other than the signature. The draft goes to the companion repo's `drafts/` and is not
@@ -366,7 +366,28 @@ not a disambiguation page.
    the follow-up is answered, not before. Item ۱ and the safety checks (dab, Wikidata item,
    project namespaces, `<nowiki>`, English prose, count-based gate) are always on: each
    only makes an edit smaller or refuses one, and item ۱ corrects the approved behaviour.
-8. Next: dry run ~50 pages read with the operator, an `--as-me` trial on the new cases
+8. ✅ **Pre-run render check, 100 pages** (`archive/task12-render-check.ts`): every page
+   rendered before and after; visible-text and red-link diff. Four faults found and fixed
+   before any write: a Persian-digit fa target inside an English `{{cite}}` is converted to
+   Latin digits by the module and renders RED («انقلاب‌های ۱۸۴۸»); a link whose fa article
+   has the same title was "re-pointed" and lost its label (`[[R|Ʀʀ]]`); English text inside
+   the `{{efn}}` a link sits in was not counted as context («انتخابات پارلمانی صربستان»);
+   a Latin `{{بت}}` label fell back to the article title instead of the call's own
+   Persian title. One flagged page was a FIX: a multi-line `{{بت}}` in a `<gallery>`
+   caption printed `{{بت` literally, and the one-line conversion renders.
+9. ✅ **Live trial, ۱۲ نوامبر ۲۰۲۶, `--as-me`, 100 pages chosen** (30 English-bibliography
+   articles, 25 `{{بت}}` articles, 20 `{{پیوند با میان‌ویکی}}` articles, 25 templates).
+   97 edits (23 templates), revs 44965886–44966456; 3 pages had nothing left. Verified
+   from the wiki afterwards (`archive/task12-verify-live.py`, `task12-classify-live.py`):
+   content red links 9,397 → 9,054, down on 89 pages, unchanged on 8 (their links were
+   already blue via an en redirect, e.g. `[[Associated Press|…]]` in a citation), **up on
+   none**; error markers up on none; no reverts; every edit by Mamouri. 120 links repaired
+   with their English label kept, 199 template calls repaired, 23 citation `*-link`
+   values, 1,702 `{{بت}}` replaced across 39 pages, 935 targets to review. Run data in
+   `.state/task12-ext-run/` (git-ignored).
+10. Follow-up drafted at `drafts/brfa-task12-extension-followup.wiki` in the companion
+    repo (no pings; talk gate and wikitext gate clean; renders with 0 red links). **Not
+    posted** — the operator posts it. an `--as-me` trial on the new cases
    only, and the follow-up draft in `drafts/`.
 
 ### Code map
