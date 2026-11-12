@@ -1,192 +1,189 @@
 # وظیفهٔ ۱۵: source maintenance banners (add, and remove when stale)
 
-> **Status (۱۳ اکتبر ۲۰۲۶): APPROVED AND RUNNING.** Huji granted
-> [{{مجوز دارد}}](https://fa.wikipedia.org/wiki/ویکی‌پدیا:سیاست_ربات‌رانی/درخواست_مجوز/MamouriBot/وظیفه_۱۵)
-> on ۱۲ اکتبر ۲۰۲۶ after a 116-edit trial under the operator's own account (§13).
->
-> It now runs as **MamouriBot**, not `--as-me`: deployment is
-> `toolforge/task-15-source-tags/` and the schedule is `st-daily`, **روزانه با سقف ۲۰۰
-> ویرایش** — the cap is the published commitment in the request, so do not raise it in
-> jobs.yaml without amending the request first.
->
-> Every banner carries `تاریخ=`, and the run creates the month's cleanup category when it
-> is missing (`ensureMonthlyCategories`); without that page the article lands in
-> `رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو` instead.
+This task puts `{{بدون منبع}}` and a few related banners on articles that have no sources,
+and takes `{{بدون منبع}}` off articles that are now properly cited. It only acts when it is
+sure. Everything doubtful goes on a report page for a person to look at.
 
-> **Rollout log.** ۱۳ اکتبر ۲۰۲۶, first day as MamouriBot: 21 + 60 + 119 = 200 edits
-> (the declared daily cap), then `st-daily` takes over at 03:05 UTC. Every edit of the
-> first 81 was re-derived from the live pages with
-> `scripts/archive/task15-audit-live-edits.py` in the parent repo — 81/81 clean, pacing
-> min 18s — and three defects were found and fixed in the process:
->
-> | found | why it mattered |
-> |---|---|
-> | the same title twice in one run | offset paging over a live search index repeats titles; the cached decision still said «add», so the page got a second banner — no error, right category, passes verify |
-> | «جنگ کره» refused | `verify` tested the new render for `class="error"` absolutely, and that article carries six cite errors of its own, so every long article with a broken citation was unreachable and our edit was blamed |
-> | three removals refused | the tag appears twice (or beside {{بخش بدون منبع}}); removing one leaves the page in the category, and the published reason named the symptom |
-| «عدسی (خوراکی)» refused | the article hard-codes `[[رده:مقاله‌های بدون منبع]]` at its foot, so taking the banner out leaves it in the category; removing a hand-placed category is a different edit and not in scope, so it is reported |
-| two removals blocked by the gate | `removeStaleTag` took the tag and one newline, which is right mid-page but leaves `{{tag}}` + a blank line at the TOP as a page starting with a blank line — invisible in the render, visible in every diff |
-| «خرداد ۱۳۸۷» tagged | `DATE_PAGE` required a day number before the month, so a month-and-year page was not a date page to the rule. Reverted; see `scripts/archive/task15-revert-month-year-date-tag.py` |
+## Where it stands
 
-> **۱۳ اکتبر ۲۰۲۶, later the same day — the removal bar was wrong and 17 edits were
-> reverted.** The operator checked «هدهد» and rejected the removal: 564 words of prose,
-> seven bullets under «منابع» — one of them literally "Wikipedia contributors, Hoopoe" —
-> and exactly ONE inline footnote in the whole article, yet the banner came off under
-> «مقاله اکنون منبع دارد». The old test was "at least one real source exists", and it
-> counted the general-bibliography bullets as that source. Both halves are wrong:
->
-> - **A bibliography is not a citation.** Nothing attaches a bullet under «منابع» to any
->   sentence, so no claim can be checked against it and a reader cannot tell which
->   statement it is meant to support. `inlineCitations()` counts footnotes and
->   `{{پک}}`/sfn only. (`isStrictUnsourced` still counts bibliographies, because that
->   test guards *adding* a banner and there every doubt must block — the two directions
->   are deliberately asymmetric.)
-> - **The count has to keep up with the article.** `citationFloor()` requires one inline
->   citation per 250 prose words, minimum 2. Prose words come from وظیفهٔ ۱۰'s
->   `extractProse` over the rendered HTML, which keeps `<p>` text only and drops
->   infoboxes, navboxes, tables and reference lists by tag and class — so template and
->   markup bulk cannot inflate the denominator.
->
-> The 250 was calibrated on this task's own removals, the only population that matters.
-> Genuinely-sourced articles came in at 27–95 words per citation («کازرون» 27, «روی» 37,
-> «ترابری ریلی» 79, «کمونالیسم» 95, and the shortest, «کتاب مستطاب آشپزی», 77). The
-> rejected ones were «هدهد» at 564 and «وسترن» at 1,128. The floor sits in the empty gap.
->
-> **Scale of the defect:** re-measured every removal ever made — 38 as MamouriBot plus 21
-> in the trial — and **26 failed the new floor**, a 44% error rate on the removal half.
-> Five had already been re-tagged by someone («مولکول» was self-reverted on ۱۲ اکتبر;
-> «جورقان», «زویار», «جانویسلو» and «وسترن» picked up {{مدرک}} or {{بهبود منبع}}),
-> leaving 21 live. 17 were restored with
-> `scripts/archive/task15-restore-undercited-banners.py`, which puts the ORIGINAL banner
-> call back at its original spot — so «تمام‌نگاری» returned to
-> `رده:مقاله‌های بدون منبع از دسامبر ۲۰۱۹` rather than this month's — and leaves a page
-> alone if anyone re-tagged it or if its anchor text is gone. The remaining 4 are
-> 22–84-word stubs carrying one citation, where «بدون منبع» would be a false statement;
-> the operator chose to leave those as they are.
->
-> **The near-miss worth remembering:** the cheap pre-render screen decided whether a
-> refusal was render-dependent by testing the Persian reason string for «نمایش». The new
-> density refusal is render-dependent and worded differently, so the screen would have
-> rejected **every** removal candidate before rendering it and the run would have reported
-> that there was nothing to remove anywhere on the wiki — a total silent loss of the
-> removal half, with no error and a clean log. `Decision` now carries an explicit
-> `needsRender` flag instead. A positive control was run after the fix: a 60-page dry run
-> through the real `run.sh` still produced 4 removals («راحت‌الحلقوم», «شهرستان سمیرم»,
-> «سوگواری محرم», «لوله»), each independently re-measured at 26–164 words per citation.
+Huji granted
+[{{مجوز دارد}}](https://fa.wikipedia.org/wiki/ویکی‌پدیا:سیاست_ربات‌رانی/درخواست_مجوز/MamouriBot/وظیفه_۱۵)
+on ۱۲ اکتبر ۲۰۲۶, after a 116-edit trial under my own account (§13). Since ۱۳ اکتبر ۲۰۲۶ it
+runs as **MamouriBot**, not `--as-me`. The deployment is `toolforge/task-15-source-tags/`
+and the schedule is the `st-daily` job.
 
-> **Open for the operator:** 19 of the 196 were «N (عدد)» number articles. They are
-> genuinely unsourced and in scope, but they arrive in clumps because the candidate search
-> finds them together, and a reader seeing nineteen tagged in one day may read it as
-> spray. Excluding or throttling them is a judgement call, not a defect.
->
-> **Start with §0 (handover).** It lists every decision the operator made and the build
-> steps in order. §1–§2 are the research behind those decisions. §3–§6 are the rules,
-> already updated to match the decisions. §12 records how the source detector worked in
-> the research prototype.
+The request commits to **روزانه با سقف ۲۰۰ ویرایش**. Don't raise the limit in `jobs.yaml`
+without amending the request first.
+
+Every banner carries `تاریخ=`. The run creates the month's cleanup category when it is
+missing (`ensureMonthlyCategories`, §5). Without that page the article would land in
+`رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو`.
+
+One question is still open. 19 of the 196 edits on the first day were «N (عدد)» number
+articles. They are genuinely unsourced and in scope, but the candidate search finds them
+together, so they arrive in clumps, and nineteen tagged in one day may look like spray.
+Whether to exclude or throttle them is my call to make; it is not a defect.
 
 | | |
 |---|---|
 | Code | `src/tasks/task-15/`: `source-detect.ts` (the §3.0 detector), `banners.ts` (placement and removal), `decide.ts` (the §3 rules), `source-tags.ts` (the `BotTask`), plus `source-detect.test.ts`, `source-tags.test.ts` and `source-detect.replay.ts` |
 | Task id | `source-tags` |
-| Task number | **۱۵** (confirmed by the operator) |
+| Task number | **۱۵** |
 | Measurements | `docs/data/task-15/random-2000.json`, `strict-unsourced-rendered.json`, `template-survey.json` |
-| Measurement scripts | `archive/task-15-research/` is git-ignored and exists only on the operator's machine. §12 records the logic, so the build does not depend on those scripts. |
+| Measurement scripts | `archive/task-15-research/` is git-ignored and only exists on my machine. §12 records their logic, so nothing depends on them. |
 | Measured on | ۱۰ اکتبر ۲۰۲۶ (2026-10-10). ns0 has 1,096,839 articles. |
 
-## 0. Handover: decisions and what to build
+§0 has my decisions and the code layout, §1–§2 the research behind them, §3–§6 the rules
+as they are now, §11 how edits are checked, §12 how the source detector works, and §13 the
+trial log.
+
+## History
+
+### The trial
+
+I ran the trial under my own account on ۱۲ اکتبر ۲۰۲۶ in three runs (§13). Two kinds of
+mistake turned up and both were fixed: a removal on «مولکول», whose only reference was
+`{{یادکرد فرهنگستان}}`, and 17 Hijri day pages that were tagged. I reverted all of them
+and Huji approved the task the same day.
+
+### First day as MamouriBot, ۱۳ اکتبر ۲۰۲۶
+
+The bot made 21 + 60 + 119 = 200 edits (the daily cap), and then `st-daily` took over at
+03:05 UTC. I re-derived each of the first 81 edits from the live pages with
+`scripts/archive/task15-audit-live-edits.py` in the parent repo: 81 of 81 were clean, and
+the shortest gap between edits was 18 s. The audit and the day's runs turned up these
+defects, all fixed:
+
+| found | why it mattered |
+|---|---|
+| the same title twice in one run | offset paging over a live search index repeats titles. The cached decision still said «add», so the page got a second banner. No error, right category, and it passed `verify` |
+| «جنگ کره» refused | `verify` failed any new render with `class="error"` in it. That article has six cite errors of its own, so every long article with a broken citation was out of reach and our edit took the blame |
+| three removals refused | the tag appears twice (or next to {{بخش بدون منبع}}). Removing one leaves the page in the category, and the published reason named the symptom |
+| «عدسی (خوراکی)» refused | the article has `[[رده:مقاله‌های بدون منبع]]` written at its foot, so taking the banner out leaves it in the category. Removing a hand-placed category is a different edit and not in scope, so it is reported |
+| two removals blocked by the gate | `removeStaleTag` took the tag and one newline. That is right mid-page, but with `{{tag}}` and a blank line at the top it leaves a page that starts with a blank line: invisible in the render, visible in every diff |
+| «خرداد ۱۳۸۷» tagged | `DATE_PAGE` required a day number before the month, so a month-and-year page did not count as a date page. Reverted with `scripts/archive/task15-revert-month-year-date-tag.py` |
+
+### The removal bar, ۱۳ اکتبر ۲۰۲۶: 17 edits reverted
+
+Later the same day I looked at «هدهد» and rejected the removal. It has 564 words of prose,
+seven bullets under «منابع» (one of them is "Wikipedia contributors, Hoopoe") and exactly
+one inline footnote, yet the banner came off with «مقاله اکنون منبع دارد». The rule then
+was "at least one real source", and it counted the bibliography bullets as that source.
+§3.9 describes the rule that replaced it.
+
+I re-measured every removal ever made, 38 as MamouriBot and 21 in the trial. **26 failed
+the new bar**, so 44% of the removals had been wrong. Five had already been re-tagged by
+someone: «مولکول» was self-reverted on ۱۲ اکتبر, and «جورقان», «زویار», «جانویسلو» and
+«وسترن» had picked up {{مدرک}} or {{بهبود منبع}}. That left 21 live. I restored 17 with
+`scripts/archive/task15-restore-undercited-banners.py`. It puts the original banner call
+back where it was, so «تمام‌نگاری» returned to `رده:مقاله‌های بدون منبع از دسامبر ۲۰۱۹`
+rather than this month's, and it leaves a page alone if anyone has re-tagged it or if the
+text around the banner is gone. The other 4 are stubs of 22–84 words with one citation
+each. Calling them «بدون منبع» would be false, so I left them as they are.
+
+The fix nearly switched the removals off without anyone noticing. The cheap screen that
+runs before rendering decided whether a refusal depended on the render by looking for
+«نمایش» in the Persian reason. The new density refusal depends on the render but is worded
+differently, so the screen would have rejected every removal candidate before rendering
+it, and the run would have reported nothing to remove anywhere on the wiki, with no error
+and a clean log. `Decision` now has an explicit `needsRender` flag instead. Afterwards a
+60-page dry run through the real `run.sh` still produced 4 removals («راحت‌الحلقوم»,
+«شهرستان سمیرم», «سوگواری محرم», «لوله»), each re-measured separately at 26–164 words
+per citation. If a daily log ever shows zero removals, check this first.
+
+## 0. Decisions and how it is built
 
 ### 0.1 The request
-The operator asked for a bot that adds these banners at the top of fa articles, only
-when it is confident: بدون منبع, بهبود منبع, بخش بدون منبع, بدون منبع زنده, منبع زنده,
-یک منبع, اصلاح ترجمه, گسترش از زبان. The constraints:
-- Follow each template's own documented criteria.
-- `{{یادکرد-ویکی}}` is **not** a source.
-- Bailing out on doubt is fine. The result must not look like spam.
 
-### 0.2 Decisions (the operator's answers to the old §9, ۱۰ اکتبر ۲۰۲۶)
+I wanted a bot that adds these banners at the top of fa articles, only when it is
+confident: بدون منبع, بهبود منبع, بخش بدون منبع, بدون منبع زنده, منبع زنده, یک منبع,
+اصلاح ترجمه, گسترش از زبان. The constraints:
+- Follow each template's own documented criteria.
+- `{{یادکرد-ویکی}}` is not a source.
+- Giving up when in doubt is fine. The result must not look like spam.
+
+### 0.2 Decisions (۱۰ اکتبر ۲۰۲۶)
+
+These are my answers to the questions the research raised.
 
 | # | Question | Decision |
 |---|---|---|
 | 1 | Task number | **۱۵** |
 | 2 | بدون منبع زنده | Use it in its real sense (a BLP with no sources). It is **optional**: «we don't need to do it if it is too much work or we are not confident about it». |
-| 3 | Scope / phases | **No phases.** «Let's do everything at once. We test and we update regularly.» Every tag the plan allows to be placed, ships in one task (§3). |
+| 3 | Scope / phases | **No phases.** «Let's do everything at once. We test and we update regularly.» Every tag the plan allows to be placed ships in one task (§3). |
 | 4 | 371 BLPs already tagged with plain بدون منبع | **Leave them alone.** No swap to بدون منبع زنده. |
 | 5 | Iranian آبادی articles | **Exclude.** Skip any page carrying `{{جعبه اطلاعات روستای ایران}}` (55,680 pages). |
 | 6 | گسترش از زبان | **Dropped.** Not in this task. |
-| 7 | Date parameter | Write the date **only if the monthly category exists**. Otherwise write no date. Never create the categories. |
-| 8 | Consensus / BRFA | **No قهوه‌خانه thread and no BRFA for now.** Build it, run it under the operator's own account (`--as-me`) for a while, fix bugs, then decide. Do not draft or post anything on-wiki about the task. |
-| 9 | Pilot | About **1000 edits** under `--as-me`, built up gradually and paced like a human (`--as-me` already gives the 30–120 s random pause). |
+| 7 | Date parameter | Write the date only if the monthly category exists, otherwise no date, and never create the categories. **Later changed:** the bot now creates the missing monthly category (§5). |
+| 8 | Consensus / BRFA | No قهوه‌خانه thread and no BRFA at first. Build it, run it under my own account (`--as-me`) for a while, fix bugs, then decide. **Later:** the request was filed and approved on ۱۲ اکتبر ۲۰۲۶. |
+| 9 | Pilot | About **1000 edits** under `--as-me`, built up gradually and paced like a person (`--as-me` gives the 30–120 s random pause). |
 | 10 | Thresholds | Starting values accepted (§3.3–§3.4). |
-| — | Stale tags | **In scope, same task.** Remove بدون منبع / بدون منبع زنده from articles that now have real refs (§3.9). |
+| — | Stale tags | **In scope, same task.** Remove بدون منبع / بدون منبع زنده from articles that are now properly cited (§3.9). |
 | — | Dead links | Dropped (no fa banner exists, §1.4). |
 
-**Still unconfirmed:** whether "everything at once" also means *tagging* یک منبع, بخش
-بدون منبع and اصلاح ترجمه. The plan keeps them **report-only** (§3.5–§3.7). Ask the
-operator before turning any of them into tags. Do not infer it.
+On ۱۲ اکتبر ۲۰۲۶ I confirmed that یک منبع, بخش بدون منبع and اصلاح ترجمه stay
+report-only. "Everything at once" did not mean tagging them.
 
-### 0.3 What the task does, in one list
-1. **Add `{{بدون منبع}}`**: zero sources of any kind, in both the wikitext and the
-   render (§3.0, §3.1).
-2. **Add `{{بدون منبع زنده}}`** (optional, decision 2): the same test on a page in
-   `رده:افراد زنده` (§3.2). If it adds risk or work, skip it and leave BLPs untouched.
-3. **Add `{{بهبود منبع}}`**, narrow tier (§3.3).
-4. **Add `{{منبع زنده}}`**, narrow tier (§3.4).
-5. **Remove stale `{{بدون منبع}}` / `{{بدون منبع زنده}}`** (§3.9).
-6. **Report only:** یک منبع, بخش بدون منبع, اصلاح ترجمه candidates; pages refused for
-   banner crowding (§4); anything doubtful. The report goes to
+### 0.3 What the task does
+1. **Adds `{{بدون منبع}}`** when there are no sources of any kind, in both the wikitext
+   and the render (§3.0, §3.1).
+2. **Adds `{{بدون منبع زنده}}`** for the same case on a page in `رده:افراد زنده` (§3.2).
+3. **Adds `{{بهبود منبع}}`**, narrow tier (§3.3).
+4. **Adds `{{منبع زنده}}`**, narrow tier (§3.4).
+5. **Removes stale `{{بدون منبع}}` / `{{بدون منبع زنده}}`** (§3.9).
+6. **Reports only:** یک منبع, بخش بدون منبع and اصلاح ترجمه candidates, pages refused for
+   banner crowding (§4), and anything doubtful. The report goes to
    `کاربر:MamouriBot/وظیفه ۱۵/گزارش`.
 
-### 0.4 Build steps, in order
-1. Read `docs/BUILDING-A-TASK.md` and `src/core.ts`: the `BotTask` interface, `Bot`,
-   `--as-me`, and the `prepare`/`verify`/`report` hooks. Copy patterns from:
-   - `src/tasks/task-14/population-box.ts`: template insertion, `findTemplate`,
-     `reportWikitext`, the gate-delta check in `verify`.
-   - `src/tasks/task-10/destub.ts` and `destub-classify.ts`: the exported
-     `extractProse`/`countWords` (Persian prose words), and the
-     parse-and-check-categories pattern in `verify`.
-2. Write `src/tasks/task-15/source-tags.ts` (`id: 'source-tags'`, `taskNumber: 15`):
-   - **`getTargets`** enumerates with CirrusSearch (§0.5). Cap the walk from
-     `bot.opts.limit`, as tasks 12 and 13 do, and accept `TARGET_TITLES` /
-     `TARGET_FILE` / `TARGET_CAP` env selectors as they do. `transform` must be pure
-     and synchronous, so do every network check here, cached per title:
-     - the render (`action=parse`, `prop=text|externallinks|categories`),
-     - `pageprops` (dab), `revisions` (last edit time), categories,
-     - monthly-category existence (§5).
-   - **`transform`**: insert, merge into `{{مشکلات متعدد}}`, or remove the stale tag.
-     Otherwise refuse, with a reason.
-   - **`verify`** (before save): see §11.
-   - **`report`**: write the report page.
-3. Write `source-tags.test.ts`, offline (fixtures listed in §11).
-4. Register the task in `src/run.ts` `TASKS`.
-5. Run `npm test` and `npm run typecheck`. `npm test` also checks that the vendored
-   `src/lib/` files still match the parent repo's `scripts/lib/`.
-6. Dry run: `npx tsx src/run.ts source-tags --limit 20`. Read **every** diff, then
-   repeat with ~200.
-7. Live under the operator's account:
-   `npx tsx src/run.ts source-tags --as-me --live --limit N`. Start small (10, then 50,
-   then 100s) and audit the diffs and renders between runs, up to ~1000 edits in total.
-   Fix bugs as they show up. Keep a short trial log in this doc (§13).
-8. Do not commit unless asked. When you do commit, commit in `bots/` first, then bump
-   the submodule pointer in the parent repo. Stage explicit paths only.
+### 0.4 Code layout and running
+
+The task follows `docs/BUILDING-A-TASK.md` and `src/core.ts` (the `BotTask` interface,
+`Bot`, `--as-me`, and the `prepare`/`verify`/`report` hooks). It borrows from
+`src/tasks/task-14/population-box.ts` (template insertion, `findTemplate`,
+`reportWikitext`, the gate-delta check in `verify`) and from `src/tasks/task-10/destub.ts`
+and `destub-classify.ts` (`extractProse`/`countWords` for Persian prose words, and the
+parse-and-check-categories pattern in `verify`).
+
+`src/tasks/task-15/source-tags.ts` (`id: 'source-tags'`, `taskNumber: 15`) is registered in
+`src/run.ts` `TASKS`:
+- **`getTargets`** finds candidates with CirrusSearch (§0.5). It caps the walk from
+  `bot.opts.limit`, as tasks 12 and 13 do, and accepts the `TARGET_TITLES`, `TARGET_FILE`
+  and `TARGET_CAP` environment selectors. `transform` has to be pure and synchronous, so
+  every network check happens here, cached per title:
+  - the render (`action=parse`, `prop=text|externallinks|categories`),
+  - `pageprops` (dab), `revisions` (last edit time), categories,
+  - whether the monthly category exists (§5).
+- **`transform`** inserts a banner, merges it into `{{مشکلات متعدد}}`, or removes the stale
+  tag. Otherwise it refuses, with a reason.
+- **`verify`** runs before saving (§11).
+- **`report`** writes the report page.
+
+```sh
+npm test                 # also checks the vendored src/lib/ files against the parent repo's scripts/lib/
+npm run typecheck
+npx tsx src/run.ts source-tags --limit 20                 # dry run
+npx tsx src/run.ts source-tags --as-me --live --limit N   # live, under my account
+```
+
+When committing, commit in `bots/` first, then move the submodule pointer in the parent
+repo. Stage explicit paths only.
 
 ### 0.5 Target queries (counts from ۱۰ اکتبر ۲۰۲۶)
 - **Add, unsourced:** `-insource:"<ref" -insource:"http" -hastemplate:"بدون منبع"
   -hastemplate:"جعبه اطلاعات روستای ایران"`, minus dabs, gives **231,803**.
-  - That includes یادکرد-ویکی-only pages, which is intended (§1.9).
-  - The prefilter is only a candidate source. Every page still goes through the full
-    §3.0 test and the render check. After that, about 99k pass (§2.2).
-- **Add, narrow tiers:** prefilter by size. ≥300 prose words means roughly ≥3.8 KB, and
-  ≥800 words roughly ≥9.3 KB. Use `insource:"<ref"` plus a size floor, then count refs
-  locally.
+  - That includes یادکرد-ویکی-only pages, on purpose (§1.9).
+  - The query only finds candidates. Every page still goes through the full §3.0 test and
+    the render check, after which about 99k pass (§2.2).
+- **Add, narrow tiers:** prefilter by size. ≥300 prose words is roughly ≥3.8 KB, and ≥800
+  words roughly ≥9.3 KB. Use `insource:"<ref"` plus a size floor, then count refs locally.
   - Avoid regex repetition such as `insource:/(<ref.*){4}/`. CirrusSearch returns
     `cirrussearch-regex-syntax-error`.
 - **Remove, stale:** `hastemplate:"بدون منبع" insource:"<ref"` gives **2,152**.
   `hastemplate:"بدون منبع زنده" insource:"<ref"` gives **8**.
-- **Enumeration limits:** CirrusSearch hard-errors past offset 10,000
-  (`cirrussearch-offset-too-large`; see task 3's frozen list). For a large walk, slice
-  the query (e.g. `prefix:` by first letter, or by `incategory:`). Alternatively,
-  harvest a frozen list once, shuffle it with a fixed seed, and feed it with
-  `TARGET_FILE`.
+- **Search limits:** CirrusSearch fails past offset 10,000
+  (`cirrussearch-offset-too-large`; see task 3's frozen list). For a large walk, split the
+  query (e.g. `prefix:` by first letter, or by `incategory:`), or harvest a frozen list
+  once, shuffle it with a fixed seed, and feed it with `TARGET_FILE`.
 - **Rate limits:** heavy reads hit HTTP 429. Honour `Retry-After`. Core's GET gate is
   1.2 s.
 
@@ -194,60 +191,59 @@ operator before turning any of them into tags. Do not infer it.
 
 ## 0b. Research summary
 
-1. **Two of the eight requested templates do not do what the request assumes.**
+1. **Two of the eight requested templates don't do what I assumed.**
    - **بدون منبع زنده is not a dead-link banner.** It is fa's copy of en
-     `{{BLP unreferenced}}`: a living person's biography with **no sources at all**. fa
-     has no article-level dead-link banner (§1.4).
-   - **گسترش از زبان does not mean "contains English".** It means "a longer article
-     exists in another language, so translate more of it". fa also says never to use it
-     directly; you must use a language wrapper (§1.8).
-2. **The real population is enormous, and most of it is sub-stubs.** About 11% of
-   articles have nothing citation-like at all. After a render check, 9.1% (about
-   99,000) are cleanly unsourced. 31% have exactly one source (about 345,000). Applying the templates as literally requested would tag
-   hundreds of thousands of pages. That is the spam outcome the request rules out.
+     `{{BLP unreferenced}}`: a living person's biography with no sources at all. fa has no
+     article-level dead-link banner (§1.4).
+   - **گسترش از زبان does not mean "contains English".** It means "a longer article exists
+     in another language, so translate more of it". fa also says not to use it directly,
+     only through a language wrapper (§1.8).
+2. **The number of affected articles is huge, and most are sub-stubs.** About 11% of
+   articles have nothing citation-like at all. After a render check, 9.1% (about 99,000)
+   are cleanly unsourced. 31% have exactly one source (about 345,000). Applying the
+   templates literally would tag hundreds of thousands of pages, which is the spam the
+   request rules out.
 3. **Only two templates have a test a bot can decide with confidence:** بدون منبع and
-   بدون منبع زنده. Both require "no source of any kind", which is checkable. The other
-   templates turn on "too few", "big" or "untranslated". The docs leave those to editor
-   judgement, so the bot can apply them only under conditions narrow enough to be
-   uncontroversial (§3).
-4. **Untranslated text is rare.** In 2,000 random articles, with templates and
-   galleries stripped, the count is **zero**. The candidates a detector finds are mostly
-   airline-destination tables, bibliographies and song lyrics, which are correctly left
-   in the original language. A bot should report candidates, not tag them (§3.7).
-5. **Dated tags will mis-categorise themselves this month** unless the bot checks
-   first (§5).
-6. **At this scale, a village-pump consensus is very likely needed before a BRFA**
-   (§8). The operator has deferred that question until after the `--as-me` trial
-   (decision 8).
+   بدون منبع زنده. Both require "no source of any kind", which can be checked. The others
+   turn on "too few", "big" or "untranslated", which the docs leave to editors, so the bot
+   only applies them under narrow conditions nobody would argue with (§3).
+4. **Untranslated text is rare.** In 2,000 random articles, with templates and galleries
+   stripped, the count is zero. What a detector finds is mostly airline-destination
+   tables, bibliographies and song lyrics, which are rightly left in the original
+   language. A bot should report candidates, not tag them (§3.7).
+5. **Dated tags put pages in the wrong category** if the month's category doesn't exist
+   yet (§5).
+6. **At this scale, a village-pump consensus is very likely needed before a BRFA** (§8). I
+   put that question off until after the `--as-me` trial (decision 8).
 
 ---
 
 ## 1. What each template actually means
 
-All sources and /توضیحات were fetched on 2026-10-10, along with the en equivalents. The
-criteria below are quoted or paraphrased from those docs. Redirect lists are in
-`docs/data/task-15/template-survey.json`.
+I fetched all the template sources and /توضیحات on 2026-10-10, along with the en
+equivalents. The criteria below are quoted or paraphrased from those docs. Redirect lists
+are in `docs/data/task-15/template-survey.json`.
 
 ### 1.1 `{{بدون منبع}}` ← en `{{Unreferenced}}`
-- **Use only when the article has no citations or references of any kind.**
+- Use only when the article has no citations or references of any kind.
 - The en doc rules it out if there is even one general reference, bare URL or footnote.
   Sources listed under «پیوند به بیرون» can count as references.
 - When sources are listed but there are no inline citations, the right tag is
   `{{بدون پانویس}}`, not this one.
-- Params: `تاریخ`/`date`. The template self-substs (`#درخواست:Unsubst`) and stamps a date.
+- Params: `تاریخ`/`date`. The template substitutes itself (`#درخواست:Unsubst`) and stamps
+  a date.
 - Category: `مقاله‌های بدون منبع` (dated monthly subcategories).
 - Placement: top of the article.
 - 11 redirects, including `{{منبع}}`, `{{بی‌منبع}}` and `{{Unreferenced}}`.
-- **Trap:** `{{منبع|بخش}}` is a legacy section use of the same template. In a sample of
-  40 tagged pages, 14 were section uses.
-- Live: 5,783 articles. 2,152 of those now contain `<ref`, i.e. stale tags. Removing
-  them is **in scope** (§3.9) — but `<ref` ANYWHERE is not the bar. «Contains a ref» was
-  roughly the test the task shipped with, and 44% of the removals it made were wrong:
-  §3.9 now requires one INLINE citation per 250 prose words, minimum 2, and does not count
-  bibliography bullets at all. So 2,152 is the upper bound on candidates, not on edits.
+- `{{منبع|بخش}}` is an old section use of the same template. In a sample of 40 tagged
+  pages, 14 were section uses.
+- Live: 5,783 articles. 2,152 of those now contain `<ref`. Removing stale tags is in scope
+  (§3.9), but containing a `<ref` somewhere is not enough: that was roughly the first
+  version's test, and 44% of its removals were wrong. 2,152 is the upper bound on
+  candidates, not on edits.
 
 ### 1.2 `{{بهبود منبع}}` ← en `{{More citations needed}}`
-- **Use only when there are some citations, but too few.**
+- Use only when there are some citations, but too few.
 - The fa doc notes that some editors think it is unnecessary on stubs.
 - The en doc says to use `{{منبع زنده}}` instead on BLPs.
 - Category: `مقاله‌های نیازمند ارجاع‌های اضافی`.
@@ -255,37 +251,37 @@ criteria below are quoted or paraphrased from those docs. Redirect lists are in
 - 10 redirects, including `{{Refimprove}}` and `{{Verify}}`.
 
 ### 1.3 `{{بخش بدون منبع}}` ← en `{{Unreferenced section}}`
-- **Use only when the section has no references at all.** For sections with some but too
-  few, use `{{بهبود منبع بخش}}`.
-- **It goes at the top of the section, not the top of the article.** The request asked
-  for top-of-article placement, which does not apply to this template (§4).
+- Use only when the section has no references at all. For sections with some but too few,
+  use `{{بهبود منبع بخش}}`.
+- It goes at the top of the section, not the top of the article, so the top-of-article
+  placement I asked for doesn't apply to it (§4).
 - Live: 459.
 
-### 1.4 `{{بدون منبع زنده}}` ← en `{{BLP unreferenced}}`: **not dead links**
+### 1.4 `{{بدون منبع زنده}}` ← en `{{BLP unreferenced}}`: not dead links
 - Banner text: «زندگی‌نامهٔ فرد زنده … دربرگیرنده هیچ مرجع یا منبعی نیست». It adds that
   unsourced material about living people «باید به‌سرعت حذف شوند».
 - Categories: `زندگی‌نامه زندگان بدون منبع` and `همه مقاله‌های زندگی‌نامه زندگان بدون منبع‏‏`.
-  The second contains a stray U+200F. This is harmless to transclusion, but a bot
-  that checks category membership by exact name must allow for it.
+  The second contains a stray U+200F. That does no harm to transclusion, but code that
+  checks category membership by exact name has to allow for it.
 - The en doc says pages that warrant deletion should get `{{prod blp}}` instead.
-- Live: **only 19 uses**, against 371 BLPs tagged with plain بدون منبع. On fa, editors put
-  plain بدون منبع on unsourced BLPs, so this template is effectively unused.
+- Live: only 19 uses, against 371 BLPs tagged with plain بدون منبع. fa editors put plain
+  بدون منبع on unsourced BLPs, so this template is hardly used.
 - Section variant: `{{بخش بدون منبع زنده}}`.
-- **Dead links:** `{{پیوند مرده}}` is the inline marker after a single URL. No banner
-  exists: پیوندهای مرده, Dead links and Cleanup link rot are all missing on fa. Checking
-  that external URLs are alive is a different task, and a much heavier one (HTTP to
-  thousands of third-party hosts, archive lookups, false deaths from bot-blocking). It
-  is dropped (decision 2).
+- **Dead links:** `{{پیوند مرده}}` is the inline marker after a single URL. There is no
+  banner: پیوندهای مرده, Dead links and Cleanup link rot are all missing on fa. Checking
+  whether external URLs are alive is a different and much heavier task (HTTP requests to
+  thousands of outside hosts, archive lookups, false deaths from sites that block bots),
+  so it is dropped (decision 2).
 
 ### 1.5 `{{منبع زنده}}` ← en `{{BLP sources}}`
-- A living-person biography that **needs more** references. It **must not** be used on
+- A living person's biography that needs more references. It must not be used on
   unsourced BLPs; those take `{{بدون منبع زنده}}`.
 - The en doc says to consider not adding it to very short articles.
 - Live: 102.
 
 ### 1.6 `{{یک منبع}}` ← en `{{One source}}`
-- The article relies largely or entirely on one source. The doc says that is **not a
-  policy violation**.
+- The article relies largely or entirely on one source. The doc says that is not a policy
+  violation.
 - The en doc says to consider not adding it:
   - to stubs,
   - to articles that are being actively expanded,
@@ -294,45 +290,44 @@ criteria below are quoted or paraphrased from those docs. Redirect lists are in
 - Live: 239.
 
 ### 1.7 `{{اصلاح ترجمه}}` ← en `{{Not English}}`
-- Text written in a non-Persian language. Param 1 is the language; param 2 = `بخش` for
-  section use. 15 redirects.
-- **Heavy tag.** Unless `listed=yes`/`فهرست‌شده`, the banner:
-  - tells the reader the page will be **nominated for deletion within two weeks**,
-  - asks the tagger to list it at `ویکی‌پدیا:صفحه‌های نیازمند ترجمه به فارسی` via
+- Text written in a language other than Persian. Param 1 is the language; param 2 = `بخش`
+  for section use. 15 redirects.
+- It is a heavy tag. Unless `listed=yes`/`فهرست‌شده`, the banner:
+  - tells the reader the page will be nominated for deletion within two weeks,
+  - asks whoever tags it to list it at `ویکی‌پدیا:صفحه‌های نیازمند ترجمه به فارسی` with
     `{{اعلان صنت}}`.
 
-  A bot that tags without listing leaves a false threat. A bot that lists also creates
-  a public queue entry per page.
+  A bot that tags without listing leaves a false threat. A bot that lists also creates a
+  public queue entry for every page.
 - Live: 1,290.
 
 ### 1.8 `{{گسترش از زبان}}` ← en `{{Expand language}}`
-- Meaning: «این مقاله را می‌توان با ترجمهٔ مقالهٔ متناظر در ویکی‌پدیای X گسترش داد». It is
-  an **expansion invitation**. It **does not** mean the page contains untranslated text.
-- **Do not use it directly.** Use the wrappers instead, e.g. `{{گسترش از زبان انگلیسی}}`
+- Meaning: «این مقاله را می‌توان با ترجمهٔ مقالهٔ متناظر در ویکی‌پدیای X گسترش داد». It
+  invites expansion. It does not mean the page contains untranslated text.
+- It is not used directly. The wrappers are used instead, e.g. `{{گسترش از زبان انگلیسی}}`
   (750 uses), عربی, فرانسوی or آلمانی. Params: `1`/`مقاله دیگر`, `تاریخ`.
 - Wrapper total: 1,160.
-- **Mapping the request onto the templates:** "many English sections" calls for اصلاح
-  ترجمه, not this. This template would fit a different job: a short fa article whose en
-  interwiki is many times longer (§3.8; dropped, decision 6).
+- What I meant by "many English sections" is اصلاح ترجمه, not this. This template fits a
+  different job: a short fa article whose en interwiki is many times longer (§3.8;
+  dropped, decision 6).
 
 ### 1.9 `{{یادکرد-ویکی}}`: not a source
 - Its own TemplateData says using it in place of the original sources is wrong.
 - It adds `رده:مقاله‌های دارای الگوی یادکرد-ویکی` (502,966 pages).
-- **Rule for this task:** a `<ref>` whose only content is یادکرد-ویکی (or its four
-  redirects, or `Cite wikipedia`) counts as **zero** sources. The same applies to a bare
-  یادکرد-ویکی outside any ref.
-- **Consequence:** an article whose only "source" is the en.wiki page it was translated
-  from **is unsourced** for بدون منبع. This is the crux of the task, and also where most
-  of the volume comes from (§2).
+- In this task, a `<ref>` whose only content is یادکرد-ویکی (or one of its four redirects,
+  or `Cite wikipedia`) counts as zero sources. So does a bare یادکرد-ویکی outside any ref.
+- So an article whose only "source" is the en.wiki page it was translated from is
+  unsourced for بدون منبع. This is the heart of the task, and most of the volume comes
+  from it (§2).
 
 ### 1.10 `{{مشکلات متعدد}}`
 - The multiple-issues wrapper (`چند مشکل` does not exist).
-- Existing usage wraps only a handful of these tags: 1, 4 and 8 of 40 sampled pages for
-  بهبود منبع, منبع زنده and یک منبع.
+- Existing pages rarely wrap these tags in it: 1, 4 and 8 of 40 sampled pages for بهبود
+  منبع, منبع زنده and یک منبع.
 
 ---
 
-## 2. Measured population
+## 2. Measured numbers
 
 ### 2.1 Search counts (ns0)
 
@@ -349,7 +344,7 @@ criteria below are quoted or paraphrased from those docs. Redirect lists are in
 
 ### 2.2 Random sample of 2,000 articles
 
-Drawn with `list=random` (non-redirect, ns0); 33 were dabs, which leaves **1,967**.
+Drawn with `list=random` (non-redirect, ns0). 33 were dabs, which leaves **1,967**.
 Per-page features are in `docs/data/task-15/random-2000.json`.
 
 **Citation shape**
@@ -367,8 +362,8 @@ Per-page features are in `docs/data/task-15/random-2000.json`.
 | … of which BLP (`رده:افراد زنده`) | 39 | | |
 
 The STRICT unsourced group is mostly sub-stubs:
-- Persian prose (lead + body, templates and tables stripped) has a **median of about 24
-  words**. 19 in 20 are under about 130 words.
+- Persian prose (lead and body, templates and tables stripped) has a median of about 24
+  words. 19 in 20 are under about 130 words.
 - The most common infobox is `Infobox football biography` (61 of 212, 29%).
 
 **Rendered check of STRICT unsourced** (`action=parse` on all 212):
@@ -385,13 +380,12 @@ The STRICT unsourced group is mostly sub-stubs:
   - authority catalogues missing from the ignore list (bibliotheken.nl, nsk.hr, kulturnav),
   - one YouTube link, and HLS (a real encyclopedia entry).
 - Under the en doc, an official-site or encyclopedia link arguably counts as an external
-  link, which rules out بدون منبع. The safe rule is to **refuse any page whose render has
-  a non-authority external link**.
+  link, which rules out بدون منبع. So the bot refuses any page whose render has an
+  external link that is not an authority link.
 - That leaves **181 of 2,000 = 9.1% ≈ 99k articles**.
   - 35 are BLPs, about 19k wiki-wide.
   - 148 cite only en.wiki (یادکرد-ویکی).
-- The 31 refused pages are 15% of the STRICT group. That is the margin the render check
-  buys.
+- The 31 refused pages are 15% of the STRICT group. That is what the render check catches.
 
 **Number of real sources** (یادکرد-ویکی-only refs removed), among the 1,217 articles that
 have any:
@@ -415,25 +409,24 @@ have any:
 - منبع زنده, applied with the en doc's "not on very short articles", is a small job:
   roughly 1–2k pages wiki-wide.
 
-**Big unsourced sections:** 18 articles had a non-references section of ≥250 Persian
-words with no `<ref>`/پک in it, in an article that does have refs. 5 of those sections
-are plot summaries (داستان / خلاصه داستان), which by convention are sourced to the work
-itself. That leaves **13 (0.66%, ≈7k)**. Examples:
+**Big unsourced sections:** 18 articles had a non-references section of ≥250 Persian words
+with no `<ref>`/پک in it, in an article that does have refs. 5 of those sections are plot
+summaries (داستان / خلاصه داستان), which by convention are sourced to the work itself. That
+leaves **13 (0.66%, ≈7k)**. Examples:
 - توپ (جنگ‌افزار): «پیشینه», 503 words
 - آرتور شوپنهاور: «تحصیلات», 888 words
 - نیروی هوایی لهستان: «دهه ۱۹۳۰» and «جنگ سرد»
 
 ### 2.3 Untranslated text
 
-- **Random sample: 0 of 1,967.** The count is for content sections where Latin words are
-  ≥40 and outnumber Persian words, measured after stripping templates at any depth,
-  `<gallery>`, math, tables and list lines.
-- A first, naive pass found 45 cases. All of them were infobox parameters (drugbox IUPAC
-  names, `official_name`) or gallery captions. **A template-unaware detector is wrong
-  every time.**
+- **Random sample: 0 of 1,967.** This counts content sections where Latin words are ≥40
+  and outnumber Persian words, after stripping templates at any depth, `<gallery>`, math,
+  tables and list lines.
+- A first, simpler pass found 45 cases. All of them were infobox parameters (drugbox IUPAC
+  names, `official_name`) or gallery captions, so a detector that doesn't know about
+  templates is wrong every time.
 - **Targeted search:** `insource:/\. The [a-z]+ … /` without اصلاح ترجمه gives 1,807
-  articles. The same detector flags **49** of them. Reading the list, most are correct
-  to leave in English:
+  articles. The same detector flags **49** of them. Most are rightly in English:
   - airport «شرکت‌های هواپیمایی و مقصدهای پروازی» tables (about 20 of the 49),
   - bibliographies (تالیفات, فهرست مقالات, آثار),
   - full song lyrics (چرخ‌های اتوبوس),
@@ -444,242 +437,274 @@ itself. That leaves **13 (0.66%, ≈7k)**. Examples:
   - تبدیل یکاهای اندازه‌گیری: «Radiation – equivalent dose»
   - فرودگاه شهری مانهایم: «Current operations»
   - رویدادهای سینمایی مارول list fragments
-- **Conclusion:** genuine cases number in the low hundreds wiki-wide, and the detector's
-  precision is around 15–20%. That is not good enough for a bot to place a tag that
+- So genuine cases number in the low hundreds wiki-wide, and the detector is right only
+  about 15–20% of the time. That is not good enough for a bot to place a tag that
   threatens deletion.
 
 ---
 
 ## 3. Per-template rules
 
-The principle throughout is **asymmetric refusal**, as in وظیفهٔ ۱۰:
-- the bot tags only when every test passes,
-- every doubtful page goes to the report page for a human,
-- a missed page costs nothing; a wrong tag costs trust in the bot.
+As in وظیفهٔ ۱۰, the bot refuses whenever it is unsure:
+- it tags only when every test passes,
+- every doubtful page goes to the report page for a person,
+- a missed page costs nothing, while a wrong tag costs trust in the bot.
 
-### 3.0 Shared: what counts as a source
+### 3.0 What counts as a source
 
-Count a **source** for each of:
+Each of these counts as a source:
 1. a `<ref>…</ref>` whose body contains anything other than یادکرد-ویکی / `Cite wikipedia`
    and whitespace. A named reuse `<ref name=x/>` is not a new source.
-2. `{{پک}}`/`{{sfn}}`/`{{harv*}}`/`{{یادکرد پک}}`, plus every redirect resolved from the
+2. `{{پک}}`/`{{sfn}}`/`{{harv*}}`/`{{یادکرد پک}}`, plus every redirect, resolved from the
    live redirect list.
-3. a citation template (`یادکرد *`, `cite *`, `citation`) **outside** `<ref>`, other than
+3. a citation template (`یادکرد *`, `cite *`, `citation`) outside `<ref>`, other than
    یادکرد-ویکی.
-4. **general references**: any non-empty bulleted line under a references-type heading
-   (منابع, پانویس, کتاب‌شناسی, کتابنامه, برای مطالعهٔ بیشتر, پیوند به بیرون, …,
-   en equivalents). Exception: a line whose only content is یادکرد-ویکی.
-5. any external URL, in the wikitext **or in the render**, that is not a
-   wiki/authority-control host. This includes an infobox `website`.
+4. general references: any non-empty bulleted line under a references-type heading
+   (منابع, پانویس, کتاب‌شناسی, کتابنامه, برای مطالعهٔ بیشتر, پیوند به بیرون, …, and the en
+   equivalents), except a line whose only content is یادکرد-ویکی.
+5. any external URL, in the wikitext or in the render, that is not a wiki or
+   authority-control host. This includes an infobox `website`.
 6. an ISBN / شابک.
 
-**Before deciding, render the page.** Templates can emit refs and links. Infoboxes pull
-Wikidata references, some navboxes add footnotes, and authority-control templates emit URLs.
-The rendered HTML must agree that there are **zero** `cite_note-` anchors and no
-non-authority external links. If the wikitext and the render disagree, refuse.
+Since the «مولکول» fix (§13, run 1), a reference that cites only the فرهنگستان word list
+or another Wikipedia does not count as sourcing the article's content.
 
-### 3.1 بدون منبع: **tag**
+The page is rendered before any decision. Templates can emit refs and links: infoboxes pull
+Wikidata references, some navboxes add footnotes, and authority-control templates emit
+URLs. The rendered HTML must also show zero `cite_note-` anchors and no external links
+other than authority links. If the wikitext and the render disagree, the bot refuses.
+
+### 3.1 بدون منبع: tag
 
 Tag when all of these hold:
-- §3.0 source count = 0 in both wikitext and render.
-- Not a dab (`pageprops.disambiguation`), not a list (`فهرست*`), not a year/date page.
-  HujiBot وظیفه ۷ *removed* بدون منبع from date pages, so that consensus is explicit.
+- §3.0 source count = 0 in both the wikitext and the render.
+- Not a dab (`pageprops.disambiguation`), not a list (`فهرست*`), not a year or date page.
+  HujiBot وظیفه ۷ removed بدون منبع from date pages, so the consensus there is explicit.
+  Date pages include day pages in all three calendars (Hijri ones too, §13 run 3),
+  month-and-year pages such as «خرداد ۱۳۸۷», and month, century, decade and millennium
+  pages (§13 build log).
 - Not a redirect, not a set-index, not a soft redirect.
-- No source/verification banner already present. Check every redirect of: بدون منبع,
-  بدون منبع زنده, بهبود منبع, منبع زنده, یک منبع, بدون پانویس, مدرک (8,765 uses),
-  and the same names inside `{{مشکلات متعدد}}`.
-- Not a BLP. BLPs go to §3.2 instead. If §3.2 is not built, skip BLPs.
+- No source or verification banner already present. This checks every redirect of بدون
+  منبع, بدون منبع زنده, بهبود منبع, منبع زنده, یک منبع, بدون پانویس and مدرک (8,765
+  uses), and the same names inside `{{مشکلات متعدد}}`.
+- Not a BLP. BLPs go to §3.2.
 - Not an Iranian village: no `{{جعبه اطلاعات روستای ایران}}` (decision 5).
-- The render has no non-authority external link (§3.0 item 5).
+- The render has no external link other than authority links (§3.0 item 5).
 - Not edited in the last 7 days. This follows the en "actively expanded" caution and
-  avoids hitting new articles mid-creation.
-- Not `{{nobots}}`/`{{bots|deny}}`. `core.ts` already handles this.
+  avoids new articles that are still being written.
+- Not `{{nobots}}`/`{{bots|deny}}`. `core.ts` handles this.
 
-**Prose floor: none.** "No sources" is binary, and a 20-word unsourced stub is as
-unsourced as a 2,000-word one. That makes the volume about 99k after the render check,
-so §7 is where the spam question gets answered.
+There is no minimum length. "No sources" is yes or no, and a 20-word unsourced stub is as
+unsourced as a 2,000-word one. That makes the volume about 99k after the render check, so
+the spam question is answered by pacing and the daily cap (§7).
 
-### 3.2 بدون منبع زنده: **tag (optional, decision 2)**
+### 3.2 بدون منبع زنده: tag (optional, decision 2)
 
 - Same test as §3.1, plus `رده:افراد زنده` on the page.
-- That category is set by humans or by `{{جعبه اطلاعات شخص}}` logic. It is the
-  authoritative BLP marker on fa.
-- If the page already has plain `{{بدون منبع}}`, **do not** swap it (decision 4: leave
-  the 371 alone). Do not list them on the report either.
-- About 19k candidates wiki-wide by extrapolation (35 of the 181 that pass the render check).
+- That category is set by people or by `{{جعبه اطلاعات شخص}}` logic. It is the reliable BLP
+  marker on fa.
+- If the page already has plain `{{بدون منبع}}`, it is not swapped (decision 4: leave the
+  371 alone), and it is not listed on the report either.
+- About 19k candidates wiki-wide by extrapolation (35 of the 181 that pass the render
+  check).
 
-### 3.3 بهبود منبع: **narrow tag** (thresholds accepted, decision 10)
+### 3.3 بهبود منبع: narrow tag (thresholds accepted, decision 10)
 
-The "too few" test is editorial judgement, so the bot needs a rule far from the margin:
-- ≥ **800** Persian prose words **and** ≤ **2** real sources; or
-- ≥ **2,000** words **and** ≤ **3** sources.
+"Too few" is a judgement, so the bot only acts far from the borderline:
+- ≥ **800** Persian prose words and ≤ **2** real sources, or
+- ≥ **2,000** words and ≤ **3** sources.
 
-Beyond that:
-- Not a BLP (use §3.4 instead).
-- Not when the page already has §3.1–§3.6 tags.
+Also:
+- Not a BLP (§3.4 instead).
+- Not when the page already has one of the §3.1–§3.6 tags.
 
 In the sample this matches 4 pages (≈2k wiki-wide). The density rule is not in the
-template doc. It is an operating choice, and it must be stated as one in the BRFA.
+template doc. It is my operating choice, and the request says so.
 
-### 3.4 منبع زنده: **narrow tag** (thresholds accepted, decision 10)
+### 3.4 منبع زنده: narrow tag (thresholds accepted, decision 10)
 - BLP, 1–2 real sources, ≥ **300** Persian prose words. That is 2 in the sample (≈1k).
 - Never with 0 sources (that is §3.2).
 
-### 3.5 یک منبع: **report only (recommended)**, or a very narrow tag
-- Exactly one real source, ≥ **300** words, and the source is not the article's own
-  subject site. That is 13 in the sample (≈7k).
-- The doc itself calls it "not a policy violation" and advises against stubs, so a bot
-  campaign looks like exactly the drive-by tagging the doc warns about.
-- Recommendation: list candidates on the report page and do not tag.
+### 3.5 یک منبع: report only
+- Exactly one real source, ≥ **300** words, and the source is not the subject's own site.
+  That is 13 in the sample (≈7k).
+- The doc itself says one source is not a policy violation and advises against tagging
+  stubs, so a bot campaign would be exactly the drive-by tagging the doc warns about.
+- Candidates are listed on the report page and not tagged.
 
-### 3.6 بخش بدون منبع: **report only (recommended)**
-- Section ≥250 words, zero refs inside it, the article has refs elsewhere, the heading
-  is not a plot/synopsis/references/gallery/discography/works list, and the section is
-  not the lead. That is ≈7k pages.
+### 3.6 بخش بدون منبع: report only
+- Section ≥250 words, no refs inside it, refs elsewhere in the article, a heading that is
+  not plot/synopsis/references/gallery/discography/works list, and not the lead. That is
+  ≈7k pages.
 - The tag goes at the top of the section, not the top of the article.
 - Why report only:
   - A section can be sourced by the next section's citation, or by a general reference.
-  - Heading semantics (plot, works, discography) need a curated exclusion list that
-    will always be incomplete.
+  - Telling what a heading means (plot, works, discography) needs a hand-made exclusion
+    list that will never be complete.
 
-### 3.7 اصلاح ترجمه: **report only**
-- Precision is about 15–20% (§2.3), and the banner threatens deletion. A bot must not
-  place it.
-- The report lists candidate sections with Latin/Persian word counts, for a human to
+### 3.7 اصلاح ترجمه: report only
+- The detector is right only about 15–20% of the time (§2.3), and the banner threatens
+  deletion. A bot must not place it.
+- The report lists candidate sections with Latin and Persian word counts for a person to
   judge.
 
-### 3.8 گسترش از زبان: **dropped (decision 6)**
-- The request's intent ("many English sections") is اصلاح ترجمه, not this.
-- A size-ratio job ("fa is under 10% of the en article") would be a separate task.
-  Size ratio is a weak signal, and the tag is a soft invitation that editors often
-  find noisy.
+### 3.8 گسترش از زبان: dropped (decision 6)
+- What I meant by "many English sections" is اصلاح ترجمه, not this.
+- A size-ratio job ("fa is under 10% of the en article") would be a separate task. Size
+  ratio is a weak signal, and editors often find the tag noisy.
 
-### 3.9 Remove stale بدون منبع / بدون منبع زنده: **edit**
+### 3.9 Remove stale بدون منبع / بدون منبع زنده: edit
 - **Targets:** `hastemplate:"بدون منبع" insource:"<ref"` (2,152) and
   `hastemplate:"بدون منبع زنده" insource:"<ref"` (8).
-- **Remove only when all of these hold:**
-  - The page has **at least one real source** under §3.0: a `<ref>` that is not
-    یادکرد-ویکی-only, a sfn/پک, or a citation template. Matches inside `<!-- -->`,
-    `<nowiki>` and `<pre>` do not count.
-  - The render agrees: it has ≥1 `cite_note-`.
-  - The tag is the **article-level** use. Skip the section forms `{{منبع|بخش}}` and
-    `{{بدون منبع|بخش}}` (any positional `بخش`/`section`), and
-    `{{بدون منبع|...|name=بخش بدون منبع}}`. These were 14 of 40 sampled tagged pages.
-  - Not on a page edited in the last 7 days. Someone may be mid-cleanup.
+- **The tag must be the article-level use.** The section forms `{{منبع|بخش}}` and
+  `{{بدون منبع|بخش}}` (any positional `بخش`/`section`) and
+  `{{بدون منبع|...|name=بخش بدون منبع}}` are skipped. They were 14 of 40 sampled tagged
+  pages.
+- **Not on a page edited in the last 7 days.** Someone may be in the middle of cleaning it
+  up.
+- **Enough inline citations for the length of the article.** `inlineCitations()` counts
+  footnotes and `{{پک}}`/sfn only. Bullets under «منابع» don't count: nothing ties them to
+  a sentence, so no claim can be checked against them. Matches inside `<!-- -->`,
+  `<nowiki>` and `<pre>` don't count either. `citationFloor()` requires one inline
+  citation per 250 prose words, with a minimum of 2 (2 at 500 words, 3 at 501, 8 at
+  2,000). Prose words come from وظیفهٔ ۱۰'s `extractProse` over the rendered HTML, which
+  keeps `<p>` text only and drops infoboxes, navboxes, tables and reference lists, so
+  templates and markup can't inflate the count.
+  - I set 250 from this task's own removals. Properly sourced articles came in at 27–95
+    words per citation («کازرون» 27, «روی» 37, «ترابری ریلی» 79, «کمونالیسم» 95, and the
+    shortest, «کتاب مستطاب آشپزی», 77). The rejected ones were «هدهد» at 564 and «وسترن»
+    at 1,128. The floor sits in the gap between them.
+  - Adding and removing use different tests on purpose. `isStrictUnsourced` still counts
+    bibliographies, because it guards adding a banner, and there any doubt must block.
+- **The render agrees:** it has at least one `cite_note-`. If it has none, the page goes on
+  the report («ناسازگاری متن و نمایش»).
+- **These go on the report instead of being edited:**
+  - the tag appears more than once, or next to `{{بخش بدون منبع}}`: removing one leaves the
+    page in the category anyway;
+  - the page has a hand-written `[[رده:…بدون منبع…]]`: removing a hand-placed category is a
+    different edit, outside the approved scope;
+  - the tag is inside `{{مشکلات متعدد}}` and only one banner would be left. Unwrapping is
+    a judgement call.
 - **The edit:**
-  - If the tag stands alone, delete it with its trailing newline.
-  - If it is inside `{{مشکلات متعدد}}`, delete that line. If only one banner is then
-    left inside the wrapper, leave the wrapper as it is: unwrapping is a judgement
-    edit, so the page goes on the report instead.
-  - Never touch anything else.
-- **Do not downgrade.** Replacing the tag with بهبود منبع or یک منبع is a judgement
-  call. If the page would qualify for §3.3/§3.4, add that banner in the same edit,
-  under §3.3/§3.4's own rules. Otherwise remove the tag and do nothing more.
+  - If the tag stands alone, delete it with its trailing newline, without leaving the page
+    starting with a blank line.
+  - If it is inside `{{مشکلات متعدد}}`, delete that line.
+  - Nothing else changes.
+- **No downgrading.** Replacing the tag with بهبود منبع or یک منبع is a judgement call. If
+  the page qualifies for §3.3/§3.4, that banner is added in the same edit under its own
+  rules. Otherwise the tag is removed and that is all.
 - **Summary:** `حذف الگوی {{بدون منبع}}: مقاله اکنون منبع دارد`.
 - **verify:** the page leaves `مقاله‌های بدون منبع` (and its dated subcategory), and the
   gate shows no new problems.
+
+Until ۱۳ اکتبر ۲۰۲۶ the rule was "at least one real source, and the render has a
+`cite_note-`", with bibliography bullets counted. 44% of the removals made under it were
+wrong (see [History](#the-removal-bar-۱۳-اکتبر-۲۰۲۶-17-edits-reverted)).
 
 ---
 
 ## 4. Placement
 
-- **Article-level banners** (§3.1–§3.5) go at the top of the article, after the
-  top-of-page furniture. That furniture is:
+- **Article-level banners** (§3.1–§3.5) go at the top of the article, after:
   - hatnotes (`{{تغییرمسیر}}`, `{{دیگر کاربردها}}`, `{{برای}}`, …),
-  - `{{DISPLAYTITLE}}`, `{{عنوان مقاله}}`, `{{توصیف کوتاه}}` (and its redirects
-    Short description, شرح مختصر),
+  - `{{DISPLAYTITLE}}`, `{{عنوان مقاله}}`, `{{توصیف کوتاه}}` (and its redirects Short
+    description, شرح مختصر),
   - protection icons (`{{حص}}` and its redirects محافظت, Pp*).
-  - `{{کوتاه‌نوشت}}` does not exist on fa, so ignore it.
+  - `{{کوتاه‌نوشت}}` does not exist on fa.
 
-  Banners go **before** the infobox. That is how existing tagged pages look in the
-  40-page samples, and what en MOS:ORDER specifies.
-- **Merge into an existing `{{مشکلات متعدد}}`** if the page has one; add a line inside
-  it rather than a second banner above it.
-- If the page already has **two or more** other maintenance banners, the bot does not
-  add a third standalone. Report it instead; wrapping is a judgement edit.
-- **Refuse outright** on pages carrying in-use, under-construction, speedy-deletion or
-  AfD templates. The redirect lists are in §12.3.
-- **Section banners** (§3.6, report-only): if they are ever enabled, they go on the
-  first line under the heading.
-- Insertion is pure text with one newline after the template. No other whitespace
+  Banners go before the infobox. That is how existing tagged pages look in the 40-page
+  samples, and what en MOS:ORDER says.
+- **If the page has a `{{مشکلات متعدد}}`,** the banner goes in as a line inside it, not as
+  a second banner above it.
+- If the page already has two or more other maintenance banners, the bot does not add a
+  third on its own. It reports the page instead, since wrapping them is a judgement edit.
+  `bannerCount` only counts the run of templates at the start of the page, stopping at the
+  infobox and skipping hatnotes and توصیف کوتاه.
+- **The bot refuses outright** on pages carrying in-use, under-construction,
+  speedy-deletion or AfD templates. The redirect lists are in §12.3.
+- **Section banners** (§3.6, report-only) would go on the first line under the heading if
+  they are ever enabled.
+- Insertion is plain text with one newline after the template. No other whitespace
   changes, as in وظیفهٔ ۱۴.
 
 ## 5. The date parameter
 
 - Banners carry `تاریخ=<ماه میلادی به فارسی> <سال>` with Persian digits, e.g.
-  `{{بدون منبع|تاریخ=اکتبر ۲۰۲۶}}`. That is what `{{جا:بدون منبع}}` produces (its
-  PST output uses `date=`; either name works).
+  `{{بدون منبع|تاریخ=اکتبر ۲۰۲۶}}`. That is what `{{جا:بدون منبع}}` produces (its output
+  uses `date=`; either name works).
 - Month names: ژانویه فوریه مارس آوریل مه ژوئن ژوئیه اوت سپتامبر اکتبر نوامبر دسامبر.
-- **Trap:** `پودمان:Message box` builds the dated category as `<cat> از <date>` and
-  checks whether that `رده:` page exists, e.g. `رده:مقاله‌های بدون منبع از اکتبر ۲۰۲۶`.
-  If it does not, the module adds the page to
-  `رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو` (723 pages now).
-- Those monthly categories are created **after the fact** by Jeeputer / «Jeeputer's Cat».
-  On 2026-10-10 they existed up to about ژوئیه ۲۰۲۶; September and October 2026 did not.
-- **Decided (decision 7):** in `getTargets`, check the monthly category each banner
-  would use (cache it once per run):
-  - If it exists, write the date.
-  - If not, **write no date**. The page is still categorised under the undated parent,
-    and Jeeputer's normal date-fixing pass dates it later.
-  - Never create the categories.
+- `پودمان:Message box` builds the dated category as `<cat> از <date>` and checks whether
+  that `رده:` page exists, e.g. `رده:مقاله‌های بدون منبع از اکتبر ۲۰۲۶`. If it does not,
+  the module adds the page to `رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو` (723
+  pages on 2026-10-10).
+- Jeeputer / «Jeeputer's Cat» creates those monthly categories after the fact. On
+  2026-10-10 they existed up to about ژوئیه ۲۰۲۶; September and October 2026 did not.
+- **What the bot does now:** at the start of a run, `ensureMonthlyCategories` checks each
+  banner's category for the current month and creates any that is missing, with
+  `{{رده تمیزکاری ماهانه}}` as the whole page. That template works out the parent, the
+  month, the hidden flag and the all-articles category from the title, the same way for all
+  four of this task's categories. In a dry run nothing is created and no date is written.
+  If creating the category fails, the banner is written without a date.
+- Originally (decision 7) the bot wrote no date when the category was missing and never
+  created categories. That was safe, but it threw away what the date is for: the dated
+  categories show editors how long an article has had a problem. On en a bot creates
+  these categories; on fa nothing does
+  (`lessons/tracking-categories/dated-maintenance-cat-missing-monthly-cats.md`).
 
 ## 6. Edit summary
 
-The run is under `--as-me`, so there is **no BRFA link prefix**; core handles this
-already. If the task later runs as MamouriBot, the prefix becomes
-`withBrfaLink(15, …)`. Body, per template, is first-person content-only Persian. Never
-mention a bot, a script or automation (parent `AGENTS.md`).
+Since the task runs as MamouriBot, core adds the request link in front with
+`withBrfaLink(15, …)`. Under `--as-me` there is no prefix. The body is content-only Persian
+in the first person, and never mentions a bot, a script or automation (parent
+`AGENTS.md`).
 
 - `افزودن الگوی {{بدون منبع}}: مقاله هیچ منبعی ندارد (یادکرد-ویکی منبع به‌شمار نمی‌آید)`
 - `افزودن الگوی {{بدون منبع زنده}}: زندگی‌نامهٔ فرد زنده بدون منبع`
 - `حذف الگوی {{بدون منبع}}: مقاله اکنون منبع دارد`
 
-For the narrow tiers, the summary states the measured numbers, e.g. «… ۲ منبع برای
-۱٬۲۰۰ واژه». An editor who disagrees can see the rule and argue with the rule, not with
-the bot.
+For the narrow tiers the summary gives the measured numbers, e.g. «… ۲ منبع برای ۱٬۲۰۰
+واژه», so an editor who disagrees can see the rule and argue with that.
 
 ## 7. Scale and running (decision 3: no phases)
 
 - Everything in §0.3 ships together. Volume is controlled by `--limit`, not by phases.
-- **Trial:** about 1000 edits under `--as-me`, built up gradually: 10, then 50, then a
-  few hundred at a time. Audit the diffs **and the renders** between runs. Mix topics
-  rather than walking one category. Shuffle the targets so a run is not 50 footballers
-  in a row, which looks like a bot.
-- After the trial, the operator decides about the قهوه‌خانه thread and the BRFA (§8).
-- Full-scale numbers for later: about 99k بدون منبع, ~19k بدون منبع زنده (included in
-  the 99k), ~3k narrow tiers, ~2.1k removals.
-- Watchlist flooding is the main social cost of the full run.
+- **Trial:** about 1000 edits planned under `--as-me`, built up gradually: 10, then 50,
+  then a few hundred at a time, auditing the diffs and the renders between runs. Targets
+  are shuffled with a fixed seed, so a run mixes topics instead of being 50 footballers in
+  a row.
+- Full-scale numbers: about 99k بدون منبع, ~19k بدون منبع زنده (included in the 99k), ~3k
+  narrow tiers, ~2.1k removals.
+- Flooding watchlists is the main social cost of the full run.
 
-**Iranian village articles: excluded (decision 5).** Many آبادی stubs cite only en.wiki
-(قهوه‌خانه/اجرایی/بایگانی ۵۸, 2025). In that thread, Huji suggested *deleting* them
-after checking census data, and وظیفهٔ ۱۴ is adding a census box sourced through
-Wikidata to the same pages. Skip every page with `{{جعبه اطلاعات روستای ایران}}`.
+**Iranian village articles are excluded (decision 5).** Many آبادی stubs cite only en.wiki
+(قهوه‌خانه/اجرایی/بایگانی ۵۸, 2025). In that thread Huji suggested deleting them after
+checking census data, and وظیفهٔ ۱۴ is adding a census box sourced through Wikidata to the
+same pages. Every page with `{{جعبه اطلاعات روستای ایران}}` is skipped.
 
-## 8. Consensus and the permission request: **deferred (decision 8)**
+## 8. Consensus and the permission request
 
-Do nothing on-wiki about this for now. This section is background for when the
-operator decides.
-- No fa bot has added these tags before. The only related bot task, HujiBot وظیفه ۷,
+This is the background I had when deciding (decision 8). The request has since been
+approved.
+- No fa bot had added these tags before. The only related bot task, HujiBot وظیفه ۷,
   removed them.
-- The 2019 thread (قهوه‌خانه/گوناگون/بایگانی ۸۷) contains editors *asking* for
-  یادکرد-ویکی-only articles to be found by query and tagged. That supports this task,
-  but the thread is old.
-- At full scale, about 99k banners will change what one in eleven articles looks like.
-  A BRFA reviewer is likely to ask for a قهوه‌خانه/اجرایی thread first, and the 2025
-  village discussion shows the "en.wiki-only" question is contested.
-- **If and when:**
-  1. A short قهوه‌خانه post asking one question, with the measured number: should
-     articles whose only source is the en.wiki page carry {{بدون منبع}}?
+- The 2019 thread (قهوه‌خانه/گوناگون/بایگانی ۸۷) has editors asking for
+  یادکرد-ویکی-only articles to be found by query and tagged. That supports this task, but
+  the thread is old.
+- At full scale, about 99k banners change what one in eleven articles looks like. A
+  reviewer was likely to ask for a قهوه‌خانه/اجرایی thread first, and the 2025 village
+  discussion shows the "en.wiki-only" question is contested.
+- The plan was:
+  1. A short قهوه‌خانه post asking one question, with the measured number: should articles
+     whose only source is the en.wiki page carry {{بدون منبع}}?
   2. The BRFA, linking the thread and the trial's numbers.
-- Keep both short. Huji has asked for brevity, and the long messages are part of why
-  the task 14 thread failed (`TODO.md` §7b).
+- Both had to be short. Huji has asked for brevity, and long messages are part of why the
+  task 14 thread failed (`TODO.md` §7b).
 
 ## 9. Open questions
 
-None. The last one was answered ۱۲ اکتبر ۲۰۲۶:
-- **یک منبع / بخش بدون منبع / اصلاح ترجمه stay report-only.** The operator confirmed
-  this explicitly rather than it being inferred from "everything at once". So the task
-  edits for §3.1, §3.2, §3.3, §3.4 and §3.9 only.
+The last one was answered on ۱۲ اکتبر ۲۰۲۶: یک منبع, بخش بدون منبع and اصلاح ترجمه stay
+report-only. So the task edits for §3.1, §3.2, §3.3, §3.4 and §3.9 only. The number
+articles question under [Where it stands](#where-it-stands) is still open.
 
 ## 10. Out of scope
 
@@ -688,26 +713,26 @@ None. The last one was answered ۱۲ اکتبر ۲۰۲۶:
 - Swapping بدون منبع → بدون منبع زنده on the 371 BLPs (decision 4).
 - Iranian آبادی articles (decision 5).
 
-## 11. Verification design
+## 11. Verification
 
 - `transform` is pure:
-  - it inserts one banner, or removes one stale tag, or refuses with a reason;
-  - `verify` asserts the diff is exactly that one line, or the one line inside
+  - it inserts one banner, removes one stale tag, or refuses with a reason;
+  - `verify` checks that the diff is exactly that one line, or the one line inside
     `{{مشکلات متعدد}}` when merging.
 - **Pre-save render** (`action=parse` on the new text, as task 10's `verify` does):
-  - **add:** the page gains the expected category (§12.2), allowing for the stray
-    U+200F;
-  - **remove:** the page loses `مقاله‌های بدون منبع` and its dated subcategory;
-  - it is **not** in `مقاله‌های دارای پارامتر تاریخ نادرست در الگو`;
-  - no new errors (`خطا`, `scribunto-error`, `class="error"`);
-  - **add بدون منبع / بدون منبع زنده:** the render still shows 0 `cite_note-`. This
-    guards against a ref that the wikitext parse missed;
-  - gate delta: `checkWikitext` on the old and new text, and fail on any new problem
-    (task 14 pattern).
-- **Report page** `کاربر:MamouriBot/وظیفه ۱۵/گزارش`: per-reason refusal counts, the
+  - **add:** the page gains the expected category (§12.2), allowing for the stray U+200F;
+  - **remove:** the page leaves `مقاله‌های بدون منبع` and its dated subcategory;
+  - the page is not in `مقاله‌های دارای پارامتر تاریخ نادرست در الگو`;
+  - no new errors (`خطا`, `scribunto-error`, `class="error"`). This compares with the
+    current render, so errors the article already had don't block the edit («جنگ کره»);
+  - **add بدون منبع / بدون منبع زنده:** the render still shows 0 `cite_note-`, in case a
+    ref was missed in the wikitext;
+  - gate delta: `checkWikitext` on the old and new text, failing on any new problem (as in
+    task 14).
+- **Report page** `کاربر:MamouriBot/وظیفه ۱۵/گزارش`: refusal counts per reason, the
   report-only lists for §3.5–§3.7, pages refused for banner crowding, and removals that
-  left a single-item مشکلات متعدد.
-- **Tests** (`source-tags.test.ts`, offline), with a fixture for each of:
+  would leave a single-item مشکلات متعدد. It is republished on every run.
+- **Tests** (`source-tags.test.ts`, offline) have a fixture for each of:
   - each source kind in §3.0;
   - a یادکرد-ویکی-only ref, and a bare یادکرد-ویکی;
   - a `<ref>` inside a comment (not a source);
@@ -718,85 +743,22 @@ None. The last one was answered ۱۲ اکتبر ۲۰۲۶:
   - dab, list, year page, village infobox: all refused;
   - an existing banner under a redirect name: refused;
   - stale removal, both standalone and inside مشکلات متعدد;
-  - date written vs omitted, depending on category existence.
+  - date written vs omitted, depending on whether the category exists.
 
-### Run 2 — ۱۲ اکتبر ۲۰۲۶, `--as-me --live --limit 12`, after the fixes
+To check the live edits independently of the bot's own `verify`, use
+`scripts/archive/task15-audit-live-edits.py` in the parent repo.
 
-**8 edits, 8 correct**, audited individually. 2 removals («شوشتر», 40 sourcing
-references; «حزب خلق اتریش», 2 `{{یادکرد وب}}` citing ISNA) and 6 adds, every one of
-them genuinely unsourced — four carried only a `{{یادکرد-ویکی}}`. 1 deferred for review.
+## 12. How the source detector works
 
-Both fixes are visible in the output: «سیاستمدار مستقل» was refused as "banner crowding"
-in run 1 and is correctly tagged here, and no فرهنگستان-only page was touched.
+### 12.1 Source detection, from the prototype (`archive/task-15-research/classify.py`)
 
-Trial total so far: **16 edits, 1 wrong** (reverted by the operator, cause fixed and
-pinned by tests). Next batch: 50.
-
-### Run 3 — ۱۲ اکتبر ۲۰۲۶, `--as-me --live --limit 100`
-
-**118 edits** (102 adds, 16 removals) at the operator's request, bringing the trial to
-**134 edits** in total. Every one was audited individually against the live wikitext.
-
-| | adds | removals | wrong |
-|---|---|---|---|
-| runs 1–2, before the فرهنگستان fix | 11 | 5 | 1 («مولکول», reverted) |
-| runs 3, after it | 102 | 16 | **17 — see below** |
-
-**Defect found by auditing, not by any test: Hijri day pages.** fa has day pages in three
-calendars and `DATE_PAGE` covered only two, so «۱ محرم», «۲۷ رمضان», «۱۶ شعبان» and 14
-others were tagged — the same class §3.1 excludes because HujiBot وظیفهٔ ۷ *removed* this
-banner from date pages. All 17 were reverted
-(`scripts/archive/task15-revert-hijri-date-tags.py`, which refuses any page whose top
-line is no longer the banner it added) and the months are now in the rule and in the
-tests. Nothing in the unit tests could have caught it: the title pattern is the only
-thing that distinguishes a date page, and I had enumerated two calendars out of three.
-
-**Everything else held.** The 113 adds were checked against the rebuilt source features:
-0 false "unsourced". The 21 removals: 0 wrong apart from the already-reverted «مولکول».
-Renders spot-checked: no errors, and **no page landed in
-`رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو`** — the undated banners behaved as
-decision 7 intends. The report page carries 23 items in three kinds
-(ناسازگاری متن و نمایش ۲۰، شلوغی بنر ۲، یک منبع ۱).
-
-One audit false alarm worth recording: «چه کسی یهودی است؟» looked like a wrongly-tagged
-sourced page, but the edit was `{{بهبود منبع}}` — a §3.3 tier tag, where having 3 sources
-for 2,318 words is the precondition, not a contradiction. The audit script had stripped
-only `{{بدون منبع}}` and judged it against the wrong rule.
-
-### Pacing, measured ۱۲ اکتبر ۲۰۲۶
-
-The operator asked for 4 edits/minute for the trial. `PACE_LO` / `PACE_HI` (seconds)
-override the human account's 30–120s range for one run; with neither set the documented
-default still applies. The default is a COVER requirement, not a performance one, and
-relaxing it is the operator's call because it is his account —
-`lessons/api-and-permissions/pacing-is-the-users-call-not-a-constant.md`.
-
-**The configured gap is the sleep, not the cycle time.** `PACE_LO=12 PACE_HI=18` measured
-**2.5 edits/min**, with observed gaps of 21–32 s: each edit also costs roughly 9 s of API
-work — the pre-save render guard, `verify`'s own `action=parse`, the stop-page check
-before every write, and the post-save verification. For 4/min set `PACE_LO=4 PACE_HI=8`.
-
-`Mamouri` does not hold `noratelimit`, so a faster pace can still draw a server-side
-throttle; core sleeps and retries on `ratelimited`, so that costs a pause rather than a
-lost edit.
-
-**`getTargets` costs ~20 minutes before the first edit** at `--limit 100`, because it
-renders candidates until it has enough. That is why restarting a run to change the pace
-is usually slower than letting it finish. A frozen candidate list on disk, as وظیفهٔ ۱۴
-keeps, would remove it.
-
-## 12. Reference for the implementer
-
-### 12.1 Source detection, as prototyped (`archive/task-15-research/classify.py`)
-
-The prototype's logic, so a TypeScript port does not need the archive:
+The prototype's logic, recorded here so the TypeScript code doesn't depend on the archive:
 - **First strip** `<!-- … -->`. Template names are matched as
   `\{\{\s*([^{}|\n]+?)\s*(?:\||\}\})`, with `_` normalised to a space.
-- **Refs:** `<ref[\s>]` counts openings. The bodies are
-  `<ref(?:\s[^>]*)?>(.*?)</ref>` (dotall). A body is **یادکرد-ویکی-only** if it matches
-  `یادکرد-ویکی|cite wikipedia` and contains neither `http` nor another
-  `{{یادکرد …`/`{{cite …`. Real refs = bodies − ykw-only. A named reuse
-  `<ref name=…/>` is not a source.
+- **Refs:** `<ref[\s>]` counts openings. The bodies are `<ref(?:\s[^>]*)?>(.*?)</ref>`
+  (dotall). A body is **یادکرد-ویکی-only** if it matches `یادکرد-ویکی|cite wikipedia` and
+  contains neither `http` nor another `{{یادکرد …`/`{{cite …`. Real refs = bodies −
+  ykw-only. A named reuse `<ref name=…/>` is not a source.
 - **Citation templates outside refs:** names matching `^(یادکرد|cite|citation)`
   (case-insensitive), except یادکرد-ویکی / cite wikipedia.
 - **sfn family:** `^(پک|sfn|harv)`; `{{پک}}` is a redirect to `پانویس کوتاه‌شده`.
@@ -804,24 +766,32 @@ The prototype's logic, so a TypeScript port does not need the archive:
 - **ISBN:** `ISBN|شابک`.
 - **Sections:** split on `^(==+)\s*(.+?)\s*\1\s*$`. A references-type heading matches
   `منابع|منبع|پانویس|یادداشت|کتاب‌?شناسی|کتابنامه|پیوند به بیرون|پیوندهای بیرونی|جستارهای وابسته|مطالعه بیشتر|برای مطالعه|ارجاع|References|Notes|Bibliography|External|Further|See also|Sources`.
-  A **general reference** is a `^\*` line in such a section, longer than 15
-  characters, that is not یادکرد-ویکی.
-  - Note: `جستارهای وابسته` / See also is in that regex, but a see-also bullet is a
-    wikilink, not a source. The port should require the line to hold something other
-    than `[[…]]` links. Otherwise an internal see-also list would block a correct
-    بدون منبع.
+  A **general reference** is a `^\*` line in such a section, longer than 15 characters,
+  that is not یادکرد-ویکی.
+  - `جستارهای وابسته` / See also is in that regex, but a see-also bullet is a wikilink, not
+    a source. The port requires the line to hold something other than `[[…]]` links, or an
+    internal see-also list would block a correct بدون منبع.
 - **STRICT unsourced** = 0 `<ref`, 0 sfn, 0 cite templates outside refs, 0 URLs, 0
   general-ref lines, no ISBN, and not a `فهرست*` title.
-- **Prose words:** use task 10's `extractProse`/`countWords`, not the prototype. The
-  prototype stripped templates at any depth, galleries, math/poem/blockquote, refs,
+- **Prose words:** the port uses task 10's `extractProse`/`countWords`, not the prototype.
+  The prototype stripped templates at any depth, galleries, math/poem/blockquote, refs,
   tables, file/category links and list lines, then counted `[\u0600-\u06FF\u200c]+`.
 - **Render check** (`render_check.py`): `action=parse`, `prop=text|externallinks`.
-  - Count `id="cite_note-` in the HTML.
+  - Count `id="cite_note-` in the HTML. The prototype matched this literally, which finds
+    nothing: MediaWiki escapes the underscore, so the real markup is
+    `id="cite&#95;note-1"`. The port's `countRenderedRefs()` decodes first (§13 build log).
   - Ignore external links whose host matches
     `wikidata.org|wikimedia.org|wikipedia.org|geohack|toolforge|wmflabs|viaf.org|d-nb.info|id.loc.gov|isni|orcid|worldcat.org/identities|idref|bnf.fr|catalogo.bne|nla.gov.au|snaccooperative|nkp.cz|nlg.gr|ndl.go.jp|nukat|kb.nl|nli.org|libris|trove|musicbrainz|openstreetmap|geonames`.
   - Also ignore the «یافتن منابع» search links (Google search etc.).
   - Any other link means refuse. The list was missing bibliotheken.nl, nsk.hr and
-    kulturnav; refusing on those is safe, so extend the list only if it costs volume.
+    kulturnav. Refusing on those is safe, so the list only needs extending if it costs
+    volume.
+
+Since the «مولکول» fix the detector also has a second set of fields (`refs_sourcing`,
+`cite_outside_sourcing`, `http_external`, `genref_sourcing`) that leave out the فرهنگستان
+word list and links to other Wikipedias. Every decision and tier threshold uses those.
+The original fields are unchanged, so `source-detect.replay.ts` still checks the port
+against the prototype.
 
 ### 12.2 Categories each banner should produce
 
@@ -837,9 +807,9 @@ The prototype's logic, so a TypeScript port does not need the archive:
 
 ### 12.3 Redirects (live, ۱۰ اکتبر ۲۰۲۶)
 
-The full lists are in `docs/data/task-15/template-survey.json`. Resolve them live at run
-start (`list=backlinks&blfilterredir=redirects&blnamespace=10`) rather than trusting
-this table.
+The full lists are in `docs/data/task-15/template-survey.json`. The bot resolves them live
+at the start of a run (`list=backlinks&blfilterredir=redirects&blnamespace=10`) rather than
+relying on this list.
 - **بدون منبع** (11): درخواست یادکرد منبع, ذکر منبع, بدون مرجع, نیاز به منبع, بی منبع,
   درخواست یادکرد منابع, منبع کم, Unreferenced, بی‌منبع, منبع, فاقد منبع.
 - **پک** → `پانویس کوتاه‌شده`.
@@ -849,18 +819,19 @@ this table.
 - **AfD** `نظرخواهی برای حذف` ← پیشنهاد حذف, Afd, نبح.
 - **short description** `توصیف کوتاه` ← Short description, شرح مختصر.
 - **protection** `حص` ← محافظت, Pp*.
-- **dab** `ابهام‌زدایی` ← Disambig, Dab, رفع ابهام, … Prefer `pageprops.disambiguation`.
-- `بهبود منبع بخش` ← More citations needed section; `بخش بدون منبع زنده` ← BLP
-  unsourced section.
+- **dab** `ابهام‌زدایی` ← Disambig, Dab, رفع ابهام, … `pageprops.disambiguation` is
+  preferred.
+- `بهبود منبع بخش` ← More citations needed section; `بخش بدون منبع زنده` ← BLP unsourced
+  section.
 - **Do not exist on fa:** `کوتاه‌نوشت`, `کنترل مرجعیت`, `ح`, `چند مشکل`, any article
   dead-link banner.
 
 ### 12.4 Data files
 
-- `random-2000.json`: per-page features for the 2,000-article random sample (§2.2),
-  using the field names of `classify.py`: `refs`, `refs_real`, `refs_ykw_only`, `ykw`,
+- `random-2000.json`: per-page features for the 2,000-article random sample (§2.2), using
+  the field names of `classify.py`: `refs`, `refs_real`, `refs_ykw_only`, `ykw`,
   `cite_outside`, `sfn`, `http`, `genref_lines`, `isbn`, `fa_words`, `blp`, `tags`,
-  `infobox`, `big_unsourced_secs`, `latin_secs`. **Good regression fixtures:** the
+  `infobox`, `big_unsourced_secs`, `latin_secs`. These make good regression fixtures: the
   TypeScript detector should agree with the `strict` classification here.
 - `strict-unsourced-rendered.json`: the render check of the 212 STRICT pages, with
   `rendered_refs`, `ext`, `src_ext`.
@@ -868,78 +839,131 @@ this table.
 
 ## 13. Trial log
 
-Append one line per live run: date, `--limit`, edits made, kinds (add / remove / tier),
+One entry per live run: date, `--limit`, edits made, kinds (add / remove / tier),
 refusals by reason, bugs found and fixed.
 
-### Run 1 — ۱۲ اکتبر ۲۰۲۶, `--as-me --live --limit 10`
+### Build, ۱۲ اکتبر ۲۰۲۶ (dry runs only)
+
+`npm test` passed all 29 suites, the bundler checks passed, and `source-detect.replay.ts`
+passed on 1,988 of the 2,000 measured pages (12 had been edited since the fixture was taken
+and are skipped by timestamp).
+
+The build found four defects, none of which would have raised an error:
+
+1. **JavaScript's `\b` only understands ASCII**, so `/^یادکرد\b/`, `/\bشابک\b/`,
+   `/^فهرست\b/` and `=بخش\b` match nothing in Persian, while the Python prototype they came
+   from matched correctly. The first made every Persian citation template invisible, so a
+   fully sourced article read as having no sources and would have got a false
+   {{بدون منبع}}. It came up three times in this task. Check for `\b` next to a Persian
+   literal in any regex here.
+2. **`id="cite_note-` counts zero on every page.** MediaWiki escapes the underscore in id
+   attributes, so the real markup is `id="cite&#95;note-1"`. «جنگ کره» renders 46
+   references and matched none. Removals were only refused because of it, but on the add
+   path it turned off the render's check for references the wikitext scan missed, while
+   the external-link half kept working and made the check look alive.
+   `countRenderedRefs()` now decodes first.
+3. **A `<ref>` whose body is `<nowiki>`-escaped was read as empty**, losing a real source.
+   «پری» cites `<ref><nowiki>https://sid.ir/…</nowiki></ref>`. The detector now keeps two
+   views of the text of the same length: tags are found in the view with escaped text
+   blanked, so `<nowiki><ref>…</ref></nowiki>` correctly cites nothing, and bodies are read
+   from the view with only comments blanked. `refs_real` feeds the §3.3/§3.4 thresholds, so
+   an undercount there would put a wrong {{بهبود منبع}} on a properly cited article.
+4. **Date pages are not just bare numbers.** The first dry run proposed tagging «۴ تیر» and
+   «سده پنجم (میلادی)». HujiBot وظیفهٔ ۷ removed this banner from date pages, so adding it
+   back would reverse a community decision. Day, month, century, decade and millennium
+   forms are now all excluded. The ordinal requirement keeps real places such as «سده
+   لنجان» out.
+
+The port differs from the prototype on purpose in a few places, each checked page by page:
+the prototype counted see-also wikilinks as general references, counted citation templates
+inside `<ref>` a second time as "outside", missed a `{{شابک}}` inside a ref body, and used a
+case-sensitive URL regex that missed `Http://`. The replay compares the decision (no page
+may be called unsourced that the prototype called sourced), not the intermediate counts.
+
+### Run 1: ۱۲ اکتبر ۲۰۲۶, `--as-me --live --limit 10`
 
 8 edits: **5 adds** ({{بدون منبع}}: مس سرچشمه، زمان استاندارد هند، ساعت رسمی پاکستان،
-کدهای پرواز، روستا (ایالات متحده آمریکا)) and **3 removals** (زبان تامیلی، نوگرایی،
-مولکول). 2 deferred for review.
+کدهای پرواز، روستا (ایالات متحده آمریکا)) and **3 removals** (زبان تامیلی، نوگرایی، مولکول).
+2 deferred for review.
 
-**One edit in eight was wrong, and the operator reverted it.** «مولکول» had exactly one
-reference, `{{یادکرد فرهنگستان}}` — the Academy's approved-terms dictionary. That is a
-source for what the Persian word should be, not for anything the article says, so the
-article was still unsourced and the tag should have stayed. The other two removals were
-audited and are correct: «زبان تامیلی» has 12 sourcing references (Stein, Zvelebil,
-Ethnologue, Hart) and «نوگرایی» has 18. All five adds were audited and are genuinely
-unsourced; four of them carried only a `{{یادکرد-ویکی}}`.
+One edit was wrong and I reverted it. «مولکول» had one reference, `{{یادکرد فرهنگستان}}`,
+the Academy's approved-terms dictionary. That sources what the Persian word should be, not
+anything the article says, so the article was still unsourced. The other two removals were
+correct: «زبان تامیلی» has 12 sourcing references (Stein, Zvelebil, Ethnologue, Hart) and
+«نوگرایی» has 18. All five adds were genuinely unsourced; four of them had only a
+`{{یادکرد-ویکی}}`.
 
-**Fixed, with the operator's rule:** a reference that cites only the فرهنگستان word
-list, or only another Wikipedia, does not source the article's content. The detector now
-carries a second set of fields (`refs_sourcing`, `cite_outside_sourcing`,
-`http_external`, `genref_sourcing`) used by every decision and every tier threshold,
-while the original fields stay as they were so `source-detect.replay.ts` remains a real
-check against the research prototype. Consequence on the measured sample: 421 of 1,987
-pages are now strictly unsourced that the prototype called sourced, and sampling them
-confirms they are all pages whose only «source» is a `{{یادکرد-ویکی}}` holding an
-`en.wikipedia.org` URL. They do not change the live volume, because the add query
-already carries `-insource:"http"` — but they would if that prefilter were ever relaxed.
+I fixed it with a rule: a reference that cites only the فرهنگستان word list, or only
+another Wikipedia, does not source the article's content (the `*_sourcing` fields in
+§12.1). On the measured sample, 421 of 1,987 pages that the prototype called sourced are
+now strictly unsourced. The ones I sampled all had a `{{یادکرد-ویکی}}` holding an
+`en.wikipedia.org` URL as their only «source». They don't change the live volume, because
+the add query already has `-insource:"http"`, but they would if that filter were ever
+dropped.
 
-**A second defect, found by the fixtures rather than the wiki:** `bannerCount` counted
-every template in the opening 600 characters, so an article whose first sentence carried
-two `<ref>{{یادکرد کتاب}}</ref>` citations was read as having two maintenance banners and
-refused as "crowded" instead of being tagged. That was **12 of the first dry run's 22
-refusals**. It now counts only the leading run of templates, stopping at the infobox and
-skipping hatnotes and توصیف کوتاه.
+The fixtures found a second defect. `bannerCount` counted every template in the first 600
+characters, so an article whose first sentence had two `<ref>{{یادکرد کتاب}}</ref>`
+citations was read as having two maintenance banners and refused as "crowded". That was
+12 of the first dry run's 22 refusals. It now counts only the run of templates at the
+start (§4).
 
-### Build log
+### Run 2: ۱۲ اکتبر ۲۰۲۶, `--as-me --live --limit 12`, after the fixes
 
-**۱۲ اکتبر ۲۰۲۶ — built, dry runs only.** `npm test` 29 suites green, bundler gates
-green, `source-detect.replay.ts` green over 1,988 of the 2,000 measured pages (12 were
-edited after the fixture was taken and are skipped by timestamp).
+**8 edits, all correct**, each checked. 2 removals («شوشتر», 40 sourcing references;
+«حزب خلق اتریش», 2 `{{یادکرد وب}}` citing ISNA) and 6 adds, all genuinely unsourced; four
+had only a `{{یادکرد-ویکی}}`. 1 deferred for review.
 
-Four defects the build found, each of which would have shipped silently:
+Both fixes show in the output: «سیاستمدار مستقل», refused as "banner crowding" in run 1,
+was tagged correctly, and no فرهنگستان-only page was touched.
 
-1. **JavaScript's `\b` is ASCII-only**, so `/^یادکرد\b/`, `/\bشابک\b/`, `/^فهرست\b/` and
-   `=بخش\b` all match **nothing** in Persian, while the Python prototype they were ported
-   from matched correctly. The first of those made every Persian citation template
-   invisible, i.e. a fully sourced article read as having zero sources — a false
-   {{بدون منبع}} on exactly the pages that would most embarrass the bot. It recurred
-   three times in this task; grep for `\b` beside a Persian literal before trusting any
-   regex here.
-2. **`id="cite_note-` counts zero on every page.** MediaWiki escapes the underscore in id
-   attributes, so the real markup is `id="cite&#95;note-1"`. §12.1 specifies the naive
-   pattern and it is wrong. «جنگ کره» renders 46 references and matched none. The damage
-   was one-directional and therefore quiet: stale removals were merely refused, but on
-   the add path it disabled the render's second opinion about references — the check that
-   exists to catch a reference the wikitext scan missed — while the external-link half
-   kept working and made the guard look alive. `countRenderedRefs()` now decodes first.
-3. **A `<ref>` whose body is `<nowiki>`-escaped was read as empty**, dropping a real
-   source. «پری» cites `<ref><nowiki>https://sid.ir/…</nowiki></ref>`. The detector now
-   keeps two length-aligned views of the text: tags are located in the escaped-blanked
-   view, so `<nowiki><ref>…</ref></nowiki>` correctly cites nothing, while bodies are read
-   from the comment-blanked view. `refs_real` feeds the §3.3/§3.4 thresholds, so an
-   undercount there is a wrong {{بهبود منبع}} on a properly cited article.
-4. **Date pages are not just bare numbers.** The first dry run proposed tagging «۴ تیر»
-   and «سده پنجم (میلادی)». HujiBot وظیفهٔ ۷ *removed* this banner from date pages, so
-   adding it back reverts a community decision. Day, month, century, decade and
-   millennium forms are now all excluded, with the ordinal requirement keeping real
-   places such as «سده لنجان» out of the pattern.
+Trial total at this point: 16 edits, 1 wrong (reverted, cause fixed and covered by tests).
 
-Deliberate differences from the research prototype, each verified page by page rather
-than assumed: the prototype counted see-also wikilinks as general references, counted
-citation templates inside `<ref>` a second time as "outside", missed a `{{شابک}}` inside
-a ref body, and used a case-sensitive URL regex that missed `Http://`. The replay gates
-on the DECISION — no page may be called unsourced that the prototype called sourced —
-rather than on the intermediate counts.
+### Run 3: ۱۲ اکتبر ۲۰۲۶, `--as-me --live --limit 100`
+
+**118 edits** (102 adds, 16 removals), which I asked for, bringing the trial to 134 edits.
+I checked each one against the live wikitext.
+
+| | adds | removals | wrong |
+|---|---|---|---|
+| runs 1–2, before the فرهنگستان fix | 11 | 5 | 1 («مولکول», reverted) |
+| runs 3, after it | 102 | 16 | **17, see below** |
+
+**Hijri day pages.** fa has day pages in three calendars and `DATE_PAGE` covered only two,
+so «۱ محرم», «۲۷ رمضان», «۱۶ شعبان» and 14 others were tagged. §3.1 excludes date pages
+because HujiBot وظیفهٔ ۷ removed this banner from them. I reverted all 17 with
+`scripts/archive/task15-revert-hijri-date-tags.py`, which refuses any page whose top line
+is no longer the banner it added, and added the months to the rule and the tests. Unit
+tests could not have caught this: the title pattern is the only thing that marks a date
+page, and I had listed two calendars out of three.
+
+Everything else was right. The 113 adds were checked against the rebuilt source features:
+none were wrongly called unsourced. Of the 21 removals, only the already-reverted
+«مولکول» was wrong. In the renders I checked there were no errors, and no page landed in
+`رده:مقاله‌های دارای پارامتر تاریخ نادرست در الگو`, so the undated banners behaved as
+decision 7 intended. The report page had 23 items in three kinds (ناسازگاری متن و نمایش
+۲۰، شلوغی بنر ۲، یک منبع ۱).
+
+«چه کسی یهودی است؟» looked like a sourced page tagged by mistake, but the edit was
+`{{بهبود منبع}}`, a §3.3 tier tag, where 3 sources for 2,318 words is the reason for the
+tag. The audit script had only stripped `{{بدون منبع}}` and judged it by the wrong rule.
+
+### Pacing, measured ۱۲ اکتبر ۲۰۲۶
+
+I wanted 4 edits a minute for the trial. `PACE_LO` / `PACE_HI` (seconds) override my
+account's 30–120 s range for one run; with neither set, the default applies. The default
+is there so that edits from my account look like a person's, and since it is my account,
+relaxing it is my decision
+(`lessons/api-and-permissions/pacing-is-the-users-call-not-a-constant.md`).
+
+The setting is the sleep, not the time between edits. `PACE_LO=12 PACE_HI=18` measured
+**2.5 edits/min**, with gaps of 21–32 s, because each edit also takes about 9 s of API
+work: the pre-save render, `verify`'s own `action=parse`, the stop-page check before every
+write, and the check after saving. For 4/min, set `PACE_LO=4 PACE_HI=8`.
+
+`Mamouri` does not have `noratelimit`, so a faster pace can still hit a server-side
+throttle. Core sleeps and retries on `ratelimited`, so that costs a pause, not an edit.
+
+**`getTargets` takes about 20 minutes before the first edit** at `--limit 100`, because it
+renders candidates until it has enough. So restarting a run to change the pace is usually
+slower than letting it finish. A frozen candidate list on disk, as وظیفهٔ ۱۴ keeps, would
+remove that wait.

@@ -1,39 +1,38 @@
 # How to build a MamouriBot task
 
-The conventions, the contract, and the traps. Every rule below has a failure behind it;
-where the failure is recent and specific it is named, because a rule whose cost you can
-see is one you will follow.
+The conventions, the `BotTask` interface, and the mistakes I have already made with it.
+Where a rule comes from a specific failure, the failure is named.
 
 Read first: `../README.md` (layout, running, vendored helpers), `TOOLFORGE.md` (deployment),
-`PACING.md` (why the bot waits what it waits). The repository-wide rules — Persian on-wiki,
-no AI attribution, work on `main` — are in the companion repo's `AGENTS.md` and are not
-repeated here.
+`PACING.md` (how the bot decides how long to wait). The rules for the whole companion
+repository (Persian on the wiki, work on `main`) are in its `AGENTS.md` and are not repeated
+here.
 
 ---
 
 ## 0. Before writing any code
 
-1. **Find the BRFA number and confirm it on-wiki.** Enumerate
+1. **Find the permission-request number and confirm it on the wiki.** List
    `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/` and read the request for the number
-   you think you want. A `task-NN/` directory in this repo is a *filing decision*, not an
-   approval: `src/tasks/task-04/citation-dedup-accessdate.ts` says "Task 4 (addition)" in
-   its own header and was never filed anywhere, which once led to telling a reviewer that
-   work was covered by a permission that did not cover it. See
+   you have in mind. A `task-NN/` directory in this repository is a filing decision, not an
+   approval. `src/tasks/task-04/citation-dedup-accessdate.ts` says "Task 4 (addition)" in
+   its header and was never filed anywhere, and I once told a reviewer that work was
+   covered by a permission that did not cover it. See
    `lessons/api-and-permissions/repo-folder-is-not-the-approved-scope.md`.
-2. **Read the request's `===بحث===` section, not just the proposal.** وظیفهٔ ۱۲ was
-   declined with three specific requests attached; working from the proposal alone would
-   have missed all of them, and one of them was already satisfied.
-3. **Check whether the thing is approved, and for what scope.** If the task is unapproved,
-   or your work widens an approved scope, it runs under `--as-me` (the human operator) and
-   not as the bot, until the request says otherwise.
-4. **Measure the population before designing.** Sample a few hundred real pages and
-   classify them. Every design decision below gets easier with a distribution in hand, and
-   the estimates in a hand-written spec are usually wrong: a spec saying "~4% already have
-   the box, ~95% have the exact section" measured out at 6.3% and 89.5%.
+2. **Read the request's `===بحث===` section as well as the proposal.** وظیفهٔ ۱۲ was held
+   back with three specific requests attached. Working from the proposal alone would have
+   missed all three, and one of them was already done.
+3. **Check whether the task is approved, and for what scope.** If it is not approved, or
+   your work goes beyond the approved scope, run it under `--as-me` (my own account) rather
+   than as the bot until the request says otherwise.
+4. **Measure the pages before designing.** Sample a few hundred real pages and sort them
+   into cases. Every decision below is easier with real numbers, and estimates in a
+   hand-written spec are usually wrong: one spec said "~4% already have the box, ~95% have
+   the exact section", and the measured figures were 6.3% and 89.5%.
 
 ## 1. Where the files go
 
-The BRFA number is the index across the whole tree, zero-padded:
+The permission-request number, zero-padded, ties the files together:
 
 ```
 src/tasks/task-NN/<name>.ts          the BotTask
@@ -43,18 +42,18 @@ docs/task-NN-<name>.md               what it does, decisions, open defects
 toolforge/task-NN-<name>/            run.sh + jobs.yaml for deployment
 ```
 
-Register the task in `src/run.ts`'s `TASKS` map. That is the whole wiring; `run.ts` gives
-you dry-run-by-default, `--live`, `--as-me`, `--limit`, `--delay` and `--check` for free.
+Register the task in the `TASKS` map in `src/run.ts`. That is all the wiring there is.
+`run.ts` gives you dry run by default, `--live`, `--as-me`, `--limit`, `--delay` and
+`--check`.
 
-**A new task never needs a new Toolforge tool.** There is exactly one, `mamouribot`, and
-a task lives in it as a directory and a job. The quota is nowhere near: 4 of 50 cron
-definitions used on ۸ اکتبر ۲۰۲۶. See `TOOLFORGE.md`.
+A new task does not need a new Toolforge tool. There is one, `mamouribot`, and each task is
+a directory and a job inside it. The quota is far from full: 4 of 50 cron definitions were
+in use on ۸ اکتبر ۲۰۲۶. See `TOOLFORGE.md`.
 
-`archive/` is git-ignored and is where one-off probes, measurement scripts and
-differential checks belong. They are not part of the build and `tsconfig.json` excludes
-them deliberately.
+`archive/` is git-ignored and holds one-off probes, measurement scripts and comparison
+checks. They are not part of the build, and `tsconfig.json` excludes them.
 
-## 2. The contract
+## 2. The interface
 
 ```ts
 export interface BotTask {
@@ -74,246 +73,251 @@ export interface BotTask {
 }
 ```
 
-### `summary` — this is on-wiki text
+### `summary`: this text appears on the wiki
 
-Persian, first person where it reads naturally, describing **the content change only**.
-Never the script, the batch, the migration or the task machinery. Keep it under ~150
-characters: AbuseFilter 221 warns on long summaries, and a `warn` clears by re-submitting
-once, which `core.ts` already handles.
+Write it in Persian, in the first person where that reads naturally, and describe only the
+change to the content. Don't mention the script, the batch, the migration or how the task
+works. Keep it under about 150 characters: AbuseFilter 221 warns on long summaries, and a
+warning clears when the edit is submitted again, which `core.ts` already does.
 
-**Do not write the task number into it.** `core.ts` prefixes every bot edit with a link to
-the permission that authorises it, built from `taskNumber`:
+Don't put the task number in it. `core.ts` starts every bot edit summary with a link to the
+permission that covers it, built from `taskNumber`:
 
 ```
 [[ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۳|ربات]]: <your summary>
 ```
 
-That is the convention both wikis actually use, sampled from live recent changes on
-۸ اکتبر ۲۰۲۶: of 500 en.wikipedia bot edits, **zero** wrote "Task N" as text and 211
-linked the approval on the word "Bot" (`[[Wikipedia:Bots/Requests for approval/VWF bot 6|Bot]]: …`).
-fa is the same shape — `[[ویکی‌پدیا:رده‌دهی مقالات همسنگ|ربات]]: …` from HujiBot,
-`[[وپ:دار|ربات: انتقال رده]] …` from Dexbot. A bare number tells a reader nothing; a link
-takes them to the approval in one click and costs the same characters.
+That is how bots on both wikis do it. I sampled live recent changes on ۸ اکتبر ۲۰۲۶: of 500
+en.wikipedia bot edits, none wrote "Task N" as text, and 211 linked the approval on the word
+"Bot" (`[[Wikipedia:Bots/Requests for approval/VWF bot 6|Bot]]: …`). fa follows the same
+pattern: `[[ویکی‌پدیا:رده‌دهی مقالات همسنگ|ربات]]: …` from HujiBot, `[[وپ:دار|ربات: انتقال رده]] …`
+from Dexbot. A bare number tells a reader nothing, while a link takes them to the approval
+in one click for the same number of characters.
 
-`core.ts` handles three things you do not have to:
+`core.ts` also handles these:
 
-- a summary already starting «ربات:» is not given it twice;
-- the permission page is checked ONCE per run, and the link is dropped with a warning if
-  it does not exist — otherwise an unfiled task would put a **red link in every summary**,
-  which nothing else here checks for. وظیفهٔ ۱۳ and ۱۴ are in that state today;
-- a `--as-me` run never carries the link, because those are not bot edits and usually
-  exist precisely because the bot is *not* approved for the scope yet. Claiming the
-  permission there would be a false statement about who made the edit.
+- a summary that already starts with «ربات:» doesn't get it twice;
+- the permission page is checked once per run, and if it does not exist the link is left
+  out with a warning. Otherwise an unfiled task would put a red link in every summary, and
+  nothing else here checks for that. وظیفهٔ ۱۳ and ۱۴ are in that state today;
+- a `--as-me` run never gets the link. Those edits are not bot edits, and they usually
+  happen because the bot is not yet approved for that scope, so linking the permission
+  would misstate who made the edit.
 
 See `src/brfa.ts`.
 
-### `getTargets` — also the right place for bulk network work
+### `getTargets`: also where bulk network work goes
 
-It is `async` and runs once before anything else, which makes it the only hook that can do
-batched lookups. وظیفهٔ ۱۲ resolves every link target there — one `prop=langlinks` request
-covers 40 targets shared across dozens of articles — caches the answers, and returns only
-the pages that have an applicable repair. `transform` is then pure, which is what makes
-offline tests possible at all.
+It is `async` and runs once before anything else, so it is the only place that can do
+batched lookups. وظیفهٔ ۱۲ looks up every link target there (one `prop=langlinks` request
+covers 40 targets shared across dozens of articles), caches the answers, and returns only
+the pages that have something to fix. `transform` then needs no network, which is what
+makes offline tests possible.
 
-Take selectors from **environment variables**, not argv: the shell mangles Persian titles
-passed as arguments, and a 30-page run became 41 pages that way. Established names:
-`TARGET_TITLES` (pipe-separated), `TARGET_FILE` (JSON list or one per line),
-`TARGET_CATEGORY`, `TARGET_TRANSCLUDING`, `TARGET_CAP`.
+Take page selectors from environment variables, not command-line arguments. The shell
+mangles Persian titles passed as arguments, and a 30-page run once became 41 pages that way.
+The names in use are `TARGET_TITLES` (pipe-separated), `TARGET_FILE` (JSON list or one per
+line), `TARGET_CATEGORY`, `TARGET_TRANSCLUDING` and `TARGET_CAP`.
 
-Derive a candidate cap from `bot.opts.limit` rather than enumerating everything. One task's
-search terms matched ~340,000 pages, which is fourteen minutes of enumeration before the
+Work out a cap on candidates from `bot.opts.limit` instead of listing everything. One task's
+search terms matched about 340,000 pages, which took fourteen minutes to list before the
 first edit.
 
-### `transform` — pure, synchronous, and must be able to say "no"
+### `transform`: no network, no waiting, and able to say no
 
-Return `changed: false` for anything you are not certain about. `manualReview: true` marks
-it as needing a human and feeds the counter in the run summary. **Leaving a defect in place
-is always better than guessing at it**, and a task that cannot say no is not approvable.
+Return `changed: false` for anything you are not sure of. `manualReview: true` marks a page
+as needing a person and adds it to the count in the run summary. Leaving a defect in place
+is always better than guessing, and a task that can never decline is not one I can get
+approved.
 
-Never rewrite a whole article. Splice the minimum.
+Don't rewrite a whole article. Change the smallest part you can.
 (`lessons/scripts-and-batch/never-wholesale-replace-article.md`)
 
-### `verify` — your task's own risk, checked PRE-save
+### `verify`: check the task's own risk before saving
 
 `core.ts` already counts CS1 and Lua errors before and after. If your task's real risk is
-something else, that belongs here. وظیفهٔ ۱۲'s risk is red links — `countErrorMarkers`
-counts neither — so it renders both versions and refuses the edit if content red links
-rose.
+something else, check it here. For وظیفهٔ ۱۲ the risk is red links, which
+`countErrorMarkers` does not count, so it renders both versions and refuses the edit if the
+number of content red links went up.
 
-**Pre-save, not post-save.** The Python version of that task wrote the page, re-rendered
-it, and aborted the *run* if red links had risen — leaving the bad edit live on the article
-it had just damaged.
+Check before saving. The Python version of that task saved the page, rendered it again,
+and stopped the run if red links had gone up, which left the bad edit on the article.
 
-### `report` — publishing what the task refused to do
+### `report`: publish what the task declined to do
 
-A task that declines work silently is indistinguishable from a task with nothing to do.
-وظیفهٔ ۱۱ ran live, set 119 items aside, and left its report page still saying the bot had
-not run yet. The refusals are the part a human acts on.
+A task that declines work without saying so looks the same as a task with nothing to do.
+وظیفهٔ ۱۱ ran live, set 119 items aside, and its report page still said the bot had not run
+yet. The declined items are the ones a person needs to act on.
 
-**If the page is cumulative, it needs a store, and the store needs a guard.** Publishing a
-cumulative page is a wholesale replacement of a worklist built over many runs. A run from a
-laptop whose state directory had no copy of the store took a 41,646-byte page down to 972
-bytes and lost all 38 articles on it, because `loadStore()` returning `[]` means both
-"nothing pending" and "no copy here". Distinguish those two, and refuse to overwrite when
-the store is absent. See `src/tasks/task-03/review-store.ts`.
+If the report page builds up over many runs, it needs a stored copy of the list, and the
+code must check that the stored copy is there. Publishing such a page replaces a list built
+over many runs. A run from a laptop whose state directory had no copy of the list cut a
+41,646-byte page down to 972 bytes and lost all 38 articles on it, because `loadStore()`
+returned `[]` both for "nothing pending" and for "no copy here". Tell those two apart, and
+refuse to publish when the copy is missing. See `src/tasks/task-03/review-store.ts`.
 
-Two more things that page taught: **wrap URL values in `<nowiki>`** (the spam blacklist
-refused the save because the values quoted `archive.today`, and the page was also
-generating 164 live external links), and **a quoted em dash is not yours** — the publish
-gate rightly rejects `—` in authored Persian, but a value quoted verbatim from an article
-may contain one, so emit it as an entity rather than changing the quotation.
+The same page showed two more things. Wrap URL values in `<nowiki>`: the spam blacklist
+refused the save because the values quoted `archive.today`, and the page was also creating
+164 live external links. And a quoted em dash has to be kept: the publish check correctly
+rejects `—` in Persian I write, but a value quoted from an article may contain one, so
+write it as an HTML entity instead of changing the quotation.
 
-## 3. What `core.ts` already does — do not reimplement
+## 3. What `core.ts` already does
 
-Identity (`assert=user` + `assertuser`, re-login on `assertuserfailed`), `maxlag` with
-`Retry-After` honoured, the pacer, `{{nobots}}`, the on-wiki stop page, the resume
-checkpoint, edit-conflict protection via `baserevid`, the abuse-filter re-submit, `Ctrl-C`
-finishing the current page, post-save render verification with self-revert, the
-concurrent-run rate sharing, and the permission link on every edit summary.
+Identity (`assert=user` + `assertuser`, logging in again on `assertuserfailed`), `maxlag`
+and `Retry-After`, the pacing, `{{nobots}}`, the stop page on the wiki, the resume
+checkpoint, edit-conflict protection via `baserevid`, resubmitting after an AbuseFilter
+warning, `Ctrl-C` finishing the current page, checking the render after saving and
+reverting itself if needed, sharing the edit rate between runs, and the permission link in
+every edit summary.
 
-Re-implementing any of it is what the وظیفهٔ ۱۲ review objected to: «یک سری مسائلی که از
-پیش حل شده را دوباره دارید حل می‌کنید».
+Don't write any of these again. Doing that was what Huji objected to in the وظیفهٔ ۱۲
+review: «یک سری مسائلی که از پیش حل شده را دوباره دارید حل می‌کنید».
 
-Cross-wiki reads go through `bot.apiGetOn(API, params)` so the UA, retry and burst gate
-cannot drift from the main client. The UA is identity-sensitive: the bot self-identifies,
-the human account uses the browser string, and `core.ts` picks the right one.
+Reads from other wikis go through `bot.apiGetOn(API, params)`, so the user agent, retries
+and request limits stay the same as the main client. The user agent depends on the account:
+the bot identifies itself, my own account uses the browser string, and `core.ts` picks the
+right one.
 
 ## 4. Tests
 
-Plain `tsx` scripts that exit non-zero on failure — no framework. `npm test` walks `src/`
-and runs **every `*.test.ts`** and **every `test_*.py`**, and nothing in that run may touch
-the network. Files named `*.trial.ts` or `*.replay.ts` are deliberately excluded: they need
-the network and are kept beside the task as the evidence it was verified with.
+Tests are plain `tsx` scripts that exit non-zero on failure, with no framework. `npm test`
+goes through `src/` and runs every `*.test.ts` and every `test_*.py`, and none of them may
+use the network. Files named `*.trial.ts` or `*.replay.ts` are left out because they need
+the network; they stay beside the task as the record of how it was checked.
 
-Write the test for the boundary, not the happy path. The useful ones here are all of the
-form "this exact input must NOT be changed":
+Test the edges rather than the normal case. The useful tests here all say "this exact input
+must not change":
 
 - a `File:`/`رده:`/interwiki link is never touched
 - a `px` size is not mistaken for an English label
-- `page` and `pages` are different fields and must both survive
-- a lone valid parameter is left alone, because renaming it would be cosmetic churn on
-  every citation on the wiki
+- `page` and `pages` are different fields and both must survive
+- a single valid parameter is left alone, because renaming it would be a cosmetic change
+  on every citation on the wiki
 
-**A zero needs a positive control.** A sweep reporting "no defects found" and a sweep that
-exited early look identical. One dry run here returned zero candidates and the cause was an
-empty category, which is only knowable by checking that the selector matches *something*.
+Check that a zero result is real. A sweep that found no defects and a sweep that stopped
+early look the same. One dry run here found no candidates because the category was empty,
+and the only way to know is to check that the selector matches something.
 (`lessons/verification-and-gates/a-zero-needs-a-positive-control.md`)
 
-**When porting, diff against the original.** The وظیفهٔ ۱۲ port was checked over 120 real
-articles with the network stubbed by deterministic fixtures: detection 827 findings and
-120/120 pages byte-identical, resolution 133/133 targets identical including the review
-reason strings, rewrite 202 links and 120/120 identical. Unit tests would not have caught a
-regex that anchors differently between Python and JavaScript.
+When porting, compare against the original. I checked the وظیفهٔ ۱۲ port on 120 real
+articles with the network replaced by fixed test data: finding links gave 827 results and
+120 of 120 pages byte-identical, deciding gave 133 of 133 targets identical including the
+reasons, and rewriting changed 202 links with 120 of 120 pages identical. Unit tests would
+not have caught a regex that anchors differently in Python and JavaScript.
 
-## 5. The publish gate
+## 5. The publish check
 
 ```ts
 import { gateOrThrow } from '../../lib/gates.js';   // or checkWikitext for the list
 gateOrThrow(title, wikitext);
 ```
 
-Every check in `gates.py` corresponds to a defect that already shipped to a live page, and
-**none of them raises an error on-wiki** — no CS1 error, no tracking category, no red link
-— so they cannot be found by testing or by reading the render.
+Every check in `gates.py` comes from a defect that already reached a live page, and none of
+them shows an error on the wiki (no CS1 error, no tracking category, no red link), so they
+can't be found by testing or by reading the rendered page.
 
-Run it before **every** publish, not just article edits. The script that replaced ten
-on-wiki code pages did not call it and shipped em dashes to all ten.
+Run it before every publish, not only article edits. The script that replaced ten code
+pages on the wiki did not call it and put em dashes on all ten.
 (`lessons/verification-and-gates/gate-is-for-every-publish-not-just-articles.md`)
 
-For pages carrying thousands of inherited defects, gate the **diff** rather than the text:
-report only problems the edit introduces. A whole-text gate on those pages blocks every
-edit and tempts someone to add a skip flag, which is how a real check gets switched off.
-See `rewrite.ts::gateDiff` in `src/tasks/task-12/`.
+On pages that already carry thousands of old problems, check only what the edit changes
+and report only the problems it adds. Checking the whole text on those pages blocks every
+edit, and sooner or later someone adds a flag to skip the check. See `rewrite.ts::gateDiff`
+in `src/tasks/task-12/`.
 
-## 6. Verify by rendering, and know which render
+## 6. Check by rendering, and know which render you are looking at
 
 ```
 action=parse&prop=text|categories   then grep for
   scribunto-error   class="error   cs1-visible-error   redlink=1   نامعلوم
 ```
 
-`class="` must be part of the pattern: the bare name also appears in the TemplateStyles
-block that defines its colour, giving every page a constant phantom error count.
+Include `class="` in the pattern. The bare class name also appears in the TemplateStyles
+block that sets its colour, which gives every page the same false error count.
 
-**`parse&page=`/`&oldid=` and `parse&text=` disagree on identical bytes.** Measured: the
-same 108,226 bytes gave 4 `cs1-visible-error` spans by `oldid=` and 2 by `text=`. A
-pre-save check has no revision to parse, so it can only use `text=` — which is exactly why
-وظیفهٔ ۳ has a post-save guard that self-reverts, and why a defect it chases is not
-reproducible offline. Never conclude a parameter name or value works by reading a config
-table; render it and look.
+`parse&page=`/`&oldid=` and `parse&text=` can give different results for the same text.
+The same 108,226 bytes gave 4 `cs1-visible-error` spans with `oldid=` and 2 with `text=`. A
+check before saving has no revision to parse, so it can only use `text=`. That is why
+وظیفهٔ ۳ also checks after saving and reverts itself, and why the defect that check looks
+for can't be reproduced offline. Don't decide that a parameter name or value works by
+reading a configuration table; render it and look.
 
 ## 7. Bundling and deployment
 
-`npm run bundle` — never esbuild by hand. The `__BUNDLED__` define is not optional, and the
-builder asserts it took effect. Read `TOOLFORGE.md` before deploying; its four gotchas
-(jobs start in the tool home, job logs append, `node` is absent from the bastion, esbuild
-escapes non-ASCII so grepping a bundle for Persian finds nothing) each cost a debugging
-round.
+Use `npm run bundle`, never esbuild by hand. The bundle needs the `__BUNDLED__` define, and
+the build script checks that it took effect. Read `TOOLFORGE.md` before deploying. Each of
+its four warnings (jobs start in the tool home, job logs append, `node` is not installed on
+the bastion, esbuild escapes non-ASCII so a bundle can't be searched for Persian text) cost
+me a round of debugging.
 
-A task registered in `run.ts` needs **no** bundle entry: it is already inside
-`dist/bot-run.mjs`. Add an entry only for a separate on-box job, and then it needs a thin
-CLI file calling `run()` **unconditionally** — inside a solo bundle `isMain()` is false
-everywhere, so a guarded `main()` never runs and the job exits 0 having done nothing.
+A task registered in `run.ts` needs no bundle entry of its own, because it is already in
+`dist/bot-run.mjs`. Add an entry only for a separate job on the tool, and give it a small
+CLI file that calls `run()` without any condition. Inside a single-file bundle `isMain()` is
+always false, so a `main()` behind that check never runs and the job exits 0 having done
+nothing.
 
-Import JSON data (`import names from './data/names.json' with { type: 'json' }`) rather
-than reading it from disk, so it survives bundling; `import.meta.url` inside a bundle
-resolves to `dist/`. Allow an env override for data a human curates, so the
-report-add-names-rerun loop does not need a rebuild each time.
+Import JSON data (`import names from './data/names.json' with { type: 'json' }`) instead of
+reading it from disk, so it ends up in the bundle; inside a bundle `import.meta.url` points
+to `dist/`. Allow an environment variable to override data I maintain by hand, so that the
+cycle of reading the report, adding names and running again does not need a rebuild each
+time.
 
 ## 8. Getting it approved
 
-1. **Dry run** and read the diffs. `--limit 20` first.
+1. **Dry run** and read the diffs, with `--limit 20` first.
 2. **Measure**, then write the request from the measurements. Copy the structure of the
-   last accepted request verbatim; machine-uniform formatting is what exposes an agent,
-   not the prose. The task's sub-sections must be `===`, never `==`, because the page is
-   transcluded into the request queue where a `==` becomes a sibling of the request itself.
+   last accepted request. The task's subsections must be `===`, never `==`, because the page
+   is transcluded into the request queue, where a `==` heading sits at the same level as the
+   request itself.
    (`lessons/api-and-permissions/brfa-subsection-must-be-level-three.md`)
-3. **Trial under `--as-me`** if the scope is not yet approved. Those edits are not bot
-   edits: unflagged, visible in recent changes, paced to the human 30–120s.
-4. **Report the trial honestly**, including what went wrong. State the regression rate, the
-   cause if known and that it is unknown if not, and every deviation from what the request
-   described. A reviewer finds these anyway, and being caught understating one costs more
-   than the admission.
-5. The talk gate helps: `gates.check_talk_reply()` enforces a 400-word prose cap and
-   catches bold-only pseudo-headings. It will make you cut, and the cut version is better.
+3. **Trial under `--as-me`** if the scope is not approved yet. Those are not bot edits: they
+   are unflagged, show in recent changes, and are paced at the human 30–120s.
+4. **Report the trial in full**, including what went wrong: how often it made things worse,
+   the cause if I know it and that I don't if I don't, and every way the run differed from
+   the request. A reviewer will find these anyway, and being caught playing one down costs
+   more than saying it.
+5. `gates.check_talk_reply()` limits the prose to 400 words and catches bold lines used as
+   headings. It usually makes me cut, and the shorter version reads better.
 
-Drafts go to the companion repo's `drafts/` and are **not posted** by the agent.
+Drafts go in the companion repository's `drafts/`, and I post them myself.
 
-## 9. Traps that are not about bot code
+## 9. Mistakes that have nothing to do with bot code
 
-- **The git index is shared.** Several agents work this one checkout. `git rm` stages into
-  that shared index, and another agent's commit swept a deletion of mine into their commit
-  with an unrelated message. Never use a directory-wide `git add`; stage explicit paths.
-  Once I staged another agent's untracked work by running `git add scripts/archive/`.
-- **Work on `main`.** Do not branch; the other agents will not see it.
-- **`.gitignore` has a blanket `data/` rule** in the companion repo. A 357-entry
-  hand-curated name table lived in `scripts/linkfix/data/` and was therefore in **no commit
-  anywhere** — only on one laptop. Check `git ls-files` on any data file you are relying on.
-- **Don't take article titles from WDQS `schema:name`** — it strips the ZWNJ. Zero of
-  17,271 Persian settlement titles came back containing U+200C, against 58 of 400 via the
-  Wikidata API. Every such title then 404s, so the symptom presents as "14% of candidate
-  articles are missing", which is believable enough to act on. Use
-  `wbgetentities&props=sitelinks`.
-- **A Persian heading has variants.** `== جمعیّت ==` with a shadda is visually
-  near-identical to `== جمعیت ==` and misses an exact-match regex, so a bot that "creates
-  the section when missing" gives those articles two. Likewise a heading can be wrapped in
+- **The git index is shared.** Several sessions work in the companion repository's one
+  checkout at the same time. `git rm` stages into that shared index, and another commit once
+  picked up a deletion of mine under an unrelated message. Don't use `git add` on a whole
+  directory; stage the paths you mean. I once staged someone else's untracked work by
+  running `git add scripts/archive/`.
+- **Work on `main`.** Don't branch, or the other sessions won't see the work.
+- **The companion repository's `.gitignore` ignores every `data/` directory.** A hand-made
+  table of 357 names lived in `scripts/linkfix/data/` and so was in no commit at all, only
+  on one laptop. Run `git ls-files` on any data file you depend on.
+- **Don't take article titles from WDQS `schema:name`.** It strips the ZWNJ. None of 17,271
+  Persian settlement titles came back with U+200C, against 58 of 400 through the Wikidata
+  API. Every such title then returns 404, so it looks like "14% of candidate articles are
+  missing", which is believable enough to act on. Use `wbgetentities&props=sitelinks`.
+- **A Persian heading can be spelled more than one way.** `== جمعیّت ==` with a shadda looks
+  almost the same as `== جمعیت ==` but does not match an exact regex, so a bot that "adds
+  the section when it is missing" gives those articles two. A heading can also be wrapped in
   a wikilink.
-- **A substring is not a structural test.** Checking for `جمعیت تاریخی` matches the words in
-  prose as well as the template call.
+- **Finding a substring does not tell you the structure.** Searching for `جمعیت تاریخی`
+  matches the words in ordinary text as well as the template call.
 
 ## 10. Checklist
 
-- [ ] BRFA number confirmed on-wiki, and the `بحث` section read
-- [ ] population measured on a real sample, not estimated
+- [ ] permission-request number confirmed on the wiki, and the `بحث` section read
+- [ ] pages measured on a real sample, not estimated
 - [ ] `src/tasks/task-NN/`, tests beside it, registered in `run.ts`
-- [ ] `docs/task-NN-*.md` records what it does and every decision taken with the operator
-- [ ] Persian summary, content-only, under ~150 chars, with NO task number in it
+- [ ] `docs/task-NN-*.md` records what it does and every decision I made about it
+- [ ] Persian summary, content only, under ~150 characters, with no task number in it
       (`core.ts` adds the permission link; see `src/brfa.ts`)
-- [ ] `transform` is pure and can return `changed: false`
-- [ ] the task's own risk has a `verify` that refuses pre-save
-- [ ] refusals are published or written out, and a cumulative page has a store with a guard
-- [ ] `npm test` green, including the vendored-copy check
-- [ ] `npm run bundle` green, all gates
-- [ ] dry-run diffs read by a human
-- [ ] rendered before/after compared on real pages
-- [ ] nothing re-implements what `core.ts` already does
+- [ ] `transform` uses no network and can return `changed: false`
+- [ ] the task's own risk has a `verify` that refuses before saving
+- [ ] declined pages are published or written to a file, and a report page that builds up
+      over runs has a stored list with a check that it exists
+- [ ] `npm test` passes, including the vendored-copy check
+- [ ] `npm run bundle` passes all its checks
+- [ ] dry-run diffs read by me
+- [ ] rendered pages compared before and after on real pages
+- [ ] nothing rewrites what `core.ts` already does

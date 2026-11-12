@@ -1,211 +1,224 @@
-# Citation-parameter normalization campaign (MamouriBot, وظیفه ۳ expanded)
+# وظیفهٔ ۳: citation parameter normalization
 
-Self-contained record so this can continue even if all chat context is lost.
+This task brings the archive parameters of CS1/CS2 citations onto one name per field, merges
+duplicate aliases of the same field, and removes the deprecated `ref=harv`. It started as
+وظیفه ۳ (the `dead-url` family and `ref=harv`) and I expanded it to cover the archive
+parameters as well.
+
+## Where it stands
+
+- {{مجوز دارد}} was granted on ۸ اکتبر ۲۰۲۶, after a trial.
+- It runs on Toolforge as the cron job `cite-params-hourly` (`25 * * * *`,
+  `--live --limit 250 --delay 5`).
+- On ۱۳ اکتبر ۲۰۲۶ I stopped it, fixed two defects in how it chose the script of a key and
+  of a value, and resumed it the same day. See [the ۱۳ اکتبر fixes](#which-script-a-rename-writes-fixed-۱۳-اکتبر-۲۰۲۶)
+  below.
+- Still open: a separate follow-up for «شابک نادرست» → `((…))` plus the module deprecation,
+  and scoping the existing mixed-script backlog (`TODO.md` §0).
+
+The other docs for this task:
+
+| doc | what it covers |
+|---|---|
+| `docs/task-03-trial-state.md` | the 1,000-edit trial, up to ۷ اکتبر ۲۰۲۶, and the manual-review page |
+| `docs/task-03-run-state.md` | the full run from ۸ اکتبر ۲۰۲۶: approved scope, target list, pacing, `ref=harv` |
+| `docs/task-03-open-defect.md` | the `archive.today` / CS1 module defect, its diagnosis and the module fix |
 
 ## Why
-After localizing the fa CS1 citation templates, citations across the wiki carry a
-mix of English/legacy and Persian names for the same field, and many carry **two
-aliases of one field at once** → CS1 emits «متغیر تکراری» (duplicate parameter)
-and the pages pile up in **«رده:صفحه‌های دارای ارجاع با متغیر تکراری»**. The bulk
-of the recent duplicates were created by **InternetArchiveBot** re-archiving cites
-that already had an archive parameter under a different alias.
 
-That IABot *source* was fixed first (so no NEW duplicates are created) — see the
-agent memories `iabot-archive-param-dedup` and `citation-cleanup-bot`. Summary of
-what is already live on-wiki (all as Mamouri):
-- TemplateData of یادکرد وب/خبر/ژورنال/کتاب: English + both Persian archive names
-  are aliases of one field, so IABot recognizes an existing param and updates it
-  in place instead of duplicating (revs 44510536/44/55/58, consolidation
-  44514798/99/804/809).
+After the fa CS1 citation templates were localized, citations across the wiki carry a mix of
+English/legacy and Persian names for the same field. Many carry two aliases of one field at
+once, so CS1 shows «متغیر تکراری» (duplicate parameter) and the pages collect in
+«رده:صفحه‌های دارای ارجاع با متغیر تکراری». Most of the recent duplicates came from
+InternetArchiveBot re-archiving citations that already had an archive parameter under a
+different alias.
+
+I fixed the IABot side first, so that no new duplicates are created (my notes on this are
+`iabot-archive-param-dedup` and `citation-cleanup-bot`). Live on the wiki, all as Mamouri:
+
+- TemplateData of یادکرد وب/خبر/ژورنال/کتاب: English and both Persian archive names are
+  aliases of one field, so IABot recognizes an existing parameter and updates it in place
+  instead of adding another (revs 44510536/44/55/58, consolidation 44514798/99/804/809).
 - `پودمان:Citation/CS1/Configuration` rev 44514521: Persian name first in
   `['ArchiveURL']`/`['ArchiveDate']`.
-- Verified: IABot now writes Persian and creates no new duplicates (e.g. یعره rev 44515396).
+- IABot now writes Persian and creates no new duplicates (for example یعره rev 44515396).
 
-**This task cleans the pre-existing backlog** and migrates legacy names — the
-"once and for all" citation cleanup the user asked for (maximalist scope).
+This task cleans up the backlog that was already there and migrates the legacy names. I
+wanted the citation cleanup done once, so the scope is as wide as I could justify.
 
-## What it does — one normalization pass
-For every CS1/CS2 citation (`{{یادکرد …}}` / `{{cite …}}` / `{{citation}}`), for
-each field in the map, coerce whatever alias is present to the **Persian
-canonical**, and when ≥2 aliases of one field coexist, **merge to one**:
-- values are compared after normalizing Persian/Arabic digits → Western (+ the
-  field's value-map); if the coexisting values genuinely **differ**, the field is
-  **left untouched** and the citation is reported for **manual review** — the bot
-  never guesses which value is right, never converts calendars.
-- otherwise keep one segment, rename its key to the canonical, drop the rest;
-  kept value + surrounding whitespace preserved; only citation templates touched.
+## What it does
 
-This single pass does **both** the dedup (drains the tracking category) and the
-Task-3 legacy-name migration.
+For every CS1/CS2 citation (`{{یادکرد …}}`, `{{cite …}}`, `{{citation}}`), and for each field
+in the map, it renames whatever alias is present to the canonical name. When two or more
+aliases of one field are present, it merges them into one:
 
-### Canonicals (decided 2026-09-27 — Persian, shortest/native, no loanword where possible)
+- Values are compared after converting Persian/Arabic digits to Western ones (and applying
+  the field's value map). If the values really differ, the field is left alone and the
+  citation goes on the manual-review list. The bot never guesses which value is right and
+  never converts calendars.
+- Otherwise it keeps one parameter, renames its key to the canonical name and drops the
+  rest. The kept value and the whitespace around it are preserved, and only citation
+  templates are touched.
+
+That one pass both empties the tracking category and does the legacy-name migration.
+
+### Canonical names (decided 2026-09-27: Persian, short and native, avoiding loanwords where possible)
+
 | Field | Canonical | Aliases normalized to it |
 |---|---|---|
 | archive-url | **نشانی بایگانی** | پیوند بایگانی, archive-url, archiveurl |
-| archive-date | **تاریخ بایگانی** | archive-date, archivedate (تاریخ is naturalized-Arabic; only Persian option — a native replacement would need a module change) |
-| url-status | **چگونگی پیوند** | پیوند مرده, url-status, dead-url, deadurl — **GATED OFF** (`ENABLE_URL_STATUS=false`) until the dead/live value vocabulary of «چگونگی پیوند» is confirmed on-wiki |
+| archive-date | **تاریخ بایگانی** | archive-date, archivedate (تاریخ is naturalized Arabic, but it is the only Persian option; a native replacement would need a module change) |
+| url-status | **چگونگی پیوند** | پیوند مرده, url-status, dead-url, deadurl. Originally switched off (`ENABLE_URL_STATUS=false`) until the dead/live values of «چگونگی پیوند» were confirmed on the wiki; they now are, and `ENABLE_URL_STATUS=true`. |
 
-`dead-url`/`deadurl` are boolean (yes/no) whereas url-status is dead/live, so
-enabling that field also applies a value-map (yes→dead, no→live) — hence the gate.
+The archive-url canonical was later changed from `نشانی بایگانی` to `پیوند بایگانی`, the
+name the CS1 configuration declares (see `docs/task-03-trial-state.md`). Since ۱۳ اکتبر
+۲۰۲۶ each of these three fields also has an English canonical, used in English-named
+citations (see below).
 
-**Excluded on purpose:** «شابک نادرست» → `((…))` accept-as-written. Converting
-usages is article-side, but the endgame (retiring the parameter) needs a **module
-change**, so it's a separate follow-up (convert usages + deprecate the param together).
+`dead-url`/`deadurl` take yes/no, while url-status takes dead/live, so this field also
+applies a value map (yes → dead, no → live). That is why it was switched off until the values
+were confirmed.
+
+I left «شابک نادرست» → `((…))` out on purpose. Converting the uses happens in articles, but
+retiring the parameter needs a module change, so it is a separate follow-up that does both
+together.
 
 ## Files
-- `src/tasks/task-03/normalize-cite-params.ts` — the `BotTask` (engine + `FIELDS` map + `getTargets`).
-- `src/tasks/task-03/normalize-cite-params.test.ts` — unit tests (`npx tsx …`), 8 cases incl. the یاور همدانی Persian↔Persian dup.
-- Registered in `src/run.ts` as task id `normalize-cite-params`.
-- Framework: `src/core.ts` (render-safety guard, resume, stop-page `کاربر:MamouriBot/توقف`, maxlag, opt-out — all automatic).
 
-## How to run
-Read `docs/TOOLFORGE.md` first. **Dry-run is the default; `--live` writes.**
+- `src/tasks/task-03/normalize-cite-params.ts`: the `BotTask` (engine, `FIELDS` map, `getTargets`).
+- `src/tasks/task-03/normalize-cite-params.test.ts`: unit tests (`npx tsx …`), 8 cases including the یاور همدانی Persian↔Persian duplicate.
+- Registered in `src/run.ts` as task id `normalize-cite-params`.
+- Framework: `src/core.ts` (render check, resume, stop page `کاربر:MamouriBot/توقف`, maxlag, opt-out, all automatic).
+
+## Running it
+
+Read `docs/TOOLFORGE.md` first. A dry run is the default; `--live` writes.
+
 ```sh
 npx tsx src/run.ts normalize-cite-params --limit 30            # DRY-RUN (default): inspect diffs, no writes
 npx tsx src/run.ts normalize-cite-params --check              # verify MamouriBot creds + stop-page, no edits
 npx tsx src/run.ts normalize-cite-params --live --limit 50    # LIVE, capped (needs bot creds + bot flag)
 npx tsx src/run.ts normalize-cite-params --live --delay 12    # LIVE, 12s between edits (default 10)
 ```
-`getTargets` returns the dup category **plus**
-`insource:` hits for legacy aliases → the set is large; use `--limit` to **phase**
-it: recommended **wave 1 = the dup category (errors)**, wave 2 = the broader
-legacy-name migration. On Toolforge: create a dedicated tool, ship the bundled
-`run.ts`, schedule/one-off per TOOLFORGE.md; edits go out as **MamouriBot** (bot
-flag, Persian summary, no automation mention).
 
-## Status / next steps
-1. ☑ Posted the BRFA expansion; {{مجوز دارد}} granted ۸ اکتبر ۲۰۲۶.
-2. ☑ Dry-run + live trial reviewed; see `docs/task-03-run-state.md`.
-3. ☑ «چگونگی پیوند» value vocabulary confirmed on-wiki; `ENABLE_URL_STATUS=true`.
-4. ☑ Toolforge job `cite-params-hourly` deployed, then **stopped ۱۳ اکتبر ۲۰۲۶** for the
-   fix below, then **redeployed and resumed ۱۳ اکتبر ۲۰۲۶** after an 80-page dry-run
-   sample (§"Which SCRIPT a rename writes") showed 0 regressions, 0 render errors.
-5. ☑ Resumed. `~/bot/mamouribot.mjs` on Toolforge rebuilt via `npm run bundle` and
-   redeployed over stdin per `docs/TOOLFORGE.md`; verified with `grep -c citationScript`
-   on the deployed bundle before restarting the cron (same command/schedule as before:
-   `cite-params-hourly`, `25 * * * *`, `--live --limit 250 --delay 5`).
-6. ☐ Separate follow-up: «شابک نادرست» → `((…))` + module deprecation.
-7. ☐ Scope the pre-existing mixed-script backlog — `TODO.md` §0.
+`getTargets` returns the duplicate category plus `insource:` hits for the legacy aliases, so
+the set is large. I planned it in two waves: the duplicate category first (those pages show
+an error), then the wider legacy-name migration. The live run now works from a frozen,
+shuffled target list instead; see `docs/task-03-run-state.md`. On Toolforge the edits go out
+as MamouriBot, with the bot flag and a Persian summary.
 
-## Which SCRIPT a rename writes — fixed ۱۳ اکتبر ۲۰۲۶
+## History
 
-The canonicals table above says «Persian, shortest/native» and that used to mean the
-rename ALWAYS wrote Persian, even into a citation whose every other parameter was
-English. Caught on a live diff — [نادیا اووسو](https://fa.wikipedia.org/w/index.php?title=نادیا_اووسو&diff=next&oldid=42998792) —
-where a `{{cite book|last1=Այվազյան|first1=…|title=…|publisher=…}}` got a single Persian
-key dropped in: `|چگونگی پیوند=|پیوند بایگانی=|تاریخ بایگانی=`. Each rename was
-individually a declared CS1 alias of the right field, and the citation as a whole was
-made LESS consistent, not more — the opposite of «هم‌سان‌سازی».
+1. I posted the expansion on the request page; {{مجوز دارد}} was granted ۸ اکتبر ۲۰۲۶.
+2. Dry run and live trial reviewed: `docs/task-03-trial-state.md` and `docs/task-03-run-state.md`.
+3. The «چگونگی پیوند» values were confirmed on the wiki; `ENABLE_URL_STATUS=true`.
+4. The Toolforge job `cite-params-hourly` was deployed, stopped on ۱۳ اکتبر ۲۰۲۶ for the fixes
+   below, and resumed the same day after an 80-page dry-run sample showed 0 regressions and
+   0 render errors.
+5. To resume, I rebuilt the bundle with `npm run bundle` and redeployed it over stdin as in
+   `docs/TOOLFORGE.md`, checked it with `grep -c citationScript`, and restarted the cron with
+   the same command and schedule (`cite-params-hourly`, `25 * * * *`,
+   `--live --limit 250 --delay 5`). The first redeploy went to the wrong file; see
+   [the deploy path](#the-redeploy-did-not-take-effect-at-first).
+6. Not done: «شابک نادرست» → `((…))` and the module deprecation.
+7. Not done: scoping the existing mixed-script backlog (`TODO.md` §0).
 
-**The fix:** the three renaming families (`archive-url`, `archive-date`, `url-status`)
-now carry both a Persian canonical (`canonical`) and an English one (`canonicalEn`), and
-`citationScript()` in `normalize-cite-params.ts` picks between them per citation by
-voting on the SCRIPT of every OTHER parameter name already on that citation (never the
-field being decided, and never the template name — `{{cite web}}` with all-Persian
-parameters is common enough that the template name alone is not a reliable signal, and
-using it regressed the no-signal case: a bare `{{cite web|deadurl=no}}`). A tie,
-including a citation with no other parameters at all, defaults to Persian — the
-project's house style and the behaviour this task has always had, so the common case
-does not regress. The ten `dedupeOnly` families are unaffected: they never rename,
-`canonical` there is only the report-page label.
+## Which script a rename writes (fixed ۱۳ اکتبر ۲۰۲۶)
 
-The `url-status` value follows the same choice: `urlStatusWrite` now takes the script and
-writes `dead`/`live` for an English-scripted citation, `مرده`/`زنده` for a Persian one —
-a value the module already accepts (`dead`, `live`, `unfit`, `usurped`, `bot: unknown`,
-`مرده`, `زنده`) is still left exactly as written, so there is no churn either way.
+Until ۱۳ اکتبر the rename always wrote the Persian name, even into a citation whose other
+parameters were all English. On
+[نادیا اووسو](https://fa.wikipedia.org/w/index.php?title=نادیا_اووسو&diff=next&oldid=42998792)
+a `{{cite book|last1=Այվազյան|first1=…|title=…|publisher=…}}` got Persian keys dropped into
+it: `|چگونگی پیوند=|پیوند بایگانی=|تاریخ بایگانی=`. Each rename was a valid CS1 alias of the
+right field, but the citation as a whole became less consistent, which is the opposite of
+«هم‌سان‌سازی».
 
-Tests: `normalize-cite-params.test.ts` — the exact Nadia Owusu citation, an all-English
-citation, an all-Persian citation (still writes Persian, unchanged behaviour), the
-no-other-params default, the tie-break default, and `citationScript()` itself unit-tested
-directly. All green under `CITE_WIDENED_SCOPE=1` (96 passed) and under the default
-approved-scope run (82 passed, 14 skipped-by-design).
+The three renaming fields (`archive-url`, `archive-date`, `url-status`) now carry a Persian
+canonical (`canonical`) and an English one (`canonicalEn`). `citationScript()` in
+`normalize-cite-params.ts` chooses between them per citation, by counting the script of
+every other parameter name on that citation. It ignores the field being decided and the
+template name: `{{cite web}}` with all-Persian parameters is common, and using the template
+name made the no-signal case worse (a bare `{{cite web|deadurl=no}}`). A tie, including a
+citation with no other parameters, defaults to Persian, which is the house style and what the
+task always did. The ten `dedupeOnly` fields are unaffected: they never rename, and their
+`canonical` is only the label on the report page.
 
-**Not done:** retrofitting citations the bot already wrote under the old,
-always-Persian behaviour, or the pre-existing hand-written mixed-script population.
-Scoping that is `TODO.md` §0, deliberately left for later so it does not collide with
-the backlog this task is already working through.
+The url-status value follows the same choice. `urlStatusWrite` takes the script and writes
+`dead`/`live` in an English citation and `مرده`/`زنده` in a Persian one.
 
-## A second, bigger defect in the SAME area — fixed ۱۳ اکتبر ۲۰۲۶ (same day, caught by the operator)
+Tests in `normalize-cite-params.test.ts`: the Nadia Owusu citation, an all-English citation,
+an all-Persian citation (still writes Persian), the no-other-parameters default, the
+tie-break default, and `citationScript()` on its own. All pass under `CITE_WIDENED_SCOPE=1`
+(96 passed) and under the default approved scope (82 passed, 14 skipped by design).
 
-The fix above translates the KEY to match the citation's script. It did not reliably
-translate the VALUE. Caught on a live edit —
-[سیارک ۱۴۳۴۹](https://fa.wikipedia.org/w/index.php?title=سیارک_۱۴۳۴۹&diff=44719012&oldid=44232856) —
-where `dead-url=yes` merged with an existing `url-status=dead` produced `|چگونگی پیوند
-=dead`: the right Persian KEY, still carrying the English VALUE.
+I have not touched the citations the bot already wrote under the old always-Persian rule, or
+the hand-written mixed-script citations that were there before. Scoping that is `TODO.md` §0,
+left for later so it does not get in the way of the backlog this task is working through.
 
-**Root cause:** `urlStatusWrite` had a shortcut — "if the value is already a spelling
-the module accepts (`dead`, `live`, `مرده`, `زنده`, `unfit`, `usurped`, `bot: unknown`),
-return it untouched" — meant to avoid pointless churn on a field nobody is otherwise
-editing. That shortcut fired unconditionally, including on every MERGE (≥2 aliases
-present) and every RENAME away from a non-canonical key — i.e. exactly the cases where
-the field IS being edited and the value has to follow the key into its new script.
+### The value did not follow the key
 
-**The fix:** the decision of *whether to translate at all* moved out of `urlStatusWrite`
-and into the caller (`normalizeSpan`), where it belongs — `fieldUntouched` is true only
-for the genuine no-op case (a single alias already sitting at the canonical name for
-this citation's script), which is the only case where leaving the value alone is
-correct. Everywhere else (a merge or a rename) the value is now always translated to
-match. `urlStatusWrite` itself got simpler: it no longer has a "value already valid"
-early-return at all, since the caller now guarantees it is only called when a
-translation is wanted.
+The same day I found a second, bigger defect in the same place. On
+[سیارک ۱۴۳۴۹](https://fa.wikipedia.org/w/index.php?title=سیارک_۱۴۳۴۹&diff=44719012&oldid=44232856)
+`dead-url=yes` merged with an existing `url-status=dead` gave `|چگونگی پیوند =dead`: a
+Persian key with an English value.
 
-**Measured impact — bigger than the key-only bug:** a sample of 600 of the bot's own
-past edits found this specific value defect on **45.0%** of pages (95% CI 41.0–49.0%),
-vs. 31.0% for the key-script bug alone — because it also fires on plain renames, not just
-merges. Estimated **≈3,180 pages** (95% CI 2,900–3,460) across the bot's ~7,065 edits so
-far carry a Persian `چگونگی پیوند` key with an English `dead`/`live` value. This overlaps
-substantially with the key-mismatch population in `TODO.md` §0 rather than adding to it
-cleanly — both numbers feed the same eventual retrofit pass, not two separate ones.
+`urlStatusWrite` returned a value unchanged if the module already accepted it (`dead`,
+`live`, `مرده`, `زنده`, `unfit`, `usurped`, `bot: unknown`). That was meant to avoid churn on
+a field nobody was editing, but it also applied to every merge and every rename, which are
+exactly the cases where the value has to follow the key into the new script.
 
-Tests added: the exact سیارک ۱۴۳۴۹ citation reproduced in full, a merge in an
-English-scripted citation (value must stay English), and two NO-CHURN tests (Persian and
-English) proving the genuine no-op case still writes nothing. 103/103 passing under
-`CITE_WIDENED_SCOPE=1`, 89/103 under the default approved scope (14 skipped by design).
+The decision whether to translate the value now lives in the caller, `normalizeSpan`.
+`fieldUntouched` is true only when there is a single alias already at the canonical name for
+the citation's script, and that is the only case where the value is left alone. In a merge or
+a rename the value is always translated. `urlStatusWrite` no longer has an early return for
+values that are already valid.
 
-Redeployed to Toolforge the same day, immediately after the key-script fix and before
-a second live batch could run under it — `سیارک ۱۴۳۴۹` itself predates the key-script
-fix entirely (it was edited under the ORIGINAL always-Persian-value behaviour, not a
-regression introduced by that fix). So the measured 45.0% rate above is against the
-**whole** bot backlog since وظیفهٔ ۳ started, not a narrow window — this defect has been
-present since the task's first live edit, the key-script fix did not introduce it, and
-no batch ran between the two fixes going live. Do not assume a narrow exposure window
-without checking `usercontribs` timestamps against the actual deploy times first.
+This defect was more common than the key one. In a sample of 600 of the bot's past edits it
+showed up on **45.0%** of pages (95% CI 41.0–49.0%), against 31.0% for the key-script bug,
+because it also hits plain renames. That is about **3,180 pages** (95% CI 2,900–3,460) of the
+bot's ~7,065 edits so far with a Persian `چگونگی پیوند` key and an English `dead`/`live`
+value. These pages largely overlap with the key-mismatch pages in `TODO.md` §0, and both
+feed one retrofit pass, not two.
 
-## The redeploy did not actually take effect for either fix — caught ۱۳ اکتبر ۲۰۲۶ via a SECOND live diff
+Tests added: the full سیارک ۱۴۳۴۹ citation, a merge in an English citation (the value stays
+English), and two no-churn tests (Persian and English) showing the real no-op case still
+writes nothing. 103/103 pass under `CITE_WIDENED_SCOPE=1`, 89/103 under the default approved
+scope (14 skipped by design).
+
+سیارک ۱۴۳۴۹ was edited before the key-script fix, under the original behaviour, so this
+defect was not introduced by that fix. It has been there since the task's first live edit,
+and the 45.0% rate covers the whole backlog since وظیفهٔ ۳ started. No batch ran between the
+two fixes going live. Before assuming a short exposure window for any defect, check
+`usercontribs` timestamps against the real deploy times.
+
+### The redeploy did not take effect at first
 
 [سیارک ۱۰۷۲۹](https://fa.wikipedia.org/w/index.php?title=سیارک_۱۰۷۲۹&diff=44720452&oldid=44231025),
-edited at **20:30 UTC** — after BOTH fixes above were "redeployed" — still shows the
-exact same bug: `|چگونگی پیوند =dead`.
+edited at **20:30 UTC** after both fixes had supposedly been redeployed, still had
+`|چگونگی پیوند =dead`.
 
-**Root cause: wrong deploy path, not a code defect.** `toolforge/task-03-cite-params/
-run.sh` execs `node ../mamouribot.mjs` relative to ITS OWN directory
-(`~/task-03-cite-params/`), which resolves to the **tool home** `~/mamouribot.mjs`. Both
-redeploys that day piped the rebuilt bundle to `~/bot/mamouribot.mjs` instead — a path
-that exists (وظیفهٔ ۵'s Python script lives there) and that `grep -c <new code>` on
-confirmed looked correct, but that **nothing on the box reads**. The live cron kept
-running the stale ۹ اکتبر bundle, three days and both fixes behind, for the entire
-redeploy "window." Every verification step done that day — `--check`, a live
-`--wait`ed run of `--check` — exercises login/stop-key, not which file the scheduled
-job's `run.sh` actually execs, so nothing caught it. See the ⚠ in `docs/TOOLFORGE.md`
-and `lessons/scripts-and-batch/toolforge-deploy-path-must-match-run-sh.md`.
+The code was fine; the deploy path was wrong. `toolforge/task-03-cite-params/run.sh` runs
+`node ../mamouribot.mjs` relative to its own directory (`~/task-03-cite-params/`), which is
+the tool home's `~/mamouribot.mjs`. Both redeploys that day went to `~/bot/mamouribot.mjs`.
+That path exists (وظیفهٔ ۵'s Python script lives there) and `grep -c <new code>` on it looked
+right, but nothing on the server reads it. The cron kept running the ۹ اکتبر bundle, three
+days and both fixes behind. `--check` and a `--wait`ed live run of `--check` only test the
+login and stop page, not which file `run.sh` runs, so they did not catch it. See the ⚠ in
+`docs/TOOLFORGE.md` and `lessons/scripts-and-batch/toolforge-deploy-path-must-match-run-sh.md`.
 
-**Fixed:** copied the SAME rebuilt bundle to `~/mamouribot.mjs` (the correct path),
-verified `grep -c fieldUntouched ~/mamouribot.mjs` → 2, then ran the task through the
-REAL `run.sh` wiring (`TARGET_TITLES=… BOT_STATE_DIR=/tmp/… ./task-03-cite-params/
-run.sh --limit N`, dry-run, no writes) against fresh `dead-url`/`url-status` citations
-and confirmed `چگونگی پیوند=مرده` / `=زنده` — both fixes verified live through the actual
-job path, not just the bundle file. Job restarted.
+I copied the same bundle to `~/mamouribot.mjs`, checked `grep -c fieldUntouched
+~/mamouribot.mjs` → 2, and ran the task through the real `run.sh` (`TARGET_TITLES=…
+BOT_STATE_DIR=/tmp/… ./task-03-cite-params/run.sh --limit N`, dry run, no writes) on fresh
+`dead-url`/`url-status` citations. They came out as `چگونگی پیوند=مرده` / `=زنده`. Then I
+restarted the job.
 
-**Open implication:** every edit this task has made SINCE the first "fix" announcement
-and before 21:01 UTC this day was made with the ORIGINAL buggy code, because the
-redeploys before then never reached the file the job runs. The retrofit-scope numbers
-in `TODO.md` §0/§0b (measured against `usercontribs` directly, not against "edits after
-the fix") are NOT affected by this — they already describe the live wiki state — but
-any claim of the form "edits after `<fix timestamp>` are clean" made earlier today was
-false. Don't trust an announced fix time for this task until it is re-verified against
-`~/mamouribot.mjs` specifically.
+Every edit this task made after the first fix was announced and before 21:01 UTC that day
+ran the original buggy code. The retrofit numbers in `TODO.md` §0/§0b are not affected,
+because they were measured from `usercontribs` and describe the wiki as it is. Any fix time
+for this task should be checked against `~/mamouribot.mjs` itself before it is trusted.
 
-## BRFA expansion (Persian, for the وظیفه ۳ request — user reviews & posts)
+## The expansion as posted on the request page
+
 > پیرو درخواست وظیفهٔ ۳، دامنهٔ این وظیفه را کمی گسترده‌تر می‌کنم تا همهٔ ناسازگاری‌های
 > نام‌گذاری پارامترهای بایگانیِ یادکردها یک‌جا سامان بگیرد. علاوه بر تبدیل پارامترهای
 > قدیمیِ وضعیت پیوند، ربات نام پارامترهای بایگانی را نیز به نام فارسی معیار هم‌سان می‌کند:

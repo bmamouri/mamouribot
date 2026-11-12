@@ -1,19 +1,19 @@
 # Running bots on Toolforge
 
-How to SSH into the Toolforge box, deploy bot code, and create/run scheduled or
-continuous jobs. This is the reusable playbook — the first bot deployed this way
-was Task 5 (`empty-unknown-params.py`); follow the same shape for new ones.
+How to SSH into Toolforge, deploy the bot code, and set up scheduled or continuous jobs.
+The first bot I deployed this way was Task 5 (`empty-unknown-params.py`); new ones follow the
+same pattern.
 
-> **Editing a citation parameter name?** The source of truth for fa CS1 parameter
-> names is not where you would guess, and `پودمان:Citation/CS1/Configuration` is read
-> by **InternetArchiveBot**, not by the rendering engines. The chain is documented at
-> the top of `src/tasks/task-03/normalize-cite-params.ts`. Read it first.
+> **Changing a citation parameter name?** The fa CS1 parameter names are not defined where
+> you would expect, and `پودمان:Citation/CS1/Configuration` is read by
+> **InternetArchiveBot**, not by the code that renders citations. The full chain is
+> described at the top of `src/tasks/task-03/normalize-cite-params.ts`. Read it first.
 
-## Tools — one tool, every task
+## One tool for every task
 
-**`tools.mamouribot` is the tool, and now the only one with anything on it.**
-Consolidated ۸ اکتبر ۲۰۲۶: every job runs there, every task's resume checkpoint lives in
-`~/state/`, and the eight other tools were emptied of code, credentials and state.
+Everything runs on `tools.mamouribot`. I moved all the tasks there on ۸ اکتبر ۲۰۲۶: every job
+runs there, every task's resume checkpoint is in `~/state/`, and the eight other tools were
+emptied of code, credentials and state.
 
 | Job | Task | Schedule | Command |
 |---|---|---|---|
@@ -24,7 +24,7 @@ Consolidated ۸ اکتبر ۲۰۲۶: every job runs there, every task's resume c
 | `destub-inventory-monthly` | وظیفهٔ ۱۰ | `0 2 1 * *` | `cd task-10-destub && node ../destub-inventory.mjs` |
 | `cp-daily` | وظیفهٔ ۴ | `35 6 * * *` | `task-04-company-params/run.sh --live --limit 50 --delay 15` |
 
-Layout on the tool:
+Files on the tool:
 
 ```
 ~/mamouribot.mjs            all-tasks bundle (run.ts)        ~/state/        BOT_STATE_DIR
@@ -34,76 +34,69 @@ Layout on the tool:
 ~/gates.py                  the publish gate, beside the bundles
 ```
 
-⚠️ **`~/bot/` is NOT where the TypeScript bundle lives — a mistake that shipped a fix
-that silently did nothing for ~2 hours (۱۳ اکتبر ۲۰۲۶, وظیفهٔ ۳).** Every `task-NN/run.sh`
-execs its bundle **relative to its own directory** (`exec node ../mamouribot.mjs …` from
-inside `~/task-03-cite-params/`), which resolves to the **tool home** `~/mamouribot.mjs`
-— not `~/bot/mamouribot.mjs`. `~/bot/` exists only because وظیفهٔ ۵ is Python and keeps
-its own script there (`~/bot/empty-unknown-params.py`); it is not a general deploy
-target for the TypeScript bundle, despite looking like the obvious "the bot's files go
-in `bot/`" place to put one. Two redeploys that day went to `~/bot/mamouribot.mjs`,
-which built, gated, and copied over cleanly — and which **nothing on the box reads** —
-while the live cron kept running the stale `~/mamouribot.mjs` from three days earlier.
-The failure was silent because every verification step that day (`--check`, a live
-`toolforge jobs run … --wait` of `--check`) exercises credentials and the stop-key, not
-which bundle a scheduled job actually execs.
+⚠️ **The TypeScript bundle is `~/mamouribot.mjs`, not `~/bot/mamouribot.mjs`.** Every
+`task-NN/run.sh` runs its bundle relative to its own directory (`exec node ../mamouribot.mjs …`
+from inside `~/task-03-cite-params/`), which is the tool home. `~/bot/` only exists because
+وظیفهٔ ۵ is Python and keeps its script there (`~/bot/empty-unknown-params.py`).
 
-**After deploying, always confirm the fix reached the file the SCHEDULED JOB's command
-line actually names** — read the job's own `--command`, follow the relative path from
-where it `cd`s, and grep THAT file for the new code:
+On ۱۳ اکتبر ۲۰۲۶ I deployed a وظیفهٔ ۳ fix twice to `~/bot/mamouribot.mjs`. Both copies built
+and passed the checks, but nothing on the tool reads that file, so for about two hours the
+cron job kept running the three-day-old `~/mamouribot.mjs` and the fix did nothing. None of
+my checks that day showed it: `--check` and a live `toolforge jobs run … --wait` of `--check`
+test the credentials and the stop page, not which bundle a scheduled job runs.
+
+**After deploying, check that the change is in the file the scheduled job actually runs.**
+Read the job's `--command`, follow the relative path from the directory it `cd`s into, and
+grep that file for something the change added:
 ```sh
 become mamouribot bash -c 'grep -c <new-identifier-added-by-the-fix> ~/mamouribot.mjs'
 ```
-`grep`-ing `~/bot/mamouribot.mjs` (or any path you merely *intended* to be the deploy
-target) proves nothing about what the cron job runs.
+Grepping `~/bot/mamouribot.mjs`, or any other path you meant to deploy to, tells you nothing
+about what the cron job runs.
 
 **وظیفهٔ ۱۰ needs its own working directory.** Its state paths (`.state/destub/…`) are
-relative to the process CWD rather than `BOT_STATE_DIR`, so its jobs `cd ~/task-10-destub`
-and reach the bundles as `../destub-watch.mjs`. Everything else uses `BOT_STATE_DIR`.
+relative to the current directory instead of `BOT_STATE_DIR`, so its jobs `cd ~/task-10-destub`
+and run the bundles as `../destub-watch.mjs`. Everything else uses `BOT_STATE_DIR`.
 
-### The eight retired tools — disabled ۸ اکتبر ۲۰۲۶
+### The eight old tools, disabled ۸ اکتبر ۲۰۲۶
 
 `fawiki-musician-infobox-params`, `mamouribot-taxobox`, `mamouribot-fa-software-infobox`,
 `mamouribot-fa-notelist`, `mamouribot-fa-destub`, `mamouribot-fa-taxonomy-create`,
 `mamouribot-fa-cite-normalize`, `mamouribot-fa-cite-update-params`.
 
-Jobs deleted, then `bot/`, `state/` and the bot-password `.env` removed from each, then
-the tools **disabled** by the maintainer at toolsadmin.
+I deleted their jobs, removed `bot/`, `state/` and the bot-password `.env` from each, and
+then disabled the tools at toolsadmin.
 
-⚠️ **Disabling is not immediate deletion, and this will confuse you if you do not know
-it.** toolsadmin says: «Disabled tools are archived and deleted after 40 days». So until
-roughly **۱۷ نوامبر ۲۰۲۶**:
+⚠️ **A disabled tool is not deleted straight away.** toolsadmin says: «Disabled tools are
+archived and deleted after 40 days». So until about **۱۷ نوامبر ۲۰۲۶**:
 
-- `id -Gn | grep ^tools[.]` still lists all nine. That is NOT a sign the consolidation
-  failed.
-- `become <tool>` still works and the archived home is still readable.
-- but nothing runs there: the jobs are gone and the tools are disabled.
+- `id -Gn | grep ^tools[.]` still lists all nine. That does not mean the move failed.
+- `become <tool>` still works and the archived home can still be read.
+- Nothing runs there: the jobs are gone and the tools are disabled.
 
-Two consequences worth knowing. There is a **40-day window in which anything missed in
-the migration can still be recovered** — read it out with `become <tool> cat …` before
-the window closes. And a stray script pointed at an old tool would still *appear* to
-work during that window while never being scheduled, which is exactly the kind of silent
-nothing-happens this playbook exists to prevent. Point everything at `mamouribot`.
+Anything missed in the move can still be recovered with `become <tool> cat …` until then.
+It also means a script pointed at an old tool will seem to work during that time but will
+never be scheduled. Point everything at `mamouribot`.
 
-Their checkpoints were migrated into `~/state/` on `mamouribot` first, not discarded:
+Their checkpoints were copied into `~/state/` on `mamouribot` first:
 `musician-params.json` (3,635 done), `taxonomy-link-localize.json` (6,950),
 `infobox-software-params.json` (715), `taxonomy-create-missing.json` (59),
 `notelist-missing.json` (227), plus `taxon-fa-map.json` and the destub inventory and
-watch checkpoint. Losing those would not corrupt anything, but every future run would
-re-examine pages it had already decided about.
+watch checkpoint. Losing them would not break anything, but every later run would look
+again at pages it had already decided about.
 
-**Why one tool.** The split was measured and found to cost more than it bought:
-`src/run.ts` bundles *every* registered task into one artifact, so each tool held the same
-all-tasks file at whatever vintage it was last deployed — six tools, six checksums, the
-oldest less than half the size of the newest because it predated several tasks. The
-isolation was nominal while the staleness was real, credentials were duplicated nine
-times, and `toolforge jobs list` only ever shows one tool, so the bot's full schedule
-existed nowhere. One tool has room: the quota is 50 cron definitions, 15 concurrent jobs,
-16 pods, 8 GiB, against four jobs today.
+**Why one tool.** Having one tool per task cost more than it gave. `src/run.ts` bundles every
+registered task into one file, so each tool held the same all-tasks file at whatever version
+it was last deployed: six tools, six different checksums, and the oldest less than half the
+size of the newest because it was built before several tasks existed. The tasks were not
+really separated, but the old copies were real. Credentials were stored nine times, and
+`toolforge jobs list` only shows one tool, so the bot's full schedule was not visible
+anywhere. One tool has enough room: the quota is 50 cron definitions, 15 concurrent jobs,
+16 pods and 8 GiB, against four jobs today.
 
-### Verifying this table
+### Checking the table above
 
-It rots silently, so check it rather than trusting it. From a machine with the
+The table goes out of date without anyone noticing, so check it. From a machine with the
 Wikimedia developer key:
 
 ```bash
@@ -115,31 +108,29 @@ ssh mamouri@login.toolforge.org 'become mamouribot toolforge jobs quota'
 ssh mamouri@login.toolforge.org 'id -Gn | tr " " "\n" | grep ^tools[.]'
 ```
 
-A tool's title, description and **disabled/deleted state** are public and need no login,
-at `https://toolsadmin.wikimedia.org/tools/id/<tool>`. The page is server-rendered, so a
-plain `curl` plus tag-stripping reads it; no browser or login required. That is how to
-tell a disabled tool from a live one, since `become` and `id` cannot:
+A tool's title, description and whether it is disabled or deleted are public at
+`https://toolsadmin.wikimedia.org/tools/id/<tool>`. The page is plain HTML, so `curl` and
+stripping the tags is enough, with no browser or login. This is the way to tell a disabled
+tool from a live one, since `become` and `id` can't:
 
 ```bash
 curl -s https://toolsadmin.wikimedia.org/tools/id/<tool> | sed -e 's/<[^>]*>/ /g' | tr -s ' ' | grep -i 'disabled\|Tool:'
 ```
 
-Last verified: ۸ اکتبر ۲۰۲۶ — `mamouribot` live with four cron jobs, the other eight
-disabled and pending automatic deletion.
+Last checked: ۸ اکتبر ۲۰۲۶. `mamouribot` was live with four cron jobs, and the other eight
+were disabled and waiting for automatic deletion.
 
-### There is no second tool, and no naming scheme for one
+### Don't create another tool
 
-**One tool: `mamouribot`. Every task goes inside it. Do not create another.**
+Every task goes inside `mamouribot`.
 
-This is the rule, not a default to be weighed against alternatives. An earlier version of
-this file carried a naming scheme for new tools (`mamouribot-fa-t<NN>-<slug>`), proposed
-on ۷ اکتبر ۲۰۲۶ and superseded by the consolidation later the same day. It was left in as
-"for a genuine exception" and that was a mistake: a named scheme reads as permission, and
-it had already caused one round of confusion about whether it governed tool names or the
-repository's own directories. It governs neither now, because there will not be another
-tool. It is deleted.
+An earlier version of this file had a naming scheme for new tools
+(`mamouribot-fa-t<NN>-<slug>`), proposed on ۷ اکتبر ۲۰۲۶ and replaced by the move to one tool
+later the same day. I left it in "for a genuine exception", which was a mistake: it read as
+permission to make new tools, and it had already confused people about whether it named tools
+or the repository's directories. I have removed it.
 
-What a new task needs is a **directory inside the one tool**, not a tool:
+A new task needs a directory inside the tool:
 
 ```
 src/tasks/task-NN/          the code and its tests
@@ -147,79 +138,76 @@ docs/task-NN-<slug>.md      what it does and why
 toolforge/task-NN-<slug>/   run.sh + jobs.yaml, deployed to ~/task-NN-<slug>/
 ```
 
-and a job on `mamouribot`. That is the whole of it.
+and a job on `mamouribot`. That is all.
 
-**It fits, measured, not assumed.** Live quota on ۸ اکتبر ۲۰۲۶ with four cron jobs
-running: **4 of 50** cron definitions, 1 of 16 concurrent pods, 0 of 16 continuous jobs,
-1 GiB of 8 GiB memory (6 GiB per job), 1 of 16 CPU. Fourteen tasks with a cron each would
-be 14 of 50. Nothing about the task count brings the one-tool arrangement near a limit.
+There is plenty of room. The quota on ۸ اکتبر ۲۰۲۶, with four cron jobs running, was 4 of 50
+cron definitions, 1 of 16 concurrent pods, 0 of 16 continuous jobs, 1 GiB of 8 GiB memory
+(6 GiB per job), and 1 of 16 CPU. Fourteen tasks with a cron job each would be 14 of 50.
 
-The old names are gone for good: a Toolforge tool **cannot be renamed**, and a deleted
-name is never released for reuse. `mamouribot` says nothing about any particular task,
-which is exactly right now that it runs all of them.
+The old names are gone for good: a Toolforge tool can't be renamed, and a deleted name is
+never given out again. `mamouribot` doesn't refer to any one task, which suits a tool that
+runs all of them.
 
-⚠️ **Job logs APPEND.** `toolforge jobs run -o ~/logs/x.out` adds to that file
-rather than replacing it, so reading the top of it after a re-run shows you the
-PREVIOUS run. This reads exactly like a deployment that did not take effect, and
-it cost a round of chasing a phantom stale bundle. `rm` the log before each run,
-or read the tail.
+⚠️ **Job logs are appended to.** `toolforge jobs run -o ~/logs/x.out` adds to the file instead
+of replacing it, so the top of the file after a re-run shows the previous run. That looks
+exactly like a deployment that didn't take effect, and I once spent a while chasing a stale
+bundle that wasn't there. Delete the log before each run, or read the end of it.
 
-⚠️ **A job starts in the tool home**, not in the directory you ran
-`toolforge jobs load` from. `command: ./run.sh` exits 127; path-qualify it as
-`./task-NN-slug/run.sh`.
+⚠️ **A job starts in the tool home**, not in the directory you ran `toolforge jobs load`
+from. `command: ./run.sh` exits 127; write it as `./task-NN-slug/run.sh`.
 
-⚠️ **`node` does not exist on the bastion** — only inside the job image. A bundle
-cannot be smoke-tested over ssh; run a one-off job with `--image node20 --wait`.
+⚠️ **`node` is not installed on the bastion**, only inside the job image. You can't test a
+bundle over ssh; run a one-off job with `--image node20 --wait`.
 
-⚠️ **esbuild escapes non-ASCII**, so grepping a bundle for a Persian string finds
-nothing even when it is there. Grep for an ASCII identifier instead.
+⚠️ **esbuild escapes non-ASCII**, so grepping a bundle for a Persian string finds nothing even
+when it is there. Grep for an ASCII identifier.
 
-> **Cover rule still applies.** A Toolforge bot edits fa.wiki as **MamouriBot**
-> (a separate approved bot account, *not* `Mamouri@translator`). Everything the
-> bot writes on-wiki — edit summaries, talk posts — is first-person **Persian**
-> and never mentions AI/automation. See the top of `wikipedia/CLAUDE.md`.
+> On Toolforge the bot edits fa.wiki as **MamouriBot**, a separate approved bot account,
+> not `Mamouri@translator`. Everything it writes on the wiki, edit summaries and talk posts
+> included, is in first-person Persian. See the top of the companion repository's
+> `AGENTS.md`.
 
 ---
 
-## 1. Access — SSH in
+## 1. Access: SSH in
 
 ```sh
 ssh mamouri@login.toolforge.org
 ```
 
-- **User account:** `mamouri` — the Wikimedia **developer (shell) account**, the
-  same identity behind the `mamouri` Gerrit account. It is *not* the wiki login.
-- **Which key:** the **Wikimedia developer-account SSH key**, registered at
+- **User account:** `mamouri`, my Wikimedia developer (shell) account. It is the same
+  identity as the `mamouri` Gerrit account, and it is not the wiki login.
+- **Key:** the Wikimedia developer-account SSH key, registered at
   <https://toolsadmin.wikimedia.org> / wikitech `Special:Preferences → OpenStack
-  → SSH keys`. On this Mac it's an **ED25519 key already loaded in the ssh-agent**
-  (offered as `gerrit-mamouri-cite-push` — the same key trusted by Gerrit). No
-  password; if the agent has it, `ssh mamouri@login.toolforge.org` just works.
-  Confirm with `ssh -o BatchMode=yes mamouri@login.toolforge.org "echo OK"`.
-- **Bastion only.** `login.toolforge.org` is a jump host. You don't run jobs
-  *as* `mamouri` — you switch to the tool account.
+  → SSH keys`. On my Mac it is an ED25519 key already loaded in the ssh-agent (offered as
+  `gerrit-mamouri-cite-push`, the same key Gerrit trusts). There is no password; if ssh-agent
+  has the key, `ssh mamouri@login.toolforge.org` just works. Check with
+  `ssh -o BatchMode=yes mamouri@login.toolforge.org "echo OK"`.
+- **The login host is only a bastion.** `login.toolforge.org` is a jump host. Jobs don't run
+  as `mamouri`; you switch to the tool account.
 
-### Become the tool account
+### Switching to the tool account
 
-Every real action runs as the tool `tools.mamouribot`:
+Everything runs as the tool `tools.mamouribot`:
 
 ```sh
 become mamouribot                      # interactive shell as the tool
 become mamouribot bash -c '<command>'  # one-shot (use this for scripting)
 ```
 
-- Tool home: **`/data/project/mamouribot`** (`$HOME` once you've `become`).
+- Tool home: **`/data/project/mamouribot`** (`$HOME` once you've run `become`).
 - Bot code lives in **`/data/project/mamouribot/bot/`**.
-- If you get `become: no such tool` right after a tool is created, it's still
-  provisioning — group membership (`id`) lands in ~2 min, the NFS home dir and
-  `become` sudoers entry in ~5–10 min. Wait, don't debug.
+- If `become` says `no such tool` right after a tool is created, it is still being set up.
+  Group membership (`id`) appears in about 2 minutes, and the NFS home directory and the
+  `become` sudoers entry in 5–10 minutes. Wait rather than debugging it.
 
 ---
 
-## 2. Deploying / updating code — stream over stdin
+## 2. Deploying and updating code over stdin
 
-⚠️ **You cannot `scp`, `mkdir`, or write into `/data/project/mamouribot/` as
-`mamouri`** even though it's group-writable — NFS ignores the supplementary
-group. Deploy by **piping the file through `become` on stdin**:
+⚠️ **You can't `scp`, `mkdir` or write into `/data/project/mamouribot/` as `mamouri`**, even
+though it is group-writable, because NFS ignores the supplementary group. Deploy by piping
+the file through `become` on stdin:
 
 ```sh
 # copy a local script up to the tool's ~/bot/
@@ -227,21 +215,20 @@ cat src/tasks/task-05/empty-unknown-params.py \
   | ssh mamouri@login.toolforge.org "become mamouribot bash -c 'cat > ~/bot/empty-unknown-params.py'"
 ```
 
-### TypeScript tasks — bundle, don't install
+### TypeScript tasks: bundle, don't install
 
-The `src/` tasks are TypeScript and import each other; `npm install` over
-NFS is slow and fragile. Bundle to one dependency-free file locally and ship that
-— the `node20` image then needs nothing else:
+The `src/` tasks are TypeScript and import each other, and `npm install` over NFS is slow and
+unreliable. Bundle everything into one file with no dependencies locally and upload that.
+The `node20` image then needs nothing else.
 
-⚠️ **Always bundle with `npm run bundle`, never esbuild by hand.**
-A bundle collapses every module into one file, so each module's `import.meta.url`
-becomes the bundle's — which equals `process.argv[1]`. Every
-`isMain(import.meta.url)` guard in the bundle then fires at once, whatever task
-you asked for. The destub modules use that idiom, and `destub-report`'s main()
-publishes its report when `--live` appears in argv — exactly what the Toolforge
-job command passes. The build script sets the `__BUNDLED__` define that disables
-those guards and then *asserts it took effect*; a hand-rolled esbuild call does
-not. See `scripts/lib/is-main.ts`.
+⚠️ **Always bundle with `npm run bundle`, never esbuild by hand.** A bundle puts every module
+into one file, so each module's `import.meta.url` becomes the bundle's, which is the same as
+`process.argv[1]`. Every `isMain(import.meta.url)` check in the bundle is then true at once,
+whatever task you asked for. The destub modules use that pattern, and `destub-report`'s
+`main()` publishes its report when `--live` is in argv, which is exactly what the Toolforge
+job passes. The build script sets the `__BUNDLED__` define that turns those checks off and
+then confirms that it took effect; a hand-written esbuild call does neither. See
+`scripts/lib/is-main.ts`.
 
 ```sh
 npm run bundle                           # bundles to dist/ + toolforge/, gates each
@@ -250,60 +237,60 @@ cat dist/bot-run.mjs | ssh mamouri@login.toolforge.org \
   "become <tool> bash -c 'cat > ~/bot/bot-run.mjs'"
 ```
 
-Do not "simplify" the gate to a runtime check that runs the bundle with a bogus
-task and counts output lines — that was tried and is **false assurance**: the
-unknown-task path calls `process.exit(1)` immediately, killing the promises a
-fired main() started, so a broken bundle and a correct one print identically.
+Don't replace the build-time check with one that runs the bundle with a made-up task and
+counts the output lines. I tried that and it proves nothing: the unknown-task path calls
+`process.exit(1)` straight away, which kills anything a wrongly triggered `main()` started,
+so a broken bundle and a correct one print the same thing.
 
-**The job command must `cd` into `~/bot` itself.** A Toolforge job starts with
-its working directory at the tool HOME, not at `~/bot`, so both the bundle path
-and `core.ts`'s relative `.env` lookup miss. Copy the shape the working jobs
-use:
+**The job command has to `cd` into `~/bot` itself.** A Toolforge job starts in the tool home,
+not in `~/bot`, so both the bundle path and `core.ts`'s relative `.env` lookup fail. Copy the
+form the working jobs use:
 
 ```sh
 toolforge jobs run <name> --image node20 \
   --command "cd /data/project/<tool>/bot && BOT_STATE_DIR=/data/project/<tool>/state node bot-run.mjs <task-id>"
 ```
 
-A `cd` in the surrounding `become … bash -c '…'` does NOT carry into the job.
-And when a run fails, check the log TIMESTAMPS before reading them: `.err`
-is not truncated between runs, so a stale error from an earlier attempt sits
-there looking current next to a fresh successful `.out`.
+A `cd` in the surrounding `become … bash -c '…'` does not carry into the job. When a run
+fails, check the timestamps in the logs before reading them: `.err` is not cleared between
+runs, so an old error from an earlier attempt can sit there looking current next to a new,
+successful `.out`.
 
-`core.ts` is already box-aware: it loads `.env` only if present (falling back to
-real env vars) and honours **`BOT_STATE_DIR`** so the resume checkpoint lives on
-NFS and survives a rescheduled job.
+`core.ts` already handles running on the tool: it loads `.env` only if it exists (otherwise
+it uses real environment variables) and respects **`BOT_STATE_DIR`**, so the resume
+checkpoint lives on NFS and survives a job being rescheduled.
 
-⚠️ **Ship a MINIMAL `.env`.** Upload only the two keys the bot reads —
-`WIKIPEDIA_BOT_USERNAME` and `WIKIPEDIA_BOT_PASSWORD` — never the repo's whole
-`.env`. (`tools.mamouribot`'s copy has the full local file in it: Cloudflare and
-Claude tokens, `DATABASE_URL`, and the human `Mamouri` password. It's `chmod 600`
-so it isn't cross-readable, but none of that belongs on Toolforge.)
+⚠️ **Upload a minimal `.env`.** Upload only the two keys the bot reads,
+`WIKIPEDIA_BOT_USERNAME` and `WIKIPEDIA_BOT_PASSWORD`, never the repository's whole `.env`.
+(`tools.mamouribot`'s copy currently has the whole local file in it: Cloudflare and other
+API tokens, `DATABASE_URL`, and the password for my own `Mamouri` account. It is
+`chmod 600`, so other users can't read it, but none of that belongs on Toolforge.)
 
 ```sh
 grep -E "^WIKIPEDIA_BOT_(USERNAME|PASSWORD)=" .env | ssh mamouri@login.toolforge.org \
   "become <tool> bash -c 'mkdir -p ~/bot/.state && cat > ~/bot/.env && chmod 600 ~/bot/.env'"
 ```
 
-Gotchas when porting a repo script to the box:
-- **Patch `ROOT`/paths.** The local script computes `ROOT` from its repo
-  location; on the box the `.env` lives in `~/bot/`, so `sed`-patch the ROOT
-  constant to `/data/project/mamouribot/bot` before/while uploading. Resume/
-  results files that use `__file__` are already portable.
+Things to change when moving a script from the repository to the tool:
+- **Fix `ROOT` and paths.** The local script works out `ROOT` from where it sits in the
+  repository. On the tool the `.env` is in `~/bot/`, so change the ROOT constant to
+  `/data/project/mamouribot/bot` with `sed` before or while uploading. Resume and results
+  files that use `__file__` already work.
 - **Secrets:** `~/bot/.env` (chmod 600) holds `WIKIPEDIA_BOT_USERNAME` /
-  `WIKIPEDIA_BOT_PASSWORD` for **MamouriBot** (bot-password from
-  `Special:BotPasswords` on the bot account). Never commit it; it lives only on
-  the box. Create/replace it the same stdin way:
+  `WIKIPEDIA_BOT_PASSWORD` for **MamouriBot** (a bot password from `Special:BotPasswords`
+  on the bot account). Never commit it; it exists only on the tool. Create or replace it the
+  same way, over stdin:
   `cat local.env | ssh … "become mamouribot bash -c 'cat > ~/bot/.env && chmod 600 ~/bot/.env'"`.
 
 ---
 
-## 3. Jobs — create, schedule, run, stop
+## 3. Jobs: create, schedule, run, stop
 
-Toolforge runs work as **jobs** (Kubernetes pods) via the `toolforge jobs` CLI,
-always as the tool. Pick an `--image` (`python3.13`, `node20`, …; **`toolforge jobs images`** lists them — plain `toolforge images` is not a command).
+Toolforge runs work as jobs (Kubernetes pods) through the `toolforge jobs` command, always as
+the tool. Pick an `--image` (`python3.13`, `node20`, …). **`toolforge jobs images`** lists
+them; plain `toolforge images` is not a command.
 
-### Scheduled (cron-style) — the default for a maintenance bot
+### Scheduled (cron): the normal choice for a maintenance bot
 
 ```sh
 become mamouribot toolforge jobs run empty-params \
@@ -312,13 +299,13 @@ become mamouribot toolforge jobs run empty-params \
   --schedule "5 3 * * *" \
   --mem 512Mi
 ```
-Runs once daily at 03:05 UTC, processes newly-flagged pages, exits. `--schedule`
-is standard cron (UTC).
+This runs once a day at 03:05 UTC, handles newly flagged pages, and exits. `--schedule` takes
+a standard cron expression (UTC).
 
-### One-off (run now, then done)
+### One-off (run now, then stop)
 
-Same command without `--schedule` — good for clearing a backlog immediately or
-testing a redeploy:
+The same command without `--schedule`. Useful for clearing a backlog straight away or testing
+a redeploy:
 
 ```sh
 become mamouribot toolforge jobs run empty-now \
@@ -326,14 +313,13 @@ become mamouribot toolforge jobs run empty-now \
   --image python3.13
 ```
 
-### Continuous (long-running loop) — use sparingly
+### Continuous (long-running loop): use rarely
 
-Add `--continuous` instead of `--schedule`. **Prefer scheduled** unless the bot
-genuinely needs to react continuously: a continuous job that has exhausted its
-work just re-grinds the same residue forever. Task 5 was switched *off*
-continuous to daily for exactly this reason.
+Use `--continuous` instead of `--schedule`. Prefer a schedule unless the bot really has to
+react all the time: a continuous job that has run out of work just goes over the same
+leftover pages forever. I moved Task 5 from continuous to daily for that reason.
 
-### Manage
+### Managing jobs
 
 ```sh
 become mamouribot toolforge jobs list              # status of all jobs
@@ -341,31 +327,33 @@ become mamouribot toolforge jobs delete empty-params   # stop/pause (resume-file
 become mamouribot toolforge jobs restart empty-params
 become mamouribot toolforge jobs logs empty-params     # or read ~/<job>.out / ~/<job>.err
 ```
-Finished one-off jobs stay in `jobs list` until deleted — clean up stale ones.
+Finished one-off jobs stay in `jobs list` until you delete them, so clean up old ones.
 
 ---
 
-## 4. Creating a brand-new bot (checklist)
+## 4. Setting up a new bot (checklist)
 
-1. **Bot account + approval.** The wiki edits go out as an *approved bot*
-   (MamouriBot), which needs a BRFA on fa.wiki. Reuse MamouriBot if the new task
-   fits its remit; otherwise file a new task/BRFA first. Bot-password from
-   `Special:BotPasswords` → `.env` on the box.
-2. **Write the task script** under `src/tasks/` in this repo (copy the
-   closest existing one — they share the `core.ts`/API-client shape; the Python
-   ones self-load `.env`). Make paths `__file__`-relative except the one ROOT
-   you'll patch on the box.
-3. **Build in a resume file + heartbeat.** A done-file (skip already-processed)
-   and a periodic `HB processed=…/… saved=… skipped=… rate=…/min` print so
-   progress is visible even when most items are silently skipped.
-4. **Respect pacing.** Serial ~60 req/min is the safe ceiling; keep maxlag +
-   `Retry-After` backoff. `MIN_INTERVAL` env sets the inter-write gap (Task 5
-   uses 1.0s on the box → ~31–33 items/min). Don't go sub-second.
-5. **Fail closed on identity.** Every write asserts the bot user
-   (`assert=user`/`assertuser=`) so a mid-run session expiry can't post anonymously.
-6. **Deploy** (§2), **run one-off to validate** (§3), then **schedule** it.
-7. **Document the job** (name, schedule, command, what it does) in a memory or
-   here, so the next agent can find it.
+1. **Bot account and approval.** Edits go out as an approved bot (MamouriBot), which needs a
+   permission request on fa.wiki. Use MamouriBot if the new task fits what it does;
+   otherwise file a new task request first. Create a bot password at
+   `Special:BotPasswords` and put it in the `.env` on the tool.
+2. **Write the task** under `src/tasks/` in this repository. Copy the closest existing task;
+   they share the `core.ts` and API-client structure, and the Python ones load `.env`
+   themselves. Make paths relative to `__file__`, except the one ROOT you will change on the
+   tool.
+3. **Add a resume file and a heartbeat.** A done-file so processed items are skipped, and a
+   regular `HB processed=…/… saved=… skipped=… rate=…/min` line so progress is visible even
+   when most items are skipped without output.
+4. **Keep the pace down.** About 60 requests a minute, one at a time, is the safe maximum.
+   Keep maxlag and the `Retry-After` backoff. The `MIN_INTERVAL` environment variable sets
+   the pause between writes (Task 5 uses 1.0s on the tool, which gives about 31–33 items a
+   minute). Don't go below one second.
+5. **Stop if the identity is wrong.** Every write asserts the bot user
+   (`assert=user`/`assertuser=`), so a session that expires in the middle of a run can't
+   post anonymously.
+6. **Deploy** (§2), **run it once as a one-off to check it** (§3), then **schedule** it.
+7. **Write the job down** (name, schedule, command, what it does) here, so the next person
+   can find it.
 
 ---
 
@@ -374,7 +362,7 @@ Finished one-off jobs stay in `jobs list` until deleted — clean up stale ones.
 | Thing | Value |
 |---|---|
 | Bastion | `ssh mamouri@login.toolforge.org` |
-| Tools | one per task family — see the table at the top |
+| Tools | `mamouribot` only; see the table at the top |
 | Auth key | Wikimedia dev-account SSH key (ED25519, in ssh-agent; same as Gerrit `mamouri`) |
 | Tool account | `become mamouribot` |
 | Tool home / code | `/data/project/mamouribot` → `~/bot/` |
@@ -383,6 +371,5 @@ Finished one-off jobs stay in `jobs list` until deleted — clean up stale ones.
 | Jobs CLI | `become mamouribot toolforge jobs {run,list,logs,delete,restart}` |
 | Current jobs | `tools.mamouribot` only: `empty-params` (وظیفهٔ ۵) daily `5 3 * * *`; `notelist-watch` (وظیفهٔ ۶) every 15 min `*/15 * * * *`; `destub-watch` (وظیفهٔ ۱۰) `*/10 * * * *`; `destub-inventory-monthly` (وظیفهٔ ۱۰) `0 2 1 * *`; `cp-daily` (وظیفهٔ ۴) daily `35 6 * * *` |
 
-For the full operational history of the first bot (speed tuning, hang
-diagnosis, wrapper-template fixes), see the `task5-toolforge-deploy` agent
-memory.
+The full history of deploying the first bot (speed tuning, finding why it hung, fixes for
+wrapper templates) is in my notes under `task5-toolforge-deploy`.

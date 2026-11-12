@@ -1,157 +1,93 @@
-# وظیفهٔ ۳ — state of the full run, ۸ اکتبر ۲۰۲۶
+# وظیفهٔ ۳: the full run, from ۸ اکتبر ۲۰۲۶
 
-Handover. Everything measured, not estimated. The run was stopped on a defect that was
-never in the bot; it is now diagnosed and guarded against, so the run can resume. See §3.
+{{مجوز دارد}} was granted on ۸ اکتبر ۲۰۲۶ (full permission, not a trial). The run was stopped
+the same day on a defect that turned out to be in the CS1 modules, not in the bot. The bot
+now avoids it, and since ۹ اکتبر ۲۰۲۶ the task runs hourly on Toolforge. All numbers here are
+measured.
 
-## 1. Where it stands
+What the task does: `docs/task-03-citation-normalization.md`. The trial before this:
+`docs/task-03-trial-state.md`.
+
+## 1. ۸ اکتبر ۲۰۲۶, when the run was stopped
 
 | | |
 |---|---|
 | Permission | **{{مجوز دارد}}** granted ۸ اکتبر ۲۰۲۶ (full, not a trial) |
 | Edits, ۸ اکتبر | **45** (5 self-reverted, all restored byte-identically) |
-| Self-reverted by the guard | **5** |
+| Self-reverted by the post-save check | **5** |
 | Processed | 75 |
 | Checkpoint | 729 done, 15 deferred (`~/state/normalize-cite-params.json`) |
 | Job | deleted; `mamouribot` runs only `empty-params`, `notelist-watch`, `destub-watch`, `destub-inventory-monthly` |
 
-Every one of the 5 reverted pages was checked: the current revision is the bot's own
-revert and the wikitext is **byte-identical to the pre-bot state**. 5 of 5. No article is
-left damaged.
+I checked each of the 5 reverted pages: the current revision is the bot's own revert and the
+wikitext is byte-identical to the state before the bot. No article was left damaged.
 
 Logs on the tool: `~/task-03-cite-params/logs/live{1,2,3}.out`.
 
-## 2. What the permission actually covers — read this before widening anything
+## 2. What the permission covers
 
-Checked term by term against the approved page, not assumed:
+Read this before widening anything. I checked it term by term against the approved page.
 
 **Approved:** the archive families (`archive-url`, `archiveurl`, `نشانی بایگانی`,
 `archive-date`, `archivedate`), the `dead-url` family → `چگونگی پیوند` with `مرده`/`زنده`,
-and `ref=harv` removal.
+and removing `ref=harv`.
 
-**NOT approved, and not mentioned anywhere on the page:** access-date, language, title,
-book-title, date, page, pages, periodical, chapter, publisher. The follow-up declared
-THREE deviations; a fourth covering those ten was drafted and removed before posting.
+**Not approved, and not mentioned anywhere on the page:** access-date, language, title,
+book-title, date, page, pages, periodical, chapter, publisher. The follow-up declared three
+deviations; I drafted a fourth covering those ten and removed it before posting.
 
-They are therefore **off by default**, gated behind `CITE_WIDENED_SCOPE=1`, and
-`src/tasks/task-03/scope.test.ts` asserts the default by spawning a child process without
-that variable. The env var is not permission: those families need approving on the request
-page first.
+So those ten are off by default, behind `CITE_WIDENED_SCOPE=1`, and
+`src/tasks/task-03/scope.test.ts` checks the default by starting a child process without that
+variable. Setting the variable is not permission: those families have to be approved on the
+request page first.
 
-## 3. WHY THE RUN WAS STOPPED — SOLVED ۸ اکتبر ۲۰۲۶، the guard is in
+## 3. Why the run was stopped
 
-**Root cause: an `archive.today` URL, not a `mw.loadData` proxy and not engine mixing.**
-A single citation on an otherwise empty page reproduces it; the "many English citations"
-correlation was an artefact of page size.
+About 20% of the edits in the last batch were self-reverted, all with the message
+`|archive-date= نیازمند |archive-url= است`. In the trial the rate had been 0.7%. The trial
+drew from the duplicate-parameter category, whose pages mostly had Persian names already.
+This run drew from the legacy-alias searches, pages with English parameter names, which are
+exactly the citations the en engine renders.
 
-`Module:Citation/CS1/en` runs `has_archive_today_url`, which blanks any parameter holding
-an archive.today-family URL **and its declared dependents**. `cfg.dependencies_t` has two
-faults: `url_dependency_map_t` is keyed on **English parameter names only** (no
-`['پیوند بایگانی']`), and `dependencies_t` is built ~2,200 lines **before** the fa i18n
-overlay appends the Persian aliases. So a Persian-named archive url is blanked alone, its
-date survives, and the citation reports «|archive-date= نیازمند |archive-url= است».
+The cause was an `archive.today` URL. `Module:Citation/CS1/en` blanks a parameter holding
+such a URL along with its dependents, but its dependency table only knew the English
+parameter names, so a Persian-named archive url was blanked while its date survived. A
+preview never shows this, because the module skips that step when there is no
+`{{REVISIONID}}`.
 
-A preview cannot see it: `is_preview_mode = not is_set(REVISIONID)`, and the suppression
-pass is skipped in preview. `action=parse&text=` has no REVISIONID — which is the entire
-`text=` vs `oldid=` disagreement, and why every isolation test rendered clean.
+On ۸ اکتبر ۲۰۲۶ I added a guard to the bot (`ARCHIVE_TODAY_FAMILY` in
+`normalize-cite-params.ts`): on any citation with such a URL, the archive family
+(`archive-url`, `archive-date`, `url-status`) is left as written, and everything else on the
+page is still done. All five pages this run self-reverted carry an archive.today URL. The
+same day I also fixed both CS1 Configuration modules.
 
-**The guard is implemented.** `ARCHIVE_TODAY_FAMILY` in `normalize-cite-params.ts` freezes
-the whole archive family (`archive-url`, `archive-date`, `url-status`) on any citation
-carrying such a URL; everything else on the page is still done. **All five pages this run
-self-reverted carry an archive.today URL — 5 of 5** — and under the guard none of them
-produces a Persian-named archive parameter inside such a citation. Four tests cover it,
-built on the real failing citation from آمریکایی‌ها.
+The full diagnosis, the nine-case table, the Lua and the module fix are in
+`docs/task-03-open-defect.md`.
 
-The **module** fix (rebuild `dependencies_t` keyed on every alias, after the overlay, in
-both Configurations) would additionally clear a large share of
-`رده:صفحه‌های دارای خطا در نشانی بایگانی` — 4,361 pages, most of them broken by hand, with
-no bot involved. It is a core-module edit and is the operator's call. Full diagnosis, the
-nine-case reproduction table and the exact Lua: `docs/task-03-open-defect.md`.
+## 4. Which pages to work first
 
-The run can resume: §4.
+I had said the duplicate-parameter category was «largely drained» for the approved scope,
+because one capped run processed 25 pages and made 0 edits. That was wrong, and I repeated it
+before checking.
 
-## 3b. The original (superseded) hypothesis
-
-~20% of edits in the last batch were self-reverted, all with one message:
-
-```
-|archive-date= نیازمند |archive-url= است
-```
-
-The engine rendering the citation recognises `تاریخ بایگانی` as ArchiveDate but **not**
-`پیوند بایگانی` as ArchiveURL, so a set archive date with no archive url trips the
-dependency check in `url_dependency_map_t`.
-
-**The bot's edit is correct.** The example that proves it:
-
-```
-before: {{cite press release|title=…|url=…|accessdate=November 23, 2012
-         |archiveurl=https://web.archive.org/…|archivedate=۲۴ دسامبر ۲۰۱۰|deadurl=yes}}
-after:  {{cite press release|title=…|url=…|accessdate=November 23, 2012
-         |پیوند بایگانی=https://web.archive.org/…|تاریخ بایگانی=۲۴ دسامبر ۲۰۱۰|چگونگی پیوند=مرده}}
-```
-
-Ruled out by rendering, each giving **0 errors in isolation**: `cite press release` with
-the Persian names, with the English names, with `نشانی بایگانی`, with `زبان=fa`, and
-`یادکرد وب` with the Persian names. Both Persian names *are* declared in `aliases_add` in
-«پودمان:Citation/CS1/fa/i18n».
-
-What it points at:
-
-| instrument, identical bytes (rev 44674288) | spans | «نیازمند» |
-|---|---|---|
-| `action=parse&text=` | 8 | 0 |
-| `action=parse&oldid=` | **10** | **1** |
-
-and the failing pages **mix both engines**: 50 English-named citations (`cite web` ×29,
-`cite news` ×11 …) against 3 Persian-named, with only 2 explicit `زبان` parameters. The
-dispatch picks the engine per citation, so such a page loads both. A `mw.loadData` table is
-a shared read-only proxy and this repo already records two ways those behave unlike plain
-tables (`lessons/wikitext-and-params/loaddata-nested-table-metatable-poison.md`,
-`loaddata-proxy-length-operator-returns-zero.md`). A per-parse ordering effect also
-explains why a preview never reproduces it.
-
-**Why the rate jumped from 0.7% in the trial to ~20% here.** The trial drew from the
-duplicate-parameter category, whose pages were largely Persian-named already. This run
-draws from the legacy-alias searches — pages with **English** parameter names, which are
-exactly the citations routed to the en engine. The population selects for the bug.
-
-### The fix, and it is one line of Lua
-
-Make `پیوند بایگانی` resolve as an ArchiveURL alias for the **en** engine too, the way
-`تاریخ بایگانی` already does for ArchiveDate. The operator holds `templateeditor`.
-
-Reproduce by **saving, not previewing**: take a page with many English-named citations, add
-one `یادکرد وب`, convert one English citation's archive parameters to the Persian names,
-save, parse by `oldid`, then vary the ORDER of the Persian-named citation. If the error
-tracks the order, the shared `loadData` table is confirmed.
-
-Full diagnosis: `docs/task-03-open-defect.md`.
-
-## 4. Enumeration order matters for this scope — ⚠ THE EARLIER CLAIM HERE WAS WRONG
-
-This section used to say the duplicate-parameter category was «largely drained» for the
-approved scope, on the strength of one capped run that processed 25 pages for 0 edits.
-**That was false, and it was repeated to the operator before anyone checked it.**
-
-Measured on ۹ اکتبر ۲۰۲۶ — a random 300 of the category's members, each run through the
-task's own `normalizeCiteParams`:
+On ۹ اکتبر ۲۰۲۶ I ran a random 300 of the category's members through the task's own
+`normalizeCiteParams`:
 
 | scope | would be edited | no change | needs a human |
 |---|---|---|---|
 | **approved only** | **275 / 300 (۹۲٪)** | 23 | 2 |
 | widened (the ten unapproved families) | 286 / 300 | 2 | 12 |
 
-So «رده:صفحه‌های دارای ارجاع با متغیر تکراری» holds **45,126** articles (ns0) and about
-92% of them are actionable **under the approved scope alone**. It is the opposite of
-drained, and it is the better population to work first: a duplicate parameter renders a
-visible CS1 error, where a legacy alias renders fine and is only a migration debt.
+«رده:صفحه‌های دارای ارجاع با متغیر تکراری» holds **45,126** articles (ns0), and about 92%
+of them can be fixed under the approved scope alone. These pages come first: a duplicate
+parameter shows a visible CS1 error, while a legacy alias renders fine and is only a
+migration.
 
-The one capped run that found nothing was evidence about one 25-page window and a then
-different code state, not about 45,000 pages. A zero needs a positive control
-(`lessons/verification-and-gates/a-zero-needs-a-positive-control.md`); this one never got
-one.
+The empty run only covered one 25-page window, on older code (see
+`lessons/verification-and-gates/a-zero-needs-a-positive-control.md`). Why that window was
+empty is under [the shuffle](#the-list-is-shuffled) below.
 
-The searches are the second population, re-measured the same day:
+The searches are the second set of pages, re-measured the same day:
 
 | query | articles |
 |---|---|
@@ -167,39 +103,38 @@ The searches are the second population, re-measured the same day:
 | `insource:"deadurl"` | 12,416 |
 | `insource:"ref=harv"` | 1,730 |
 
-### Why the targets are a frozen file and not enumerated per run
+### Why the targets are a frozen file
 
-Not laziness: **CirrusSearch hard-errors past offset 10,000** —
-`cirrussearch-offset-too-large`, verified ۹ اکتبر ۲۰۲۶ — so an uncapped in-run enumeration
-of those searches throws rather than stopping politely. And the in-run cap is
-`limit * 20`, which means a scheduled capped run re-enumerates the *same* leading window
-every time and goes idle once that window is done, with tens of thousands of pages left.
+CirrusSearch fails past offset 10,000 (`cirrussearch-offset-too-large`, checked ۹ اکتبر
+۲۰۲۶), so enumerating those searches in full during a run throws an error. The in-run cap is
+also `limit * 20`, so a scheduled capped run would enumerate the same first window every
+time and go idle once it was done, with tens of thousands of pages left.
 
-So the list is harvested once and frozen, **category first** because those pages carry a
-visible error, then the union of the eight search windows:
+So the list is collected once and frozen, the category first because those pages show an
+error, then the union of the eight search windows:
 `scripts/archive/task3-harvest-targets.py` in the companion repo.
 
-## 4b. It runs on a schedule now — ۹ اکتبر ۲۰۲۶
+## 5. The hourly job, from ۹ اکتبر ۲۰۲۶
 
-The earlier batches were **one-off** jobs with a `--limit`, so each finished and vanished
-from `toolforge jobs list`, and the task looked stopped when it had merely run out of its
-cap. With the full permission it is a cron job instead:
+The earlier batches were one-off jobs with a `--limit`, so each one finished and disappeared
+from `toolforge jobs list`, and the task looked stopped when it had only used up its cap.
+With the full permission it is a cron job:
 
 ```
 cite-params-hourly   scheduled: 25 * * * *
   ./task-03-cite-params/run.sh --live --limit 250 --delay 5
 ```
 
-`TARGET_FILE` defaults to `targets.txt` inside `run.sh`, so no job command has to set it.
-The list is **80,450 titles** — the 45,126 category members first, then the union of the
-eight search windows (`scripts/archive/task3-harvest-targets.py` in the companion repo).
-Checkpoint when this was written: **1,189 done, 15 deferred**. Regenerate the list when
-runs start reporting nothing to do, and **verify the claim before believing it** — §4.
+`TARGET_FILE` defaults to `targets.txt` inside `run.sh`, so the job command does not set it.
+The list has **80,450 titles**: the 45,126 category members first, then the union of the
+eight search windows. Checkpoint when this was written: **1,189 done, 15 deferred**. When runs
+start reporting nothing to do, regenerate the list, but first check that there really is
+nothing left (section 4).
 
-### The list is shuffled, and that is load-bearing
+### The list is shuffled
 
-`list=categorymembers` returns a stable order, and its **leading window is almost all
-already-clean pages**. Measured ۹ اکتبر ۲۰۲۶ with the task's own transform:
+`list=categorymembers` returns pages in a fixed order, and the first pages are almost all
+clean already. Measured ۹ اکتبر ۲۰۲۶ with the task's own transform:
 
 | slice of the 45,126 category members | would be edited |
 |---|---|
@@ -207,80 +142,78 @@ already-clean pages**. Measured ۹ اکتبر ۲۰۲۶ with the task's own trans
 | random 100 | **100** |
 | random 300 | 275 |
 
-So a capped run that walks the list from the start edits almost nothing and reports
-«موردی برای هم‌سان‌سازی نبود» on every page. **That is what the original
-«live1 processed 25 pages for 0 edits» actually was** — not a drained category — and the
-first hourly run on the un-shuffled list reproduced it exactly: 110 pages, **0 edits**.
+A capped run that walks the list from the start edits almost nothing and reports
+«موردی برای هم‌سان‌سازی نبود» on every page. That is what the 25-page, 0-edit run was, and
+the first hourly run on the unshuffled list did the same: 110 pages, **0 edits**.
 
-The list is therefore shuffled with a fixed seed before upload, so every run's slice is
-representative and the observed edit rate matches the population. Rebuild it the same way
-or the trap comes back.
+So I shuffle the list with a fixed seed before uploading it, and each run's slice has the
+same edit rate as the whole list. Rebuild it the same way.
 
-### Where the pace comes from, measured
+### Pace
 
 | | |
 |---|---|
-| Non-delay cost per edit | **~7s** — read, pre-save render, write, post-save render by `oldid` |
+| Cost per edit apart from the delay | **~7s**: read, pre-save render, write, post-save render by `oldid` |
 | Observed cadence at `--delay 15` | median **22s** over 429 consecutive gaps |
 | At `--delay 5` | ~12s per edit, ~300/hour, ~7,200/day → the list in ~11 days |
 
-Both render checks already short-circuit when the error count is zero, so that 7s is two
-API round trips and a write, not four parses. **Do not trim it by dropping the post-save
-check** — that is the one that caught the archive.today defect and self-reverted it.
+Both render checks skip the second parse when the error count is zero, so the 7s is two API
+round trips and a write, not four parses. Don't speed it up by dropping the post-save check:
+it is the check that caught the archive.today defect and reverted the edits.
 
-- **MamouriBot holds `noratelimit`** (verified ۹ اکتبر ۲۰۲۶: `ratelimits.edit` is `{}`),
-  so the server imposes no edit throttle. The only limits are `maxlag` and our own floor.
-- **fa's bot policy names five seconds itself** as the example gap for slowing a bot down
-  («فاصله زمانی مثلاً پنج ثانیه»), so `--delay 5` is inside policy, not at its edge. The
-  same section asks fast bots to ease off at peak hours.
-- **Parallel shards would not help.** `src/pacing.ts` multiplies the gap by the number of
-  concurrent runs (pywikibot's `process_multiplicity`), so N shards each run at 1/N and
-  the aggregate is unchanged. Raising throughput means raising the budget, not adding
-  workers.
-- The pace is **the operator's call, not a constant** —
-  `lessons/api-and-permissions/pacing-is-the-users-call-not-a-constant.md`. He chose 250
-  hourly at `--delay 5` on ۹ اکتبر ۲۰۲۶, from a measured table of the options.
+- MamouriBot holds `noratelimit` (checked ۹ اکتبر ۲۰۲۶: `ratelimits.edit` is `{}`), so the
+  server sets no edit limit. The only limits are `maxlag` and our own delay.
+- fa's bot policy itself gives five seconds as an example gap for slowing a bot down
+  («فاصله زمانی مثلاً پنج ثانیه»), so `--delay 5` is within policy. The same section asks
+  fast bots to slow down at peak hours.
+- Parallel runs would not help. `src/pacing.ts` multiplies the gap by the number of
+  concurrent runs (like pywikibot's `process_multiplicity`), so N runs each go at 1/N and the
+  total is the same. More throughput means a bigger budget, not more workers.
+- The pace is my decision, not a constant
+  (`lessons/api-and-permissions/pacing-is-the-users-call-not-a-constant.md`). I chose 250 an
+  hour at `--delay 5` on ۹ اکتبر ۲۰۲۶, from a table of measured options.
 
-## 5. What was verified about the edits themselves
+## 6. Checks on the edits themselves
 
-- **Transformations are right.** `archiveurl 2→0`, `archivedate 2→0`, `dead-url 2→0`;
+- **The changes are right.** `archiveurl 2→0`, `archivedate 2→0`, `dead-url 2→0`;
   `پیوند بایگانی 0→2`, `تاریخ بایگانی 0→2`, `چگونگی پیوند 0→2`; rendered output identical,
   errors 0→0. Checked with `src/tasks/task-03/verify-trial.ts`.
-- **The late-added aliases resolve.** `نشانی بایگانی` merges away; `dead-url=yes` becomes
-  `چگونگی پیوند=مرده`; an existing `=dead` is left unchurned, so no pointless churn.
-- **Nothing outside a citation moves.** `archive/check-only-citations-changed.ts`: 81 of 81
-  pages clean. Its first version compared line-by-line and reported whole articles as
-  changed because a four-line citation collapsing to three shifts everything after it —
-  the false positive `lineDiff` in `core.ts` exists to avoid.
+- **The aliases added late resolve.** `نشانی بایگانی` is merged away; `dead-url=yes` becomes
+  `چگونگی پیوند=مرده`; an existing `=dead` was left as it was. (Since ۱۳ اکتبر ۲۰۲۶ the value
+  follows the script of the citation; see `docs/task-03-citation-normalization.md`.)
+- **Nothing outside a citation changes.** `archive/check-only-citations-changed.ts`: 81 of 81
+  pages clean. Its first version compared line by line and reported whole articles as changed,
+  because a four-line citation becoming three lines shifts everything after it. `lineDiff` in
+  `core.ts` exists to avoid that.
 
-## 6. `ref=harv` removal — correct, with one promise to keep
+## 7. Removing `ref=harv`
 
-Checked on `امپراتوری بیزانس` (diff 44674319), the case the operator queried:
+Checked on `امپراتوری بیزانس` (diff 44674319), the page I had asked about:
 
-- **`CITEREF` anchors: 188 before, 188 after.** None lost, none gained. The `Thurn`
-  citation's own anchor survives. **0** new dangling short-footnote links.
-- Only the exact value `harv` was removed; no other `ref=` value existed. This matters
+- `CITEREF` anchors: 188 before, 188 after. None lost or gained, the `Thurn` citation's own
+  anchor survives, and there are 0 new broken short-footnote links.
+- Only the exact value `harv` was removed; there were no other `ref=` values. This matters
   because `ref=none` suppresses an anchor and `ref={{sfnref|…}}` sets a custom one, and
-  dropping either breaks every `{{sfn}}`/`{{پک}}` pointing at it **silently**.
-- That edit also converted **16** archive parameters, so it was not a cosmetic edit.
+  dropping either breaks every `{{sfn}}`/`{{پک}}` pointing at it without any error.
+- That edit also converted 16 archive parameters, so it was not cosmetic.
 
-**But the request's claim that `ref=harv` «خطا می‌دهد» is no longer true.** Rendered side
-by side: with and without it, **0 errors, 0 maintenance messages, same anchor
-`CITEREFX1900`**. (A first probe seemed to show an error span; that was the TemplateStyles
-phantom floor, which is why `countErrorMarkers` carries a `class="` prefix.)
+The request says `ref=harv` «خطا می‌دهد», but that is no longer true. Rendered side by side,
+with and without it: 0 errors, 0 maintenance messages, the same anchor `CITEREFX1900`. (A
+first test seemed to show an error span; that was the TemplateStyles phantom floor, which is
+why `countErrorMarkers` carries a `class="` prefix.)
 
-So an edit whose ONLY change is removing `ref=harv` is purely cosmetic, which the request
-promises never to do («ربات هرگز ویرایشِ صرفاً آرایشی ثبت نمی‌کند»). It can happen: of 30
-pages containing `ref=harv`, **one** (`ریاضیات`) would get a harv-only edit; the other 29
-had real work too. Scaled over ~1,735 pages that is roughly 60 cosmetic edits.
+So an edit whose only change is removing `ref=harv` is cosmetic, and the request promises
+never to make one («ربات هرگز ویرایشِ صرفاً آرایشی ثبت نمی‌کند»). It can happen: of 30 pages
+with `ref=harv`, one (`ریاضیات`) would get a harv-only edit, and the other 29 had real work
+too. Over ~1,735 pages that is roughly 60 cosmetic edits.
 
-**Open, small, not yet done:** suppress the edit when removing `ref=harv` is the only
-change, and let those pages be picked up when they next have real work.
+Still to do: skip the edit when removing `ref=harv` is the only change, and pick those pages
+up when they next have real work.
 
-## 7. Open items, in order
+## 8. Open items, in order
 
-1. ~~Fix the CS1 alias asymmetry~~ — **done in the bot** (§3). Resume the run.
-2. **Guard the harv-only cosmetic edit** (§6).
-3. **Get the ten widened families approved**, then set `CITE_WIDENED_SCOPE=1` (§2).
-4. Resume with the command in §4, in supervised batches, watching the revert rate. Above a
-   few percent, stop and look rather than grinding through.
+1. ~~Fix the CS1 alias asymmetry~~: done in the bot (section 3). Resume the run.
+2. Skip the harv-only cosmetic edit (section 7).
+3. Get the ten widened families approved, then set `CITE_WIDENED_SCOPE=1` (section 2).
+4. Resume with the command in section 5, in supervised batches, watching the revert rate. If
+   it goes above a few percent, stop and look.
