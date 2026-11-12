@@ -27,6 +27,7 @@ const RES = new Map<string, Resolution>([
   ['Martin Gardner', fa('مارتین گاردنر')],
   ['Prometheus Books', fa('کتاب‌های پرومتئوس')],
   ['Seamount', { kind: REVIEW, reason: 'en-only' }],
+  ['President of Honduras', fa('رئیس‌جمهور هندوراس')],
 ]);
 const LIVE = new Set(['مه ۶۸', 'تامس وولسی', 'هالیوود رکوردز', 'والت دیزنی رکوردز',
   'مارتین گاردنر', 'کتاب‌های پرومتئوس', 'نقطه داغ هاوایی']);
@@ -68,6 +69,12 @@ console.log('\n== {{بت}}: repair ==');
 {
   const { text } = run('{{بت|1=می ۶۸|2=رویدادهای مه|en=May 68}}');
   ok('its display label is kept', text === '[[مه ۶۸|رویدادهای مه]]', text);
+}
+
+{
+  const { text } = run('{{بت|1=قوه مجریه هندوراس|2=Poder Ejecutivo de Honduras|en=President of Honduras}}');
+  ok('a Latin label falls back to the call\'s own Persian title, not the article title',
+     text === '[[رئیس‌جمهور هندوراس|قوه مجریه هندوراس]]', text);
 }
 
 console.log('\n== the traps: these must NOT change ==');

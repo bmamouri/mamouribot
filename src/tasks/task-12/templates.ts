@@ -18,6 +18,7 @@
 import { templateCalls } from '../../lib/gates.js';
 import { FA, type Resolution } from './resolve.js';
 import { PERSIAN } from './detect.js';
+import { insideTemplate } from './rewrite.js';
 
 export const ILL_NAMES = new Set(['پیوند با میان‌ویکی', 'پبم', 'پم', 'link-interwiki', 'pam']);
 export const BT_NAME = 'بت';
@@ -174,8 +175,11 @@ export function repairFor(
       return { review: `the call's two titles name different subjects (${call.fa} / ${call.foreign})` };
     }
   }
+  // The editor's own Persian wording wins over the article title: a Latin label falls back
+  // to the call's Persian fa title, and only then to the article title
+  // («آموزش در هندوراس»: {{بت|قوه مجریه هندوراس|Poder Ejecutivo de Honduras|en=…}}).
   let label = call.label ?? call.fa;
-  if (!PERSIAN.test(label) && !foreign) label = r.link;
+  if (!PERSIAN.test(label) && !foreign) label = PERSIAN.test(call.fa) ? call.fa : r.link;
   return { text: label === r.link ? `[[${r.link}]]` : `[[${r.link}|${label}]]` };
 }
 
@@ -230,7 +234,10 @@ export function applyTemplates(
   const inForeign = (at: number) => spans.some(([s, e]) => s <= at && at < e);
 
   for (const call of parseInterwikiCalls(text)) {
-    const r = repairFor(call, res, faLive, inForeign(call.start));
+    let r = repairFor(call, res, faLive, inForeign(call.start));
+    if (r && 'text' in r && /[۰-۹]/.test(r.text.split('|')[0]) && insideTemplate(text, call.start)) {
+      r = { review: 'Persian-digit target inside a template is converted to Latin digits' };
+    }
     if (r && 'review' in r) { deferred.push(call.raw.replace(/\s+/g, ' ')); continue; }
     if (r) { splices.push({ start: call.start, end: call.end, text: r.text, repair: true }); continue; }
     const conv = btToIll(call);
@@ -238,7 +245,8 @@ export function applyTemplates(
   }
   for (const l of scanCiteLinks(text)) {
     const r = res.get(l.value);
-    if (r?.kind === FA && r.link && !faLive.has(l.value)) {
+    // Persian digits in a citation parameter are converted to Latin by the module.
+    if (r?.kind === FA && r.link && !faLive.has(l.value) && !/[۰-۹]/.test(r.link)) {
       splices.push({ start: l.start, end: l.end, text: r.link, repair: true });
     }
   }

@@ -46,7 +46,7 @@ import {
 } from './resolve.js';
 
 const SUMMARY = 'فارسی‌سازی پیوندهای انگلیسی و اصلاح پیوندهای سرخ';
-const SUMMARY_BT = 'اصلاح پیوندهای سرخ به مقاله‌های موجود؛ یکسان‌سازی {{بت}} با {{پیوند با میان‌ویکی}}';
+const SUMMARY_BT = 'اصلاح پیوندهای سرخ به مقاله‌های موجود و جایگزینی الگوی بت با الگوی پیوند با میان‌ویکی';
 
 /** Filled by getTargets, consumed by the pure transform. */
 let RESOLUTIONS = new Map<string, Resolution>();

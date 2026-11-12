@@ -104,13 +104,41 @@ export function inEnglishProse(text: string, at: number): boolean {
   const ls = text.lastIndexOf('\n', at - 1) + 1;
   const le = text.indexOf('\n', at);
   let line = text.slice(ls, le < 0 ? text.length : le);
-  line = line.replace(/^\s*[|!]?\s*[\w\s-]{1,40}=/, '');           // a template/table parameter name
+  const rel = at - ls;
+  // Templates are dropped — EXCEPT the ones the link sits inside, whose argument text IS
+  // its context: `{{efn|Including 2% for the [[…|SDPS]] and …}}` («انتخابات پارلمانی
+  // صربستان (۲۰۲۰)», ۱۲ نوامبر ۲۰۲۶). Same-length blanking keeps `rel` valid.
+  const blank = (n: number) => ' '.repeat(n);
   let prev: string | null = null;
-  while (prev !== line) { prev = line; line = line.replace(/\{\{[^{}]*\}\}/g, ' '); }
+  while (prev !== line) {
+    prev = line;
+    line = line.replace(/\{\{[^{}]*\}\}/g, (m, off: number) => {
+      if (!(off <= rel && rel < off + m.length)) return blank(m.length);
+      const head = /^\{\{[^|}]*\|?/.exec(m)![0];
+      return blank(head.length) + m.slice(head.length, -2) + blank(2);
+    });
+  }
+  line = line.replace(/^\s*[|!]?\s*[\w\s-]{1,40}=/, '');           // a template/table parameter name
   line = line.replace(/\[\[[^\]]*\]\]/g, ' ').replace(/<[^>]*>/g, ' ')
     .replace(/\[(?:https?:)?\/\/\S+[^\]]*\]/g, ' ').replace(/&[#\w]+;/g, ' ');
   if (PERSIAN.test(line)) return false;
   return (line.match(/\b[A-Za-z]{2,}\b/g) ?? []).length >= 2;
+}
+
+/** `S&#809;` and `S̩` are one title to MediaWiki. */
+const decodeEntities = (s: string) => s
+  .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+  .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+  .replace(/&amp;/g, '&').replace(/_/g, ' ').normalize('NFC').trim();
+
+/** Whether offset `at` sits inside a `{{…}}` call (unbalanced `{{` before it). */
+export function insideTemplate(text: string, at: number): boolean {
+  let depth = 0;
+  for (let i = 0; i < at - 1; i++) {
+    const two = text[i] + text[i + 1];
+    if (two === '{{') { depth++; i++; } else if (two === '}}' && depth) { depth--; i++; }
+  }
+  return depth > 0;
 }
 
 export function applyResolutions(
@@ -129,9 +157,18 @@ export function applyResolutions(
     const res = resolutions.get(target);
     if (res === undefined) return whole;
     if (res.kind === REVIEW || res.kind === SKIP) { deferred.push(target); return whole; }
+    // The fa article has the SAME title as the link: it is already a working link, and
+    // «re-pointing» it only threw the label away (`[[R|Ʀʀ]]` → `[[R]]`, ۱۲ نوامبر ۲۰۲۶).
+    if (res.kind === FA && decodeEntities(res.link ?? '') === decodeEntities(target)) return whole;
     const foreign = within(ctx.foreign, at);
     if (foreign && res.kind !== FA) { deferred.push(target); return whole; }
     if (!foreign && inEnglishProse(text, at)) { deferred.push(target); return whole; }
+    // An English {{cite …}} on fa converts Persian digits in its parameters to Latin —
+    // link targets included — so `[[… ۱۸۴۸–۱۸۴۹|…]]` inside one renders RED as `… 1848–1849`
+    // («انقلاب‌های ۱۸۴۸», ۱۲ نوامبر ۲۰۲۶). Never put a Persian-digit target inside a template.
+    if (res.kind === FA && /[۰-۹]/.test(res.link ?? '') && insideTemplate(text, at)) {
+      deferred.push(target); return whole;
+    }
     applied++;
     return render(names.remap?.[target] ?? target, old, res, names, foreign);
   });

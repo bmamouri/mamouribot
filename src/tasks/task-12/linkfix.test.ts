@@ -68,6 +68,8 @@ const LOOKUP: Record<string, LookupInfo> = {
   'BA':                   { enExists: true, faTitle: 'BA', viaRedirect: false },
   'Mercury':              { enExists: true, faTitle: 'مرکوری', viaRedirect: false, enDisambig: true },
   'Walt Disney Records':  { enExists: true, faTitle: 'والت دیزنی رکوردز', viaRedirect: false, enItem: 'Q1' },
+  'Revolutionary Spring': { enExists: true, faTitle: 'بهار انقلابی ۱۸۴۸–۱۸۴۹', viaRedirect: false },
+  'R':                    { enExists: true, faTitle: 'R', viaRedirect: false },
 };
 /** fa disambiguation flags and items, as mediawikiFaInfo reports them. */
 const FA_META = new Map([
@@ -303,6 +305,31 @@ ok('a bare list item is not English prose', !inEnglishProse('* [[Ibn Masarra]]',
 ok('a table cell with a year is not English prose', !inEnglishProse('|[[Argentine real|Real]]<br/>1813', 2));
 ok('a Persian sentence is not English prose', !inEnglishProse('او به [[Prometheus Books]] رفت', 7));
 ok('an infobox parameter holding just a link is not prose', !inEnglishProse('|country = [[Argentina]]', 12));
+
+console.log('\n== found by the pre-run render check (۱۲ نوامبر ۲۰۲۶) ==');
+{
+  // «انقلاب‌های ۱۸۴۸»: an English {{Cite book}} converts Persian digits in its parameters,
+  // link targets included, so the repaired link rendered RED as «… 1848–1849».
+  const before = '{{Cite book |last=Clark |title=[[Revolutionary Spring|Revolutionary Spring: Europe Aflame]] |date=2023}}';
+  const { text, deferred } = await rewriteText(before);
+  ok('a Persian-digit target is never put inside a template', text === before, text);
+  ok('and is deferred', deferred.includes('Revolutionary Spring'));
+  const { text: prose } = await rewriteText('کتاب [[Revolutionary Spring]] را بخوانید.');
+  ok('in prose the same target is fine', prose.includes('[[بهار انقلابی ۱۸۴۸–۱۸۴۹]]'), prose);
+}
+
+{
+  const before = '<span>[[R|Ʀʀ]]</span> [[R&#95;|x]]';
+  const { text } = await rewriteText(before);
+  ok('a link whose fa article has the same title is left alone (label kept)', text === before, text);
+}
+{
+  const before = '13.3{{efn|Including 3.4% for the [[Los Angeles Times|LAT]] and 2% for others.}}';
+  const { text } = await rewriteText(before);
+  ok('English text inside a footnote template is its context', text === before, text);
+  ok('but a bare link in an English-free template argument is repairable',
+     !inEnglishProse('{{navbox|list1=[[Los Angeles Times]]}}', 16));
+}
 
 console.log('\n== the unapproved scope stays off for the bot ==');
 {
