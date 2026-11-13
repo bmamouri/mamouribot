@@ -28,6 +28,7 @@ All pages are under `ویکی‌پدیا:گزارش دیتابیس/`.
 | `neighbors` | the four «مقالاتی که در ویکی‌… هست و در ویکی‌فا نیست» pages | `nb-daily` | daily 05:10 |
 | `usermoves` | `تغییرنام‌های کاربران تأییدشده خودکار`, `تغییرنام‌های کاربران تأییدشده پایدار بدون گشت خودکار` | `moves-daily` | daily 05:30 |
 | `iranica` | `مقاله‌هایی که با دانشنامه ایرانیکا می‌شود گسترش داد` | `ir-weekly` | Wednesdays 06:20 |
+| `wantedtemplates` | `الگوهای ناموجود پرکاربرد در مقاله‌ها` | `wt-weekly` | Saturdays 06:40 |
 
 Each report also writes a `/امضا` subpage with a signature, which `{{گزارش دیتابیس}}`
 transcludes on وپ:گد as «آخرین به‌روزرسانی».
@@ -243,3 +244,27 @@ delete its job.
 | `src/tasks/task-13/*.selftest.ts` | each report's offline selftest |
 | `src/lib/replica.ts` | replica queries: `articleTitles()`, `queryRows()` |
 | `toolforge/task-13-move-report/` | `run.sh`, `jobs.yaml` |
+
+### الگوهای ناموجود پرکاربرد در مقاله‌ها
+
+The 1,000 missing templates that render red in the most articles, so fixing from the
+top repairs the most articles per edit. Code: `wanted-templates-report.ts`, `-run.ts`,
+`.selftest.ts`. Measured ۱۳ نوامبر ۲۰۲۶: 6,396 red uses across the 1,000; the 1,000th
+is in 2 articles.
+
+- **Counted as red, not as transcluded.** `templatelinks` also records calls that never
+  render (a branch of `#if` that does not fire). A red call also leaves a `pagelinks`
+  row to the same target, so the count is articles with both. Without this, 49 of the
+  top 1,000 never showed anything; `Play` (431, inside `{{شنیدن}}`) would have led.
+- **Callers.** When an existing template calls the missing one (`RegioneIT (unlinked)`
+  in 459 articles via the Italian province navboxes), that template is named with the
+  articles it explains: fixing it fixes them all. Only callers explaining at least 10%.
+- **Leads, labelled facts or guesses.** Facts: same name on en (redirects followed one
+  step) and that page's fa interwiki; a move without redirect; the last deletion.
+  Guesses, marked «حدس» on the page: a fa template whose name differs only in spacing,
+  ZWNJ, hamza, Arabic letters, case or the «X-خرد»/«خرد-X» order; and the en template on
+  at least 80% of the articles' en counterparts with lift ≥ 30 (stubs matched only to
+  stubs, and dropped when its fa equivalent is already on those articles). The
+  co-occurrence guess runs only for Persian-named rows with no other lead.
+- Overlaps HujiBot's weekly `پیوند به الگوهای حذف شده` only for previously deleted
+  templates (22 of the 1,000); that one counts every namespace.

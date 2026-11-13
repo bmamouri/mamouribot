@@ -130,3 +130,14 @@
   emails: onfailure
   filelog-stdout: logs/ir-weekly.out
   filelog-stderr: logs/ir-weekly.err
+# الگوهای ناموجود پرکاربرد در مقاله‌ها: the 1,000 missing templates red in the most
+# articles, with the existing template that calls each (when one does) and leads from
+# en.wikipedia. Weekly; ~5 min, reads fawiki_p and enwiki_p. Added ۱۳ نوامبر ۲۰۲۶.
+- name: wt-weekly
+  command: ./task-13-move-report/run.sh --report wantedtemplates --live --quiet
+  image: node20
+  mem: 2Gi
+  schedule: "40 6 * * 6"
+  emails: onfailure
+  filelog-stdout: logs/wt-weekly.out
+  filelog-stderr: logs/wt-weekly.err
