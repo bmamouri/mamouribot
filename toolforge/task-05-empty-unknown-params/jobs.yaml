@@ -1,0 +1,58 @@
+# وظیفهٔ ۵ — حذف پارامترهای خالی و ناشناختهٔ یادکرد.   see the ⚠️ about `jobs load` below
+#
+# Approved by Huji, ۱۵ سپتامبر ۲۰۲۶ ({{مجوز دارد}}), after a 50-edit trial under the
+# operator's own account. Originally shipped as a standalone Python script
+# (`~/bot/empty-unknown-params.py`); ported into this framework per TODO.md §8 so every
+# task shares one codebase. `getTargets()` IS the tracking category
+# («رده:خطاهای CS1: پارامترهای نامعلوم خالی»), so a title only appears while it still
+# genuinely carries the defect — new articles and reverted pages refill it continuously,
+# which is why `recheckAfterDays: 30` is set rather than a one-off sweep.
+#
+# NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in the
+# directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127. run.sh
+# itself does `cd "$(dirname "$0")"`, so its own relative paths still resolve.
+#
+# ⚠️ `toolforge jobs load` SYNCS — it deletes scheduled jobs absent from the file it is
+# given, including every other task's jobs. Use `toolforge jobs run` / `delete` per job.
+---
+# Step 0 — preflight: credentials, the bot flag, the emergency-stop page. Makes NO edits.
+- name: ep-check
+  command: ./task-05-empty-unknown-params/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/ep-check.out
+  filelog-stderr: logs/ep-check.err
+
+# Step 1 — enumerate and decide, write nothing. Prints every diff it would make.
+- name: ep-dry
+  command: ./task-05-empty-unknown-params/run.sh --limit 50
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/ep-dry.out
+  filelog-stderr: logs/ep-dry.err
+
+# Step 2 — the first live batch under the ported code, deliberately small so every diff
+# can be audited before the daily schedule starts touching new category members
+# unattended. One-off: no `schedule:`.
+- name: ep-first
+  command: ./task-05-empty-unknown-params/run.sh --live --limit 10 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0          # never silently re-run a partial edit batch
+  emails: all
+  filelog-stdout: logs/ep-first.out
+  filelog-stderr: logs/ep-first.err
+
+# Step 3 — the daily run, same time slot as the original Python cron
+# (`5 3 * * *`, `empty-params`).
+- name: empty-params
+  command: ./task-05-empty-unknown-params/run.sh --live --limit 200 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "5 3 * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/empty-params.out
+  filelog-stderr: logs/empty-params.err

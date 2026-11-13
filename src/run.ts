@@ -14,6 +14,7 @@
  */
 import { Bot, type BotTask, type RunOptions } from './core.js';
 import { useDmyDatesTask } from './tasks/task-01/use-dmy-dates.js';
+import { emptyUnknownParamsTask } from './tasks/task-05/empty-unknown-params.js';
 import { companyDeprecatedParamsTask } from './tasks/task-04/company-deprecated-params.js';
 import { citationAccessDateDedupTask } from './tasks/task-04/citation-dedup-accessdate.js';
 import { notelistMissingTask } from './tasks/task-06/notelist-missing.js';
@@ -31,6 +32,7 @@ import { portalLinksTask } from './tasks/task-18/portal-links-task.js';
 
 const TASKS: Record<string, BotTask> = {
   [useDmyDatesTask.id]: useDmyDatesTask,
+  [emptyUnknownParamsTask.id]: emptyUnknownParamsTask,
   [companyDeprecatedParamsTask.id]: companyDeprecatedParamsTask,
   [citationAccessDateDedupTask.id]: citationAccessDateDedupTask,
   [notelistMissingTask.id]: notelistMissingTask,

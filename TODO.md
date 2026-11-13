@@ -201,15 +201,17 @@ add `{{جمعیت ایران}}` by hand.
 
 ---
 
-## 8. Port وظیفهٔ ۵ to pywikibot
+## 8. Tell Huji وظیفهٔ ۵ is ported
 
-**Background.** Huji asked that the Python bots move to pywikibot.
-`src/tasks/task-05/empty-unknown-params.py` is the only one left.
+**Background.** Huji asked that the Python bots move off bare `urllib` (pywikibot, or
+this framework). `src/tasks/task-05/empty-unknown-params.py` was the only one left; it is
+now ported to TypeScript (`src/tasks/task-05/empty-unknown-params.ts`), same framework as
+every other task, deployed as the `empty-params` job.
 
 **Trigger.** None. I told Huji I would do it.
 
-**Then.** Port it to pywikibot, or to TypeScript like every other task and say so on the
-request page.
+**Then.** Say so on the وظیفهٔ ۵ request page's `بحث` section — the proposal text still
+reads «کد ربات: نوشته‌شده به پایتون».
 
 ---
 
