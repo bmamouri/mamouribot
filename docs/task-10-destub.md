@@ -148,7 +148,7 @@ become mamouribot toolforge jobs run destub-inventory-monthly \
   --image node20 --schedule "0 2 1 * *" --mem 1Gi
 ```
 
-To stop it, blank `کاربر:MamouriBot/توقف`, or run `toolforge jobs delete destub-watch`.
+To stop it, blank `کاربر:MamouriBot/ادامه`, or run `toolforge jobs delete destub-watch`.
 State is in `~/task-10-destub/.state/destub/` (`stub-templates.json`, `classified.jsonl`,
 `watch-checkpoint.json`).
 

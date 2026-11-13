@@ -143,7 +143,7 @@ trusting it (`lessons/scripts-and-batch/toolforge-deploy-path-must-match-run-sh.
 
 ### Stopping it, state and logs
 
-- Stop page `کاربر:MamouriBot/توقف` stops every task before its next edit.
+- Run page `کاربر:MamouriBot/ادامه` stops every task before its next edit.
 - `become mamouribot toolforge jobs delete cite-params-hourly` stops this one; the checkpoint
   keeps its place.
 - Checkpoint: `~/state/normalize-cite-params.json`. Review store:

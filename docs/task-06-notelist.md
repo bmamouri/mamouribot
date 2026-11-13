@@ -89,7 +89,7 @@ become mamouribot toolforge jobs run notelist-watch \
   --filelog-stdout logs/notelist-watch.out --filelog-stderr logs/notelist-watch.err
 ```
 
-To stop it, blank `کاربر:MamouriBot/توقف`, or run `toolforge jobs delete notelist-watch`.
+To stop it, blank `کاربر:MamouriBot/ادامه`, or run `toolforge jobs delete notelist-watch`.
 Logs are `~/logs/notelist-watch.out` and `.err`, and the state is in `~/state/`.
 
 ## Open

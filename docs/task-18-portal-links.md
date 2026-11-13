@@ -163,7 +163,7 @@ depends on which of the four placements applied).
 - The built-in render-error guard (before AND after saving) runs as for every task.
 - `assert=user` + `assertuser=MamouriBot` on every write; `baserevid`/`basetimestamp` so a
   concurrent edit gives a conflict, never an overwrite.
-- `maxlag=5`, `Retry-After` honoured, `کاربر:MamouriBot/توقف` read before every edit.
+- `maxlag=5`, `Retry-After` honoured, `کاربر:MamouriBot/ادامه` read before every edit.
 - Pre-approval trial runs `--as-me` (unflagged, visible in recent changes, 30–120s pacing
   per AGENTS.md) — see «Running it».
 

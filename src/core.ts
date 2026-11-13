@@ -8,7 +8,7 @@
  *   - emergency stop:
  *       (a) detects blocked/readonly API errors and halts immediately
  *           (matches fa.wiki's {{دکمه خاموش اضطراری}} admin-block convention)
- *       (b) polls a run page (کاربر:MamouriBot/توقف) before each edit — any
+ *       (b) polls a run page (کاربر:MamouriBot/ادامه) before each edit — any
  *           value other than the "go" keyword halts the bot (belt-and-suspenders)
  *       (c) SIGINT (Ctrl-C) stops cleanly after the current page
  *   - respects opt-out: skips pages bearing {{nobots}} / {{bots|deny=...}}
@@ -74,18 +74,30 @@ export const BOT_UA = `${BOT_NAME}/1.0 (wikipedia:fa; User:${BOT_NAME}; https://
 export const HUMAN_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Brave/1.71 Chrome/130.0.0.0 Safari/537.36';
 
-/** Page the operator/any editor can edit to halt the bot without an admin block. */
-export const STOP_PAGE = 'کاربر:MamouriBot/توقف';
 /**
- * Consecutive failures to READ the stop page before the run halts itself.
+ * Page the operator/any editor can edit to halt the bot without an admin block.
+ *
+ * Named «ادامه» (continue), not «توقف» (stop) — a page named after the STATE it holds
+ * («continue: yes/no») rather than the ACTION an editor takes on it. The bot was first
+ * built with this page named `کاربر:MamouriBot/توقف`, which inverted its own name: setting
+ * «توقف» (stop) to «بله» (yes) read, to any editor who had not memorised the source, as
+ * "yes, stop", while the code actually treated «بله» as "yes, keep running" — the
+ * opposite of what the page's own title says. See
+ * lessons/api-and-permissions/stop-page-named-for-the-state-not-the-action.md. Renamed
+ * 2026-11; the old page is now a `#تغییرمسیر` to this one for anyone who had it bookmarked,
+ * but nothing in this file reads that title any more.
+ */
+export const RUN_PAGE = 'کاربر:MamouriBot/ادامه';
+/**
+ * Consecutive failures to READ the run page before the run halts itself.
  *
  * Fail-open on one failure, fail-closed on a pattern. An unreadable kill switch is not a
  * kill switch, and carrying on indefinitely while unable to check it is exactly the
  * situation the switch exists for.
  */
-export const MAX_STOP_READ_FAILURES = 3;
-/** The only value on STOP_PAGE that lets the bot keep editing. */
-const STOP_GO_KEYWORD = 'بله';
+export const MAX_RUN_PAGE_READ_FAILURES = 3;
+/** The only value on RUN_PAGE that lets the bot keep editing. */
+const RUN_KEYWORD = 'بله';
 
 export interface BotTask {
   /** stable id, used for the state file name */
@@ -253,8 +265,8 @@ export class Bot {
   private sinceLagPoll = Number.MAX_SAFE_INTEGER;
   /** Resolved once per run: does this task's permission page exist to link to? */
   private brfaLinkable: boolean | null = null;
-  /** Consecutive failures reading the stop page; see MAX_STOP_READ_FAILURES. */
-  private stopReadFailures = 0;
+  /** Consecutive failures reading the run page; see MAX_RUN_PAGE_READ_FAILURES. */
+  private runPageReadFailures = 0;
 
   constructor(public opts: RunOptions) {
     // Assigned in the body, not as a field initializer: a field initializer that reads
@@ -543,7 +555,7 @@ export class Bot {
 
   // ---------- emergency-stop checks ----------
   /**
-   * True if the bot must halt now (stop page flipped, or an admin block seen earlier).
+   * True if the bot must halt now (run page flipped, or an admin block seen earlier).
    *
    * Called before EVERY edit. The page is the kill switch any editor can use: it works
    * while its content is exactly «بله», and blanking it or writing anything else stops
@@ -551,26 +563,26 @@ export class Bot {
    * instructions in one.
    *
    * A read failure does not stop the run — a single network blip must not halt a batch —
-   * but it cannot be ignored forever either, because an unreadable stop page is a kill
+   * but it cannot be ignored forever either, because an unreadable run page is a kill
    * switch that silently does not work. After CONSECUTIVE failures the run halts and
    * says why.
    */
   async mustStop(): Promise<{ stop: boolean; why?: string }> {
     if (this.stopRequested) return { stop: true, why: 'SIGINT' };
     try {
-      const d = await this.apiGet({ action: 'query', prop: 'revisions', rvprop: 'content', rvslots: 'main', titles: STOP_PAGE });
+      const d = await this.apiGet({ action: 'query', prop: 'revisions', rvprop: 'content', rvslots: 'main', titles: RUN_PAGE });
       const pg = d.query.pages[0];
-      this.stopReadFailures = 0;
+      this.runPageReadFailures = 0;
       if (!('missing' in pg)) {
         const raw = pg.revisions?.[0]?.slots?.main?.content ?? '';
         const content = raw.replace(/<!--[\s\S]*?-->/g, '').trim(); // ignore HTML comments
-        if (content !== STOP_GO_KEYWORD) return { stop: true, why: `صفحهٔ توقف «${STOP_PAGE}» مقدارش «${STOP_GO_KEYWORD}» نیست` };
+        if (content !== RUN_KEYWORD) return { stop: true, why: `صفحهٔ ادامه «${RUN_PAGE}» مقدارش «${RUN_KEYWORD}» نیست` };
       }
     } catch (e) {
-      this.stopReadFailures++;
-      console.warn(`  ⚠ صفحهٔ توقف خوانده نشد (${this.stopReadFailures}/${MAX_STOP_READ_FAILURES}): ${(e as Error).message}`);
-      if (this.stopReadFailures >= MAX_STOP_READ_FAILURES) {
-        return { stop: true, why: `صفحهٔ توقف ${MAX_STOP_READ_FAILURES} بار پشت سر هم خوانده نشد — کلید توقف در دسترس نیست` };
+      this.runPageReadFailures++;
+      console.warn(`  ⚠ صفحهٔ ادامه خوانده نشد (${this.runPageReadFailures}/${MAX_RUN_PAGE_READ_FAILURES}): ${(e as Error).message}`);
+      if (this.runPageReadFailures >= MAX_RUN_PAGE_READ_FAILURES) {
+        return { stop: true, why: `صفحهٔ ادامه ${MAX_RUN_PAGE_READ_FAILURES} بار پشت سر هم خوانده نشد — کلید توقف در دسترس نیست` };
       }
     }
     return { stop: false };

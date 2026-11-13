@@ -61,7 +61,7 @@ ssh mamouri@login.toolforge.org 'become mamouribot toolforge jobs restart cp-dai
 Don't run `toolforge jobs load` on this task's `jobs.yaml`. A load syncs the whole job list
 and deletes every other task's scheduled jobs. Use `toolforge jobs run` and `delete` per job.
 
-To stop it, blank `کاربر:MamouriBot/توقف`, or run `toolforge jobs delete cp-daily`. The
+To stop it, blank `کاربر:MamouriBot/ادامه`, or run `toolforge jobs delete cp-daily`. The
 checkpoint is `~/state/company-deprecated-params.json`, so a restart carries on where it
 stopped.
 

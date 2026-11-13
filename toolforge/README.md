@@ -112,7 +112,7 @@ arrangement that preceded this had nine.
 
 Any of these halts it within one page:
 
-- blank `کاربر:MamouriBot/توقف` or change it to anything other than `بله`; it is read
+- blank `کاربر:MamouriBot/ادامه` or change it to anything other than `بله`; it is read
   before **every** edit
 - an admin blocks the bot account
 - `toolforge jobs delete <job>`

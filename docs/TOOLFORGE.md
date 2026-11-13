@@ -40,12 +40,10 @@ The eight tools used before `mamouribot` are disabled and are deleted automatica
 ~/task-10-destub/           وظیفهٔ ۱۰'s working directory (its state is relative to it)
 ~/state/                    BOT_STATE_DIR: every task's resume checkpoint
 ~/logs/                     job logs
-~/bot/                      وظیفهٔ ۵ only (Python): empty-unknown-params.py and its .env
 ```
 
 The TypeScript bundle is `~/mamouribot.mjs`. Every `run.sh` does `cd "$(dirname "$0")"` and
 then `exec node ../mamouribot.mjs <task-id>`, so it runs the file in the tool home.
-`~/bot/` is only for وظیفهٔ ۵.
 
 Each `run.sh` sets `BOT_STATE_DIR` to `$HOME/state` and, for most tasks, `BOT_GATES_PY` to
 the `gates.py` in the tool home.
@@ -61,17 +59,9 @@ toolforge envvars create WIKIPEDIA_BOT_PASSWORD
 toolforge envvars list
 ```
 
-`core.ts` reads a `.env` only if one exists, so nothing else is needed. وظیفهٔ ۵ (Python)
-reads `~/bot/.env` (`chmod 600`). Upload only the two keys it needs:
-
-```sh
-grep -E "^WIKIPEDIA_BOT_(USERNAME|PASSWORD)=" .env | ssh mamouri@login.toolforge.org \
-  "become mamouribot bash -c 'cat > ~/bot/.env && chmod 600 ~/bot/.env'"
-```
-
-Open: the current `~/bot/.env` on the tool is a copy of my whole local `.env`, including
-unrelated tokens and my own account's password. It should be replaced with the two-key
-version above.
+`core.ts` reads a `.env` only if one exists, so nothing else is needed. Every task,
+including وظیفهٔ ۵ since its port to TypeScript, reads credentials from the tool
+environment variables set below.
 
 ## 4. Bundle and upload
 
@@ -104,14 +94,7 @@ cat dist/destub-watch.mjs | ssh mamouri@login.toolforge.org \
 # a task's run.sh
 cat toolforge/task-15-source-tags/run.sh | ssh mamouri@login.toolforge.org \
   "become mamouribot bash -c 'mkdir -p ~/task-15-source-tags && cat > ~/task-15-source-tags/run.sh && chmod +x ~/task-15-source-tags/run.sh'"
-
-# وظیفهٔ ۵
-cat src/tasks/task-05/empty-unknown-params.py | ssh mamouri@login.toolforge.org \
-  "become mamouribot bash -c 'cat > ~/bot/empty-unknown-params.py'"
 ```
-
-`empty-unknown-params.py` has a hard-coded `ROOT` for finding `.env`. Change it to
-`/data/project/mamouribot/bot` when uploading.
 
 After uploading, check that the change is in the file the job actually runs. esbuild escapes
 non-ASCII, so grep for an ASCII identifier the change added, not a Persian string:
@@ -135,7 +118,7 @@ A new name there is the only sign that something started reading a secret.
 | job | task | schedule (UTC) | command |
 |---|---|---|---|
 | `st-daily` | ۱۵ | `5 3 * * *` | `./task-15-source-tags/run.sh --live --limit 200 --delay 15` |
-| `empty-params` | ۵ | `5 3 * * *` | `cd $HOME/bot && MIN_INTERVAL=1.0 python3 empty-unknown-params.py --run --fast --all --ns=0,4,10,118` |
+| `empty-params` | ۵ | `5 3 * * *` | `./task-05-empty-unknown-params/run.sh --live --limit 200 --delay 15` |
 | `mr-daily` | ۱۳ | `17 3 * * *` | `./task-13-move-report/run.sh --live --refresh` |
 | `pr-daily` | ۱۳ | `40 4 * * *` | `./task-13-move-report/run.sh --report portals --live` |
 | `fc-weekly` | ۱۳ | `50 4 * * 1` | `./task-13-move-report/run.sh --report featured --live` |
@@ -170,6 +153,7 @@ These have no schedule. They are the check, dry-run and trial steps for each tas
 | ۱ | `ud-check`, `ud-dry`, `ud-first` |
 | ۳ | `cn-check`, `cn-dry`, `cn-trial-50`, `cn-trial-1000` |
 | ۴ | `cp-check`, `cp-dry`, `cp-first` |
+| ۵ | `ep-check`, `ep-dry`, `ep-first` |
 | ۷ | `sw-check` |
 | ۸ | `mp-check`, `mp-targets`, `mp-trial`, `mp-full` |
 | ۹ | `tl-check` |
@@ -231,7 +215,7 @@ end of the file and check timestamps, or delete the log before a run.
 
 Any of these stops the bot within one page:
 
-- change `کاربر:MamouriBot/توقف` to anything other than `بله`; it is read before every edit
+- change `کاربر:MamouriBot/ادامه` to anything other than `بله`; it is read before every edit
 - `toolforge jobs delete <job>`
 - an admin blocks the bot account
 

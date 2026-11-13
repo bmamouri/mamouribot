@@ -78,7 +78,7 @@ Edit summary: `درج جدول روند جمعیت بر پایهٔ داده‌ه
   block it.
 - `assert=user` + `assertuser=MamouriBot` on every save, and `baserevid`/`basetimestamp`, so a
   concurrent edit gives a conflict instead of being overwritten.
-- `maxlag=5`, `Retry-After` honoured, and `کاربر:MamouriBot/توقف` read before every edit.
+- `maxlag=5`, `Retry-After` honoured, and `کاربر:MamouriBot/ادامه` read before every edit.
 - Templates are located by matching braces, never with a regex capture, which would stop at
   the first inner `}}`.
 - Edit summary under 150 characters (AbuseFilter #221).
@@ -98,7 +98,7 @@ Deployment is `toolforge/task-14-population/`. On Toolforge, start each job on i
 other task's scheduled jobs. Create `pop-trial` only after approval, and `pop-full`
 only after checking the trial's diffs and rendered pages.
 
-To stop it, blank `کاربر:MamouriBot/توقف`. The checkpoint is `~/state/population-box.json`.
+To stop it, blank `کاربر:MamouriBot/ادامه`. The checkpoint is `~/state/population-box.json`.
 
 ## Open
 

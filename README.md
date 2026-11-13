@@ -18,7 +18,7 @@ only copies of what was reviewed when each task was approved.
 | ۳ | `task-03/` | `normalize-cite-params` | Unifies the archive parameter names in citations, in the language the citation already uses, and drops `ref=harv` | Approved. Hourly, `cite-params-hourly` |
 | ۴ | `task-04/` | `company-deprecated-params` | Renames deprecated `جعبه اطلاعات شرکت` parameters, which brings back hidden field values | Approved. Daily, `cp-daily` |
 | ۴ | `task-04/` | `citation-dedup-accessdate` | Removes a duplicated access-date parameter where both copies hold the same date | Approved as part of task ۴. No scheduled job |
-| ۵ | `task-05/` | `empty-unknown-params.py` | Removes empty unknown citation parameters that cause a CS1 error (Python) | Approved. Daily, `empty-params` |
+| ۵ | `task-05/` | `empty-unknown-params` | Removes empty unknown citation parameters that cause a CS1 error | Approved. Daily, `empty-params` |
 | ۶ | `task-06/` | `notelist-missing` | Adds a missing notes list to articles whose notes are never shown | Approved. Every 15 minutes, `notelist-watch` |
 | ۷ | `task-07/` | `infobox-software-params` | Updates old `جعبه اطلاعات نرم‌افزار` parameter names | Approved. Weekly, `sw-weekly` |
 | ۸ | `task-08/` | `musician-params` | Fixes `جعبه اطلاعات هنرمند موسیقی` parameter names the template ignores | Approved. Weekly, `mp-weekly` |
@@ -86,8 +86,10 @@ A run is a dry run unless you pass `--live`. `--live` needs `WIKIPEDIA_BOT_USERN
 uses `WIKIPEDIA_USERNAME` and `WIKIPEDIA_PASSWORD` instead. On Toolforge the credentials are
 tool environment variables, so none are kept in this repository.
 
-`npm test` runs every `src/**/*.test.ts` and `test_*.py`. Files named `*.trial.ts` or
-`*.replay.ts` need the network and are left out.
+`npm test` runs every `src/**/*.test.ts` (plus `src/lib/test_gates.py`, the publish-gate
+battery's own tests — `gates.py` is the one deliberately-kept Python file, see
+"Vendored helpers" below). Files named `*.trial.ts` or `*.replay.ts` need the network and
+are left out.
 
 `core.ts` applies these to every task:
 
@@ -95,8 +97,9 @@ tool environment variables, so none are kept in this repository.
 - `assert=user` and `assertuser` on every write, with a fresh login on `assertuserfailed`
 - `maxlag=5` on every write, and the server's `Retry-After` is followed
 - a pause between edits (`docs/PACING.md`); a blocked or read-only reply stops the run
-- [`کاربر:MamouriBot/توقف`](https://fa.wikipedia.org/wiki/کاربر:MamouriBot/توقف) is read
-  before each edit, so anyone can stop the bot from the wiki
+- [`کاربر:MamouriBot/ادامه`](https://fa.wikipedia.org/wiki/کاربر:MamouriBot/ادامه) is read
+  before each edit, so anyone can stop the bot from the wiki (named for the state it
+  holds — «continue, yes/no» — not the stop action; see `src/core.ts`'s `RUN_PAGE`)
 - `{{nobots}}` and `{{bots|deny=…}}` are respected
 - processed titles are saved, so a resumed run never edits a page twice
 - `Ctrl-C` finishes the current page and then stops

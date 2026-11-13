@@ -17,7 +17,7 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { MAX_STOP_READ_FAILURES, STOP_PAGE } from './core.js';
+import { MAX_RUN_PAGE_READ_FAILURES, RUN_PAGE } from './core.js';
 
 const core = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'core.ts'), 'utf8');
 
@@ -46,12 +46,12 @@ console.log('\n== the stop switch fails CLOSED when it cannot be read ==');
 {
   // An unreadable kill switch is not a kill switch. One blip must not halt a batch, but
   // carrying on forever while unable to check is the situation the switch exists for.
-  ok('a failure threshold exists', MAX_STOP_READ_FAILURES >= 1, String(MAX_STOP_READ_FAILURES));
-  ok('consecutive failures are counted', /stopReadFailures\+\+/.test(core));
-  ok('the counter resets on a good read', /this\.stopReadFailures = 0;/.test(core));
+  ok('a failure threshold exists', MAX_RUN_PAGE_READ_FAILURES >= 1, String(MAX_RUN_PAGE_READ_FAILURES));
+  ok('consecutive failures are counted', /runPageReadFailures\+\+/.test(core));
+  ok('the counter resets on a good read', /this\.runPageReadFailures = 0;/.test(core));
   ok('and the threshold halts the run',
-     /stopReadFailures >= MAX_STOP_READ_FAILURES[\s\S]{0,200}stop: true/.test(core));
-  ok('the stop page is the documented one', STOP_PAGE === 'کاربر:MamouriBot/توقف', STOP_PAGE);
+     /runPageReadFailures >= MAX_RUN_PAGE_READ_FAILURES[\s\S]{0,200}stop: true/.test(core));
+  ok('the run page is the documented one', RUN_PAGE === 'کاربر:MamouriBot/ادامه', RUN_PAGE);
 }
 
 console.log('\n== maxlag rides on every request, not only on writes ==');

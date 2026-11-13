@@ -76,7 +76,7 @@ ssh mamouri@login.toolforge.org 'become mamouribot toolforge jobs restart ud-dai
 Don't run `toolforge jobs load` on this task's `jobs.yaml`. A load syncs the whole job list
 and deletes the other tasks' scheduled jobs. Use `toolforge jobs run` and `delete` per job.
 
-To stop it, blank `کاربر:MamouriBot/توقف`, or run `toolforge jobs delete ud-daily`. The
+To stop it, blank `کاربر:MamouriBot/ادامه`, or run `toolforge jobs delete ud-daily`. The
 checkpoint is in `~/state/`, so a restart carries on where it stopped.
 
 ## Code

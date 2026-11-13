@@ -259,7 +259,7 @@ To check live edits independently of `verify`, use
 
 ## Stopping it, state and logs
 
-- Stop: set `کاربر:MamouriBot/توقف` to anything other than `بله`. The bot checks it before
+- Stop: set `کاربر:MamouriBot/ادامه` to anything other than `بله`. The bot checks it before
   every edit.
 - State: `BOT_STATE_DIR` (`$HOME/state` on Toolforge). A page is decided once and not
   rechecked later.
