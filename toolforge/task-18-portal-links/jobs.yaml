@@ -1,0 +1,51 @@
+# وظیفهٔ ۱۸ — افزودن پیوند درگاه به مقاله‌های وابسته.
+#
+# ⚠️ NOT APPROVED YET. Only pl-check, pl-dry and pl-trial exist below — every job runs
+# `--as-me` (the operator's own account) except pl-check. Do NOT create pl-full, and do
+# NOT drop --as-me from any job here, until a BRFA for this task is granted and the
+# request page carries {{مجوز دارد}}. See docs/task-18-portal-links.md and
+# BUILDING-A-TASK.md §0/§8.
+#
+# NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in the
+# directory `toolforge jobs load` was run from, so a bare `./run.sh` exits 127.
+#
+# ⚠️ `toolforge jobs load` SYNCS — it deletes every other task's scheduled jobs. Use
+# `toolforge jobs run` / `delete` per job instead.
+---
+# Step 0 — preflight: credentials, the bot flag (N/A for --as-me, checked anyway so the
+# command is proven reachable), the emergency-stop page. Makes NO edits.
+- name: pl-check
+  command: ./task-18-portal-links/run.sh --check --as-me
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/pl-check.out
+  filelog-stderr: logs/pl-check.err
+
+# Step 1 — enumerate the rotation, screen candidates, print every diff it would make.
+# No login, no writes.
+- name: pl-dry
+  command: ./task-18-portal-links/run.sh --limit 25
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/pl-dry.out
+  filelog-stderr: logs/pl-dry.err
+
+# Step 2 — the pre-approval trial: --as-me, unflagged, visible in recent changes, paced
+# 30-120s (AGENTS.md's human-account floor; core.ts raises --delay to that automatically
+# under --as-me). One-off: no `schedule:`. Read every diff AND every rendered page before
+# writing the BRFA from the results.
+- name: pl-trial
+  command: ./task-18-portal-links/run.sh --live --as-me --limit 100 --delay 30
+  image: node20
+  mem: 1Gi
+  retry: 0          # never silently re-run a partial batch
+  emails: all
+  filelog-stdout: logs/pl-trial.out
+  filelog-stderr: logs/pl-trial.err
+
+# pl-full (the scheduled MamouriBot job) is added only AFTER the BRFA is approved —
+# see docs/task-18-portal-links.md "Open, before filing" for what the schedule and the
+# per-run portal/candidate counts should be set from once a trial's wall-clock cost is
+# measured.
