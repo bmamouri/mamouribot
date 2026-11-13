@@ -28,7 +28,7 @@ All pages are under `ویکی‌پدیا:گزارش دیتابیس/`.
 | `neighbors` | the four «مقالاتی که در ویکی‌… هست و در ویکی‌فا نیست» pages | `nb-daily` | daily 05:10 |
 | `usermoves` | `تغییرنام‌های کاربران تأییدشده خودکار`, `تغییرنام‌های کاربران تأییدشده پایدار بدون گشت خودکار` | `moves-daily` | daily 05:30 |
 | `iranica` | `مقاله‌هایی که با دانشنامه ایرانیکا می‌شود گسترش داد` | `ir-weekly` | Wednesdays 06:20 |
-| `wantedtemplates` | `الگوهای ناموجود پرکاربرد در مقاله‌ها` | `wt-weekly` | Saturdays 06:40 |
+| `wantedtemplates` | `الگوهای ناموجود پرکاربرد در مقاله‌ها` | `wt-daily` | daily 06:40 |
 
 Each report also writes a `/امضا` subpage with a signature, which `{{گزارش دیتابیس}}`
 transcludes on وپ:گد as «آخرین به‌روزرسانی».
