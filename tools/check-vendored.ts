@@ -47,6 +47,8 @@ const VENDORED: Record<string, string> = {
   'notelist.test.ts': 'scripts/lib/notelist.test.ts',
   'infobox-software.ts': 'scripts/lib/infobox-software.ts',
   'infobox-software-map.ts': 'scripts/lib/infobox-software-map.ts',
+  'portal-bar.ts': 'scripts/lib/portal-bar.ts',
+  'portal-bar.test.ts': 'scripts/lib/portal-bar.test.ts',
 };
 
 /**
