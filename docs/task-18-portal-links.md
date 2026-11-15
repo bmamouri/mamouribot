@@ -7,10 +7,13 @@ round-robins through the portal list forever rather than trying to finish in one
 
 ## Status
 
-- **Not filed yet.** Code, tests and a ۱۰۰-edit `--as-me` trial are the precondition for
-  filing, per `BUILDING-A-TASK.md` §0 and §8. Nothing here runs under the bot account
-  until a BRFA is approved.
-- Draft request: `drafts/mamouribot/brfa-وظیفه-۱۸.txt` (companion repository).
+- **Approved**, ۱۴ نوامبر ۲۰۲۶. Request page:
+  `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۸`, after the ۱۰۰-edit
+  `--as-me` trial recorded there (۱۰۰/۱۰۰ edits saved, 0 failures, 0 manual-review, 0
+  reverted; portals «اخترشناسی» and «ادبیات»).
+- Runs as MamouriBot, job `pl-full`, every 6 hours (`0 */6 * * *`), `--limit 60`.
+- Draft request: `drafts/mamouribot/brfa-وظیفه-۱۸.txt` (companion repository) — the wiki
+  page is canonical now.
 
 ## The standing rules this task is built around
 
@@ -175,23 +178,33 @@ npx tsx src/tasks/task-18/revert-guard.test.ts         # revert-action classifie
 npx tsx src/tasks/task-18/rotation-state.test.ts       # round-robin math, offline
 
 npx tsx src/run.ts portal-links --limit 10             # dry run, no login, no writes
-npx tsx src/run.ts portal-links --live --as-me --limit 25 --delay 30   # pre-approval trial
+npx tsx src/run.ts portal-links --live --limit 25 --delay 15   # live, as MamouriBot
 ```
 
-Pre-approval, this runs ONLY `--as-me`: unflagged edits under the operator's own account,
-visible in recent changes, paced 30–120s. `--live` with the bot identity is not used until
-a BRFA is approved for this scope.
+Deployment is `toolforge/task-18-portal-links/` (jobs `pl-check`, `pl-dry`, `pl-first`,
+`pl-full`; `pl-trial` is the historical `--as-me` pre-approval run and should not be
+re-run).
 
-## Open, before filing
+```bash
+ssh mamouri@login.toolforge.org 'become mamouribot toolforge jobs logs pl-full'
+```
 
-- Run the 100-edit `--as-me` trial, read every diff and every rendered page, and include
-  the real numbers (portals touched, candidates screened, edits made, revert-guard hits)
-  in the BRFA rather than the estimates in this doc.
-- Decide the production schedule once a trial run's wall-clock time is measured — the
-  "every 6 hours" starting point in the request should match what `PORTALS_PER_RUN` ×
-  `CANDIDATES_PER_PORTAL` actually costs in API calls, not a guess.
-- No accumulating report page yet (`report()` only logs locally). Add one if a reviewer
-  asks for a wiki-facing audit trail beyond the per-portal done-stores.
+Don't run `toolforge jobs load` on this task's `jobs.yaml`. A load syncs the whole job
+list and deletes every other task's scheduled jobs. Use `toolforge jobs run` and `delete`
+per job.
+
+To stop it, change `کاربر:MamouriBot/ادامه` to anything other than `بله`, or run
+`toolforge jobs delete pl-full`. Resume state (rotation pointer, per-portal cursors and
+done-stores) is `~/state/task-18/`, so a restart carries on the rotation where it stopped.
+
+## Open
+
+- No accumulating report page yet (`report()` only logs locally, plus each portal's own
+  done-store). Add a wiki-facing audit trail if a reviewer asks for one beyond the
+  per-portal done-stores.
+- The production schedule (`0 */6 * * *`, `PORTALS_PER_RUN=6`,
+  `CANDIDATES_PER_PORTAL=60`) matches the request page; revisit once real run times on
+  Toolforge are measured.
 
 ## Code
 

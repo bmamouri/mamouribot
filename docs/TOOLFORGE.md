@@ -138,6 +138,7 @@ A new name there is the only sign that something started reading a secret.
 | `notelist-watch` | ۶ | `*/15 * * * *` | `cd /data/project/mamouribot && BOT_STATE_DIR=/data/project/mamouribot/state node mamouribot.mjs notelist-missing --live --delay 12` |
 | `destub-watch` | ۱۰ | `*/10 * * * *` | `cd /data/project/mamouribot/task-10-destub && node ../destub-watch.mjs --live` |
 | `destub-inventory-monthly` | ۱۰ | `0 2 1 * *` | `cd /data/project/mamouribot/task-10-destub && node ../destub-inventory.mjs` |
+| `pl-full` | ۱۸ | `0 */6 * * *` | `./task-18-portal-links/run.sh --live --limit 60 --delay 15` |
 
 The ones with a `run.sh` are defined in `toolforge/task-NN-*/jobs.yaml`, except
 `cite-params-hourly`. That job and the last four rows were created by hand with
@@ -163,6 +164,7 @@ These have no schedule. They are the check, dry-run and trial steps for each tas
 | ۱۴ | `pop-check`, `pop-dry`, `pop-trial`, `pop-full` |
 | ۱۵ | `st-check`, `st-dry`, `st-first` |
 | ۱۶ | `tf-check`, `tf-dry`, `tf-first` |
+| ۱۸ | `pl-check`, `pl-dry`, `pl-trial` (historical `--as-me` run), `pl-first` |
 
 `--check` tests the credentials, the bot flag and the stop page, and makes no edits. A run
 without `--live` is a dry run.

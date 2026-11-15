@@ -1,10 +1,10 @@
 # وظیفهٔ ۱۸ — افزودن پیوند درگاه به مقاله‌های وابسته.
 #
-# ⚠️ NOT APPROVED YET. Only pl-check, pl-dry and pl-trial exist below — every job runs
-# `--as-me` (the operator's own account) except pl-check. Do NOT create pl-full, and do
-# NOT drop --as-me from any job here, until a BRFA for this task is granted and the
-# request page carries {{مجوز دارد}}. See docs/task-18-portal-links.md and
-# BUILDING-A-TASK.md §0/§8.
+# Approved by Huji, ۱۴ نوامبر ۲۰۲۶ ({{مجوز دارد}}), after the 100-edit `--as-me` trial on
+# the request page. `pl-full` (below) is the scheduled MamouriBot job; `pl-check`,
+# `pl-dry` and `pl-trial` are kept as the pre-approval steps, pl-trial now historical
+# (do not re-run it against the live wiki — it would post a second, needless batch under
+# the operator's own account for a task that is already approved).
 #
 # NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in the
 # directory `toolforge jobs load` was run from, so a bare `./run.sh` exits 127.
@@ -12,10 +12,9 @@
 # ⚠️ `toolforge jobs load` SYNCS — it deletes every other task's scheduled jobs. Use
 # `toolforge jobs run` / `delete` per job instead.
 ---
-# Step 0 — preflight: credentials, the bot flag (N/A for --as-me, checked anyway so the
-# command is proven reachable), the emergency-stop page. Makes NO edits.
+# Step 0 — preflight: credentials, the bot flag, the emergency-stop page. Makes NO edits.
 - name: pl-check
-  command: ./task-18-portal-links/run.sh --check --as-me
+  command: ./task-18-portal-links/run.sh --check
   image: node20
   mem: 512Mi
   emails: onfailure
@@ -34,8 +33,8 @@
 
 # Step 2 — the pre-approval trial: --as-me, unflagged, visible in recent changes, paced
 # 30-120s (AGENTS.md's human-account floor; core.ts raises --delay to that automatically
-# under --as-me). One-off: no `schedule:`. Read every diff AND every rendered page before
-# writing the BRFA from the results.
+# under --as-me). HISTORICAL — already run (100/100 edits, 0 failures, see the request
+# page); kept here for the record, not to be re-run against the live wiki.
 - name: pl-trial
   command: ./task-18-portal-links/run.sh --live --as-me --limit 100 --delay 30
   image: node20
@@ -45,7 +44,29 @@
   filelog-stdout: logs/pl-trial.out
   filelog-stderr: logs/pl-trial.err
 
-# pl-full (the scheduled MamouriBot job) is added only AFTER the BRFA is approved —
-# see docs/task-18-portal-links.md "Open, before filing" for what the schedule and the
-# per-run portal/candidate counts should be set from once a trial's wall-clock cost is
-# measured.
+# Step 3 — the first live batch as MamouriBot, deliberately small: the trial was made
+# under the operator's own account, so this is the first time the bot account itself
+# writes here. One-off: no `schedule:`.
+- name: pl-first
+  command: ./task-18-portal-links/run.sh --live --limit 20 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0
+  emails: all
+  filelog-stdout: logs/pl-first.out
+  filelog-stderr: logs/pl-first.err
+
+# Step 4 — the approved production job. Every 6 hours, as the request page says, with the
+# defaults PORTALS_PER_RUN=6 / CANDIDATES_PER_PORTAL=60 from portal-links-task.ts — a full
+# survey of the ~180-portal rotation every ~day (6h × 4 runs/day × 6 portals/run ≈
+# 24/day). `--limit` caps candidates added per run, not portals scanned; left generous
+# since the rotation itself already bounds the work per run.
+- name: pl-full
+  command: ./task-18-portal-links/run.sh --live --limit 60 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "0 */6 * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/pl-full.out
+  filelog-stderr: logs/pl-full.err

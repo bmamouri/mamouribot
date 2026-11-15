@@ -2,8 +2,9 @@
 # Toolforge tool: mamouribot   (see docs/TOOLFORGE.md for the full task/tool table)
 # Entry point for وظیفهٔ ۱۸ — افزودن پیوند درگاه به مقاله‌های وابسته.
 #
-# ⚠️ NOT APPROVED YET. Do not add a scheduled job from jobs.yaml here, and do not
-# drop --as-me from a manual run, until a BRFA for this task is granted. See
+# Approved by Huji, ۱۴ نوامبر ۲۰۲۶ ({{مجوز دارد}}), so this runs as MamouriBot — do NOT
+# add --as-me here, which would post the whole campaign under the operator's own account.
+# The pre-approval trial (100 edits, --as-me) is recorded on the request page; see
 # docs/task-18-portal-links.md.
 #
 # `node ../mamouribot.mjs` resolves against THIS directory, i.e. the tool home: the
