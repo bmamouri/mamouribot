@@ -43,13 +43,8 @@ article. Similar names, transliteration and search results don't count. The fa a
 exist, must not be a disambiguation page, and must be on the same Wikidata item as the en page.
 
 The bot never makes up a Persian name. For steps 2 and 3 the name has to be in
-`data/names.json`, which I maintain by hand, or, for step 2 only, the link must already carry a
-Persian label: `[[Judiciary of Armenia|دادگستری]]` → `[[:en:Judiciary of Armenia|دادگستری]]`.
-The label is kept byte for byte and is never used as an fa title, since «سیاست» is a fine label
-for `Politics of Indiana` and the wrong article. A link to the same target with no label or an
-English label is still left alone, and so is one inside a citation, one through an en redirect
-that is not provably the same subject, and one to a section (`#`). Otherwise the link goes on
-the review list. `LINKFIX_LABELS=0` turns the label rule off.
+`data/names.json`, which I maintain by hand. Otherwise the link is left alone and goes on the
+review list.
 
 `data/names.json` sections:
 
@@ -151,7 +146,6 @@ passed as arguments. `TARGET_FILE` takes a JSON list or one title per line.
 | `TARGET_NAMESPACE` | `0` (default) or `0\|10` to include templates |
 | `LINKFIX_EXTENSION` | `1` turns on the parts waiting for review for a bot run; `0` turns them off in a dry run, to see exactly what the bot does now |
 | `LINKFIX_NAMES` | a different name table for one run |
-| `LINKFIX_LABELS` | `0` turns off the interwiki for links that already have a Persian label |
 | `LINKFIX_REPORT` | where the review list goes (default `$BOT_STATE_DIR/linkfix-review.json`) |
 
 Deployment is `toolforge/task-12-linkfix/`. Its `run.sh` sets the search, the cap,
