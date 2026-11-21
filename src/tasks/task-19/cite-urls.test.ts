@@ -11,6 +11,8 @@ import { isArabic, judgeAuthor, judgeDate, judgeTitle, langOf, persianLetterform
 import { combine, crossCheck, isHomeLike, slugMismatch, pageAuthors, parseHtml, siteFor, softDead, splitName, splitPipeSite } from './resolve.js';
 import { unexplainedLoss } from './cite-urls.js';
 import { appendParams, escapeParam } from './wikitext.js';
+import { NameSplitter, SPLITTER } from './names.js';
+import { merge, proposalId, readDecisions, renderPage, rejected, accepted } from './review.js';
 
 let pass = 0;
 const fails: string[] = [];
@@ -225,6 +227,71 @@ ok('a numeric id is not a slug', !slugMismatch('https://www.irna.ir/news/8420425
 ok('ketab.ir slug title with colon and tail rejected', !judgeTitle('مکتب-تاپ-تکواندو:-نخستین-سبک-آزاد-تکواندو-جهان | پارس-میهن | خانه کتاب و ادبیات ایران', { url: 'https://ketab.ir/book/x', site: 'خانه کتاب و ادبیات ایران' }).ok);
 ok('a real hyphenated title is fine', judgeTitle('Austro-Hungarian Empire', { url: 'https://x.org/a' }).ok);
 
+ok('redirect title rejected', !judgeTitle('Redirecting to https://joshuaproject.net/people_groups/14196/in', { url: 'http://www.joshuaproject.net/x' }).ok);
+{
+  const r = combine({ url: 'http://www.qdnd.vn/chinh-tri/x', today: '2026-11-21', citoid: { ok: true, item: { itemType: 'webpage', title: 'Chủ tịch Quốc hội Nguyễn Thị Kim Ngân', websiteTitle: 'https://www.qdnd.vn' } } });
+  eq('site name given as a URL becomes the host', r.meta?.website, 'qdnd.vn');
+}
+
+console.log('== Persian name splitter ==');
+eq('compound given name', SPLITTER.split('علی اکبر دهخدا'), ['علی اکبر', 'دهخدا']);
+eq('ZWNJ family name', SPLITTER.split('محمدرضا احمدی‌نژاد'), ['محمدرضا', 'احمدی‌نژاد']);
+eq('title dropped', SPLITTER.split('سید حسین نصر'), ['حسین', 'نصر']);
+eq('two given names: abstain', SPLITTER.split('حسین علی'), null);
+eq('unknown second word after one given name: abstain', SPLITTER.split('آرتور اوگین فیتزجرالد'), null);
+eq('patronymic chain', SPLITTER.split('احمد بن محمد ابن خلکان'), ['احمد بن محمد', 'ابن خلکان']);
+eq('organisation: abstain', SPLITTER.split('پایگاه خبری پهنه پرواز'), null);
+eq('a role after a comma: abstain', SPLITTER.split('سپهر عاطفی، روزنامه نگار'), null);
+eq('unknown first word: abstain', SPLITTER.split('زیبنده قاسمی'), null);
+eq('a list supplied in code', new NameSplitter(['زیبنده']).split('زیبنده قاسمی'), ['زیبنده', 'قاسمی']);
+ok('split Persian byline → نام / نام خانوادگی', buildCitation({ url: 'u', title: 'T', authors: [['', 'امین کمالی‌فر']] }, { today: TODAY }).includes('|نام خانوادگی=کمالی‌فر |نام=امین'));
+ok('unsure Persian byline → نویسنده', buildCitation({ url: 'u', title: 'T', authors: [['', 'حسین علی']] }, { today: TODAY }).includes('|نویسنده=حسین علی'));
+ok('second unsure byline → نویسنده۲', buildCitation({ url: 'u', title: 'T', authors: [['John', 'Smith'], ['', 'حسین علی']] }, { today: TODAY }).includes('|نویسنده۲=حسین علی'));
+
+ok('«Eurasianet» on eurasianet.org is the site name', !judgeTitle('Eurasianet', { url: 'http://www.eurasianet.org/departments/x.shtml' }).ok);
+ok('«مجلة هي» is not an author', !judgeAuthor('', 'مجلة هي'));
+eq('Arabic site tail stripped', judgeTitle('بالصورة: الإيرانية كوكوش بكامل رشاقتها في السبعين! - مجلة هي', { url: 'http://www.hiamag.com/x', names: ['مجلة هي'] }), { ok: true, title: 'بالصورة: الإيرانية كوكوش بكامل رشاقتها في السبعين!' });
+
+console.log('== review queue ==');
+{
+  const text = 'a<ref>http://x.org/a</ref>';
+  const lk: Lookup = () => ({ ok: true, meta: { url: 'http://x.org/a', title: 'A real title here', website: 'x.org', authors: [['', 'حسین علی']] } });
+  const p = planPage(text, 'T', { lookup: lk, today: TODAY });
+  eq('unsure author → proposed, not saved', [p.changed, p.proposals.length, p.proposals[0]?.why], [false, 1, 'نام نویسنده به نام و نام خانوادگی جدا نشد']);
+  const approvedCite = p.proposals[0].proposed;
+  const q = planPage(text, 'T', { lookup: lk, today: TODAY, approved: new Map([['http://x.org/a', approvedCite]]) });
+  eq('approved proposal is written verbatim', q.text, `a<ref>${approvedCite}</ref>`);
+  const r2 = planPage(text, 'T', { lookup: lk, today: TODAY, rejected: new Set(['T\nhttp://x.org/a']) });
+  eq('rejected URL: no edit, no proposal', [r2.changed, r2.proposals.length], [false, 0]);
+}
+{
+  const refs = Array.from({ length: 25 }, (_, i) => `<ref>http://x.org/${i}</ref>`).join(' ');
+  const p = planPage(refs, 'T', { lookup: u => ({ ok: true, meta: { url: u, title: 'Some real title', website: 'x.org' } }), today: TODAY });
+  eq('at most 20 bare refs per edit', p.changes.filter(c => c.kind === 'bare-ref').length, 20);
+}
+{
+  const id = proposalId('T', 'http://x.org/a');
+  const page = `*: {{کاربر:MamouriBot/وظیفه ۱۹/بازبینی/سطر|شناسه=${id}|وضعیت=بله}}`;
+  const d = readDecisions(page);
+  eq('decision read from the page', d.get(id), 'yes');
+  const rows = merge([], [{ title: 'T', url: 'http://x.org/a', proposed: '{{c}}', why: 'w' }], new Set(['T']), d);
+  eq('merge keeps the human decision', rows[0].decision, 'yes');
+  eq('accepted() groups by article', accepted(rows).get('T')?.length, 1);
+  const later = merge(rows, [], new Set(['T']), new Map());
+  eq('an examined article that no longer proposes it drops the row', later.length, 0);
+  const no = merge([{ ...rows[0], decision: 'no' }], [], new Set(['T']), new Map());
+  eq('a rejected row is remembered', [...rejected(no)], ['T\nhttp://x.org/a']);
+  const unseen = merge(rows, [], new Set(), new Map());
+  eq('a row on an article not examined this run stays', unseen.length, 1);
+  ok('rendered page has nowiki URL and the row template', /<nowiki>http:\/\/x\.org\/a<\/nowiki>/.test(renderPage(rows, TODAY)) && renderPage(rows, TODAY).includes(`شناسه=${id}|وضعیت=بله`));
+}
+
+{
+  const text = 'a<ref>https://www.cgie.org.ir/fa/article/224509/x</ref>';
+  const p = planPage(text, 'T', { lookup: () => ({ ok: true, meta: { url: 'https://www.cgie.org.ir/fa/article/224509/x', title: 'تویسرکان', website: '[[مرکز دائرةالمعارف بزرگ اسلامی]]' } }), today: TODAY });
+  eq('a one-word encyclopedia headword is saved, not queued', [p.changed, p.proposals.length], [true, 0]);
+}
+
 console.log('== dates ==');
 eq('Gregorian day', formatDate('2019-02-14'), '۱۴ فوریه ۲۰۱۹');
 eq('Jalali day', formatDate('1392-03-29'), '۲۹ خرداد ۱۳۹۲');
@@ -324,6 +391,7 @@ noop('a Wikipedia link', 'a<ref>https://en.wikipedia.org/wiki/X</ref>');
 noop('a positional-argument template', '{{یادکرد وب|www.x.org}}');
 noop('after an unclosed {{', '{{جعبه اطلاعات|a=1\n<ref>{{یادکرد وب|نشانی=www.x.org/a|عنوان=t}}</ref>');
 noop('a URL inside a wikilink target is not touched', '[[پرونده:X.jpg|بند=http://x.org/a?utm_source=y]]');
+noop('a bare front-page URL is declined', 'a<ref>http://weather.com</ref> b<ref>http://vardanjan.ir/</ref>');
 noop('a cite with a real title keeps it', 'a<ref>{{یادکرد وب|نشانی=https://x.org/a|عنوان=Real title}}</ref>');
 noop('archive URL in a cite is not decoded', 'a<ref>{{یادکرد وب|نشانی=https://x.org/a|عنوان=t|پیوند بایگانی=https://web.archive.org/web/2016/http://s.ir/%D8%AA}}</ref>');
 

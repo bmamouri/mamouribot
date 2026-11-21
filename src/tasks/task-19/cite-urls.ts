@@ -30,6 +30,7 @@ import { planPage, type Kind, type Lookup, type Plan } from './plan.js';
 import { NetResolver, combine, siteFor, type Evidence, type Resolved } from './resolve.js';
 import { isArchiveUrl } from './url.js';
 import { canonHref } from './url.js';
+import * as review from './review.js';
 import sitesData from './data/sites.json' with { type: 'json' };
 
 export const REPORT_PAGE = 'کاربر:MamouriBot/وظیفه ۱۹/گزارش';
@@ -61,6 +62,21 @@ const PLANS = new Map<string, Plan>();
 const DECLINED = new Map<string, { reason: string; pages: Set<string> }>();
 const KIND_SUMMARY = new Map<string, Set<Kind>>();
 let TODAY = todayFa();
+let REVIEW: review.Proposal[] = [];
+const EXTRA_TITLES = new Set<string>();
+let REVIEW_EXISTED = false;
+const FRESH: Omit<review.Proposal, 'decision' | 'seen' | 'id'>[] = [];
+const EXAMINED = new Set<string>();
+
+function planOpts(lookup: Lookup, title: string) {
+  const acc = review.accepted(REVIEW).get(title) ?? [];
+  return {
+    lookup, today: TODAY,
+    labelled: process.env.T19_LABELLED === '1', minorAlone: process.env.T19_MINOR_ALONE === '1',
+    rejected: review.rejected(REVIEW),
+    approved: new Map(acc.map(a => [a.url, a.proposed])),
+  };
+}
 const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
 
 const cachePath = () => join(process.env.BOT_STATE_DIR ?? '.state', 'cite-urls.evidence.json');
@@ -228,14 +244,26 @@ export const citeUrlsTask: BotTask = {
     CACHE = loadCache();
     PLANS.clear(); DECLINED.clear(); KIND_SUMMARY.clear();
     VERIFIED_ARTICLES = await verifySiteArticles(bot);
-    const titles = await candidates(bot);
+    FRESH.length = 0; EXAMINED.clear();
+    ({ rows: REVIEW, existed: REVIEW_EXISTED } = review.loadStore());
+    {
+      const d = await bot.apiGet({ action: 'query', prop: 'revisions', titles: review.REVIEW_PAGE, rvprop: 'content', rvslots: 'main' });
+      const live = d.query?.pages?.[0]?.revisions?.[0]?.slots?.main?.content ?? '';
+      const decisions = review.readDecisions(live);
+      REVIEW = REVIEW.map(r => ({ ...r, decision: decisions.get(r.id) ?? r.decision }));
+      const n = [...decisions.values()].filter(Boolean).length;
+      if (n) console.log(`صفحهٔ بازبینی: ${n} تصمیم خوانده شد`);
+      // Approved/rejected rows add their articles to the candidates.
+      for (const r of REVIEW) if (r.decision === 'yes') EXTRA_TITLES.add(r.title);
+    }
+    const titles = [...new Set([...EXTRA_TITLES, ...await candidates(bot)])];
     if (!titles.length) { console.log('هیچ نامزدی یافت نشد (صفر بدون شاهد مثبت معنا ندارد).'); return []; }
     const texts = await fetchTexts(bot, titles);
     console.log(`${texts.size} صفحه خوانده شد`);
 
-    const opt = (lookup: Lookup) => ({ lookup, today: TODAY, labelled: process.env.T19_LABELLED === '1', minorAlone: process.env.T19_MINOR_ALONE === '1' });
+    const opt = (lookup: Lookup, t = '') => planOpts(lookup, t);
     const need = new Set<string>();
-    for (const [t, x] of texts) for (const u of planPage(x, t, opt(() => undefined)).needs) if (!CACHE.has(u)) need.add(u);
+    for (const [t, x] of texts) for (const u of planPage(x, t, opt(() => undefined, t)).needs) if (!CACHE.has(u)) need.add(u);
 
     const limit = bot.opts.limit || Infinity;
     const maxLookups = Number(process.env.T19_MAX_LOOKUPS ?? (Number.isFinite(limit) ? limit * 8 : 2000));
@@ -256,7 +284,9 @@ export const citeUrlsTask: BotTask = {
     const work: string[] = [];
     const counts: Record<string, number> = {};
     for (const [t, x] of texts) {
-      const p = planPage(x, t, opt(lookup));
+      const p = planPage(x, t, opt(lookup, t));
+      EXAMINED.add(t);
+      for (const pr of p.proposals) FRESH.push({ title: t, ...pr });
       for (const d of p.declined) {
         const row = DECLINED.get(d.url) ?? { reason: d.reason, pages: new Set<string>() };
         row.pages.add(t); DECLINED.set(d.url, row);
@@ -274,10 +304,7 @@ export const citeUrlsTask: BotTask = {
   },
 
   transform(text: string, title: string) {
-    const p = planPage(text, title, {
-      lookup: lookupFrom(CACHE, VERIFIED_ARTICLES), today: TODAY,
-      labelled: process.env.T19_LABELLED === '1', minorAlone: process.env.T19_MINOR_ALONE === '1',
-    });
+    const p = planPage(text, title, planOpts(lookupFrom(CACHE, VERIFIED_ARTICLES), title));
     if (!p.changed) return { text, changed: false, note: 'موردی برای اصلاح نبود' };
     PLANS.set(title, p);
     KIND_SUMMARY.set(title, new Set(p.changes.map(c => c.kind)));
@@ -313,6 +340,7 @@ export const citeUrlsTask: BotTask = {
   },
 
   async report(bot: Bot, dryRun: boolean) {
+    await publishReview(bot, dryRun);
     if (!DECLINED.size) return;
     const byReason = new Map<string, [string, Set<string>][]>();
     for (const [u, r] of DECLINED) {
@@ -351,6 +379,29 @@ export const citeUrlsTask: BotTask = {
   },
 };
 
+async function publishReview(bot: Bot, dryRun: boolean) {
+  // An applied approval is done: the article no longer has that bare URL, so the row
+  // is dropped by merge() when the article was examined and no longer proposes it.
+  const merged = review.merge(REVIEW, FRESH, EXAMINED, new Map());
+  if (!merged.length && !REVIEW.length) return;
+  // Refuse to shrink a queue we could not read: a missing store is not an empty one.
+  if (!REVIEW_EXISTED && REVIEW.length === 0 && merged.length < FRESH.length) return;
+  const text = review.renderPage(merged, todayFa());
+  const problems = checkWikitext(review.REVIEW_PAGE, text);
+  if (problems.length) { console.log(`صفحهٔ بازبینی منتشر نشد، دروازه: ${problems.join(' | ')}`); return; }
+  if (dryRun) { console.log(`\n--- صفحهٔ بازبینی (آزمایشی، ${merged.length} پیشنهاد) ---\n${text.slice(0, 2000)}`); return; }
+  review.saveStore(merged);
+  const cur = await bot.apiGet({ action: 'query', prop: 'revisions', titles: review.REVIEW_PAGE, rvprop: 'content|ids|timestamp', rvslots: 'main' });
+  const p = cur.query.pages[0];
+  if (!p.missing && p.revisions[0].slots.main.content === text) return;
+  const tpl = 'کاربر:MamouriBot/وظیفه ۱۹/بازبینی/سطر';
+  const t = await bot.apiGet({ action: 'query', titles: tpl, prop: 'info' });
+  if (t.query.pages[0].missing) await bot.edit(tpl, review.ROW_TEMPLATE, 'الگوی سطر صفحهٔ بازبینی یادکردها', 0, '', { allowCreate: true });
+  await bot.edit(review.REVIEW_PAGE, text, 'به‌روزرسانی یادکردهای پیشنهادی نیازمند بازبینی',
+    p.missing ? 0 : p.revisions[0].revid, p.missing ? '' : p.revisions[0].timestamp, { allowCreate: true });
+  console.log(`صفحهٔ بازبینی منتشر شد: ${merged.length} پیشنهاد`);
+}
+
 const REASONS: Record<string, string> = {
   'citoid-poor-title': 'عنوان صفحه عام یا نامعتبر بود',
   'generic-title': 'عنوان صفحه عام یا نامعتبر بود',
@@ -371,6 +422,7 @@ const REASONS: Record<string, string> = {
   'unsupported-host': 'شبکهٔ اجتماعی یا وبگاهی که یادکرد ویژه می‌خواهد',
   'archive-url': 'نشانی بایگانی',
   'mojibake': 'عنوان با رمزگذاری نادرست',
+  'home-page': 'ارجاع به صفحهٔ اصلی وبگاه، نه به یک صفحهٔ مشخص',
   'slug-title': 'عنوان صفحه فقط نشانی صفحه بود',
   'title-slug-mismatch': 'عنوان صفحه با موضوع نشانی نمی‌خواند',
 };

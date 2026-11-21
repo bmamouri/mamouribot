@@ -29,6 +29,7 @@ import {
   URL_STOP, isArchiveUrl, hostOf, repairScheme, repairUrl, type UrlFixKind,
 } from './url.js';
 import { buildCitation, formatDate, type Meta } from './build.js';
+import { isHomeLike } from './resolve.js';
 
 export type Kind = 'bare-ref' | 'labelled-ref' | 'title' | 'scheme' | 'redirector' | 'qmark' | UrlFixKind;
 export const MINOR: ReadonlySet<Kind> = new Set<Kind>(['tracking', 'decode']);
@@ -41,7 +42,16 @@ export interface PlanOptions {
   today: string;
   labelled?: boolean;
   minorAlone?: boolean;
+  /** `title\nurl` pairs a reviewer rejected on the review page: never touched */
+  rejected?: Set<string>;
+  /** at most this many bare refs completed per edit; the rest wait for a later run */
+  maxRefs?: number;
+  /** url → citation a reviewer approved on the review page: written exactly as approved */
+  approved?: Map<string, string>;
 }
+
+/** Bare refs completed per edit. 74 in one diff (کانون تکواندوکاران ایران) is unreviewable. */
+export const MAX_REFS_PER_EDIT = 20;
 
 export interface Change { kind: Kind; from: string; to: string }
 export interface Decline { url: string; reason: string }
@@ -54,6 +64,8 @@ export interface Plan {
   declined: Decline[];
   /** old → new for every URL rewritten in place; used by verify() to account for hrefs */
   urlMap: Map<string, string>;
+  /** finished citations the bot did not save, for the review page */
+  proposals: { url: string; proposed: string; why: string }[];
 }
 
 /** Pages an editor has marked as being worked on right now. */
@@ -120,7 +132,9 @@ const SITE_KEYS = new Set(['وبگاه', 'ناشر', 'اثر', 'website', 'work'
 const GOOGLE_SITE = /^(?:https?:\/\/)?(?:www\.)?google(?:\.[a-z]{2,3}){1,2}\/?$|^google$/i;
 
 export function planPage(text: string, title: string, opt: PlanOptions): Plan {
-  const plan: Plan = { text, changed: false, changes: [], needs: [], declined: [], urlMap: new Map() };
+  const plan: Plan = { text, changed: false, changes: [], needs: [], declined: [], urlMap: new Map(), proposals: [] };
+  const maxRefs = opt.maxRefs ?? MAX_REFS_PER_EDIT;
+  let refsDone = 0;
   if (IN_USE.test(text)) return plan;
 
   const opaque = opaqueSpans(text);
@@ -143,11 +157,33 @@ export function planPage(text: string, title: string, opt: PlanOptions): Plan {
     const url = fixed.url;
     const skip = skipReason(url);
     if (skip) { plan.declined.push({ url, reason: skip }); continue; }
+    // A site's front page as the whole reference: its title describes the site, not the
+    // claim, so a «complete» citation would only dress it up (weather.com, vardanjan.ir).
+    const pre = opt.approved?.get(url);
+    if (pre && !opt.rejected?.has(`${title}\n${url}`)) {
+      edits.push({ start: r.bodyStart, end: r.bodyStart + body.length, to: pre });
+      taken.push([r.start, r.end]);
+      record('bare-ref', bare.url, url);
+      continue;
+    }
+    if (isHomeLike(url)) { plan.declined.push({ url, reason: 'home-page' }); continue; }
     const got = opt.lookup(url);
     if (got === undefined) { need(url); continue; }
     if (!got.ok) { plan.declined.push({ url, reason: got.reason }); continue; }
+    if (opt.rejected?.has(`${title}\n${url}`)) continue;
+    const ok = opt.approved?.get(url);
+    if (ok) {
+      edits.push({ start: r.bodyStart, end: r.bodyStart + body.length, to: ok });
+      taken.push([r.start, r.end]);
+      record('bare-ref', bare.url, url);
+      continue;
+    }
     const meta = bare.label && !got.meta.titleFromSite ? { ...got.meta } : got.meta;
     const cite = buildCitation(meta, { today: opt.today });
+    const doubt = uncertainty(meta, cite);
+    if (doubt) { plan.proposals.push({ url, proposed: cite, why: doubt }); continue; }
+    if (refsDone >= maxRefs) continue;            // no proposal: the next run picks it up
+    refsDone++;
     edits.push({ start: r.bodyStart, end: r.bodyStart + body.length, to: cite });
     taken.push([r.start, r.end]);
     record(bare.label ? 'labelled-ref' : 'bare-ref', bare.url, url);
@@ -278,6 +314,20 @@ export function planPage(text: string, title: string, opt: PlanOptions): Plan {
   plan.changed = out !== text;
   void title; void normName;
   return plan;
+}
+
+/**
+ * Why a finished citation should go to a human instead of the article, or null.
+ * Kept narrow on purpose: the metadata rules have already rejected what is wrong; this
+ * is only for what is plausible but unproven.
+ */
+export function uncertainty(meta: Meta, cite: string): string | null {
+  if (/\|نویسنده[۰-۹]*=/.test(cite)) return 'نام نویسنده به نام و نام خانوادگی جدا نشد';
+  // a title cut to a site-free stub reads like a section name, not an article
+  // Encyclopedias title an entry by its headword: «بروجرد» on cgie.org.ir is right.
+  const encyclopedia = /(^|\.)(cgie\.org\.ir|encyclopaediaislamica\.com|iranicaonline\.org|britannica\.com|rch\.ac\.ir|wikinoor\.ir|daneshnameh|abadis\.ir|vajehyab\.com|dehkhoda)/i.test(hostOf(meta.url) ?? '');
+  if (!encyclopedia && meta.title.split(/\s+/).length === 1 && meta.title.length < 12 && !/[0-9۰-۹]/.test(meta.title)) return 'عنوان صفحه بسیار کوتاه است و شاید نام بخش باشد';
+  return null;
 }
 
 /** `<ref>` bodies that are only a URL, optionally bracketed, optionally followed by a bare-URL tag. */

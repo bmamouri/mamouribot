@@ -129,7 +129,9 @@ function websiteName(url: string, candidates: (string | undefined)[]): string {
     if (seg) return seg;
   }
   for (const c of candidates) {
-    const s = firstSegment(c);
+    const s0 = firstSegment(c);
+    // a site name written as a URL: keep the host (CS1 errors on a URL in |وبگاه=)
+    const s = s0 && /^https?:\/\//i.test(s0) ? (hostOf(s0) ?? '').replace(/^www\d*\./, '') : s0;
     if (!s) continue;
     if (/^(?:home|index|news|خانه|صفحه اصلی)$/i.test(s)) continue;
     if (s.length > 60) continue;

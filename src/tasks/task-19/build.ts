@@ -8,6 +8,7 @@
  * «چگونگی پیوند», and «نام خانوادگی»/«نام» with numbered forms.
  */
 import { escapeParam } from './wikitext.js';
+import { SPLITTER } from './names.js';
 
 export interface Meta {
   url: string;
@@ -61,6 +62,14 @@ export function buildCitation(meta: Meta, opt: { today: string }): string {
   p.push(['عنوان', escapeParam(meta.title)]);
   (meta.authors ?? []).slice(0, 9).forEach(([first, last], i) => {
     const n = i === 0 ? '' : faDigits(i + 1);
+    // A whole Persian byline (no first name): split only when the splitter is sure,
+    // otherwise the full name goes in نویسنده=, which CS1 prints unchanged.
+    if (!first && /[\u0600-\u06ff]/.test(last)) {
+      const sp = SPLITTER.split(last);
+      if (sp) { p.push([`نام خانوادگی${n}`, escapeParam(sp[1])]); p.push([`نام${n}`, escapeParam(sp[0])]); }
+      else p.push([`نویسنده${n}`, escapeParam(last)]);
+      return;
+    }
     p.push([`نام خانوادگی${n}`, escapeParam(last)]);
     if (first) p.push([`نام${n}`, escapeParam(first)]);
   });

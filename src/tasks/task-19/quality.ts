@@ -70,7 +70,12 @@ export function judgeTitle(raw: string | undefined, ctx: { url: string; site?: s
   if (low === host || low === bare || low === `www.${bare}`) return { ok: false, reason: 'title-is-host' };
   const siteNames = [ctx.site ?? '', ...(ctx.names ?? [])].map(n => n.replace(/\s*\([^)]*\)$/, '').toLowerCase().trim()).filter(Boolean);
   if (siteNames.includes(low)) return { ok: false, reason: 'title-is-site' };
+  const stem = bare.split('.')[0].replace(/-/g, '');
+  if (stem.length >= 4 && low.replace(/[\s.-]/g, '') === stem) return { ok: false, reason: 'title-is-site' };
   if (/^https?:\/\//i.test(t) || /^www\./i.test(t)) return { ok: false, reason: 'title-is-url' };
+  // CS1 errors on any URL inside a title («Redirecting to https://…»)
+  if (/https?:\/\/|\bwww\.[a-z0-9-]+\./i.test(t)) return { ok: false, reason: 'title-has-url' };
+  if (/^(?:redirecting|redirect|moved|forwarding|انتقال)/i.test(low)) return { ok: false, reason: 'generic-title' };
   if (t.length > 300) return { ok: false, reason: 'title-too-long' };
   if (/[\uFFFD]|Ø|Ù|Û/.test(t)) return { ok: false, reason: 'mojibake' };
   return { ok: true, title: t };
@@ -157,7 +162,7 @@ export function judgeAuthor(first: string, last: string, site?: string, titleSeg
   // `\b` is ASCII-only in JS, so the Persian words are matched as substrings.
   if (/خبرگزاری|سرویس|گروه|تحریریه|خبرنگار|روابط عمومی|مدیر سایت|ادمین|نیوز|آنلاین|پایگاه|وبگاه|سایت|ایرنا|ایسنا|تسنیم/.test(whole)) return false;
   // Institutions written where a byline goes: «بنیاد دایرةالمعارف اسلامی», «دانشگاه تهران».
-  if (/شهرداری|استانداری|فرمانداری|بنیاد|بنياد|دایرة ?المعارف|دائرة ?المعارف|دانشنامه|مؤسسه|موسسه|انتشارات|دانشگاه|پژوهشگاه|پژوهشکده|سازمان|مرکز|وزارت|اداره|شرکت|انجمن|کتابخانه|مجله|روزنامه|فصلنامه|ماهنامه/.test(whole)) return false;
+  if (/مجلة|مجله|صحيفة|جريدة|موقع|قناة|وكالة|شبكة|شهرداری|استانداری|فرمانداری|بنیاد|بنياد|دایرة ?المعارف|دائرة ?المعارف|دانشنامه|مؤسسه|موسسه|انتشارات|دانشگاه|پژوهشگاه|پژوهشکده|سازمان|مرکز|وزارت|اداره|شرکت|انجمن|کتابخانه|مجله|روزنامه|فصلنامه|ماهنامه/.test(whole)) return false;
   if (/\b(?:university|institute|foundation|ministry|department|council|society|association|museum|library|press|publishing|inc|ltd|llc|corporation|company|magazine|journal)\b/i.test(whole)) return false;
   if (site && whole.toLowerCase().includes(site.toLowerCase())) return false;
   // «… | باشگاه شاهنامه پژوهان» with the same words as the author: the site, split in two
