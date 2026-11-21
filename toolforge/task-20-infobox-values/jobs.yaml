@@ -1,0 +1,16 @@
+# وظیفهٔ ۲۰: English values left in infoboxes. Not filed yet; nothing here edits the wiki.
+#
+# ⚠️ Never `toolforge jobs load` this file: it deletes every other task's scheduled jobs.
+# Create each job with `toolforge jobs run`, copying the fields (bots/docs/TOOLFORGE.md §5).
+---
+# Read-only census of the newest complete fawiki dump. Writes
+# ~/task-20-infobox-values/census/<dump date>/. About 6 minutes with 3 workers.
+- name: t20-census
+  command: ./task-20-infobox-values/census.sh
+  image: python3.13
+  cpu: 3
+  mem: 4Gi
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/t20-census.out
+  filelog-stderr: logs/t20-census.err
