@@ -26,7 +26,13 @@ import { existsSync, readFileSync } from 'fs';
 import bundledNames from './data/names.json' with { type: 'json' };
 
 export const FA = 'fa', EN = 'en', PLAIN = 'plain', REVIEW = 'review', SKIP = 'skip';
-export type ResKind = typeof FA | typeof EN | typeof PLAIN | typeof REVIEW | typeof SKIP;
+/**
+ * en-only, no curated name, but an editor may already have written the Persian name as the
+ * link's label: `[[Big Stone Beach, Delaware|بیگ استون بیچ]]`. Only such an occurrence is
+ * repaired, to `[[:en:…|<that label>]]`; one without a Persian label stays REVIEW.
+ */
+export const EN_LABEL = 'en-label';
+export type ResKind = typeof FA | typeof EN | typeof EN_LABEL | typeof PLAIN | typeof REVIEW | typeof SKIP;
 
 export interface Resolution {
   kind: ResKind;
@@ -150,6 +156,8 @@ export class Resolver {
     private faInfo?: FaInfo,
     /** Follow same-subject en redirects (extension ۲). Off = the approved behaviour. */
     private followRedirects = true,
+    /** Allow EN_LABEL (extension ۷). Off = no interwiki without a curated name. */
+    private labelInterwiki = false,
   ) {}
 
   private curated(target: string): [keyof Names | null, string | null] {
@@ -217,6 +225,12 @@ export class Resolver {
       if (enExists) {
         if (name && (bucket === EN || bucket === FA)) {
           out.set(target, { kind: EN, link: key, display: name, reason: 'curated Persian display' });
+        } else if (this.labelInterwiki && !key.includes('#')
+                   && (!viaRedirect || sameSubjectRedirect(li))) {
+          // An interwiki through a redirect lands wherever the redirect goes, so the same
+          // gate as for fa repoints applies: `Acquanetta Warren` would open Fontana.
+          out.set(target, { kind: EN_LABEL, link: key, reason:
+            'en-only: needs a Persian display name in names.json (fixed only where the link already has a Persian label)' });
         } else {
           out.set(target, { kind: REVIEW, reason:
             'en-only: needs a Persian display name in names.json' });
@@ -263,15 +277,17 @@ export function mediawikiLookup(en: ApiClient): Lookup {
         const n = norm.get(t) ?? t;
         const r = red.get(n);
         const resolved = r?.to ?? n;
-        const p = pages.get(resolved) ?? {};
+        const p = pages.get(resolved);
         out.set(t, {
-          enExists: !p.missing,
-          faTitle: p.langlinks?.[0]?.title ?? null,
+          // No page at all is not "exists": `Wikiquote:Italy` and `b:Cookbook:…` come back
+          // under `interwiki`, with no entry in `pages`.
+          enExists: !!p && !p.missing && !p.invalid,
+          faTitle: p?.langlinks?.[0]?.title ?? null,
           viaRedirect: resolved !== t && !!r,
           ...(r ? { redirectFrom: n, redirectTo: r.to, redirectFragment: r.frag,
                     redirectCats: cats.get(n) ?? [] } : {}),
-          enDisambig: p.pageprops?.disambiguation !== undefined,
-          enItem: p.pageprops?.wikibase_item ?? null,
+          enDisambig: p?.pageprops?.disambiguation !== undefined,
+          enItem: p?.pageprops?.wikibase_item ?? null,
         });
       }
     }

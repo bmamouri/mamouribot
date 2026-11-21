@@ -170,7 +170,7 @@ async function fetchSources(bot: Bot, titles: string[]): Promise<Map<string, str
  */
 async function unverifiedEnTargets(bot: Bot, resolutions: Map<string, Resolution>): Promise<string[]> {
   const targets = [...new Set([...resolutions.values()]
-    .filter(r => r.kind === 'en' && r.link).map(r => r.link!))].sort();
+    .filter(r => (r.kind === 'en' || r.kind === 'en-label') && r.link).map(r => r.link!))].sort();
   const bad: string[] = [];
   for (let i = 0; i < targets.length; i += 40) {
     const chunk = targets.slice(i, i + 40);
@@ -261,6 +261,7 @@ export const linkfixTask: BotTask = {
       mediawikiFaExists({ apiGet: p => bot.apiGet(p) }),
       mediawikiFaInfo({ apiGet: p => bot.apiGet(p) }),
       EXTENSION,
+      EXTENSION && process.env.LINKFIX_LABELS !== '0',
     );
     RESOLUTIONS = await resolver.resolveMany([...targets].sort());
 

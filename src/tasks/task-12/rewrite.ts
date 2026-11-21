@@ -18,7 +18,7 @@
  */
 import { auditCounts, checkWikitext, linkContext } from '../../lib/gates.js';
 import { linkRe, PERSIAN, skipped } from './detect.js';
-import { EN, FA, PLAIN, REVIEW, SKIP, type Names, type Resolution } from './resolve.js';
+import { EN, EN_LABEL, FA, PLAIN, REVIEW, SKIP, type Names, type Resolution } from './resolve.js';
 
 const ORDINAL = /^(\d+)(?:st|nd|rd|th)$/;
 const NUMERIC = /^\d+(?:\s*(?:\/|,|and|و|–|-)\s*\d+)*$/;
@@ -81,6 +81,9 @@ export function render(
     return resolution.link === display ? `[[${resolution.link}]]` : `[[${resolution.link}|${display}]]`;
   }
   if (resolution.kind === EN) return `[[:en:${resolution.link}|${display}]]`;
+  // The editor's own label, byte for byte. It is never read as a title: «سیاست» on
+  // `Politics of Indiana` is a fine label and the wrong article.
+  if (resolution.kind === EN_LABEL && old && PERSIAN.test(old)) return `[[:en:${resolution.link}|${old}]]`;
   throw new Error(`not applicable: ${resolution.kind}`);
 }
 
@@ -157,6 +160,8 @@ export function applyResolutions(
     const res = resolutions.get(target);
     if (res === undefined) return whole;
     if (res.kind === REVIEW || res.kind === SKIP) { deferred.push(target); return whole; }
+    // Repairable only where this occurrence already carries a Persian label.
+    if (res.kind === EN_LABEL && !(old && PERSIAN.test(old))) { deferred.push(target); return whole; }
     // The fa article has the SAME title as the link: it is already a working link, and
     // «re-pointing» it only threw the label away (`[[R|Ʀʀ]]` → `[[R]]`, ۱۲ نوامبر ۲۰۲۶).
     if (res.kind === FA && decodeEntities(res.link ?? '') === decodeEntities(target)) return whole;

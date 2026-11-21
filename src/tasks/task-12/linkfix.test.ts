@@ -391,6 +391,56 @@ console.log('\n== the shipped names table ==');
      JSON.stringify(names.remap));
 }
 
+console.log('\n== extension ۷: an existing Persian label ==');
+{
+  const labelled = (on: boolean) => new Resolver(
+    async (ts: string[]) => new Map(ts.map(t =>
+      [t, LOOKUP[t] ?? { enExists: false, faTitle: null, viaRedirect: false }])),
+    NAMES, undefined, undefined, true, on);
+  const text = '* [[Monte Nido, California|مونت نیدو]]\n* [[Monte Nido, California]]\n'
+    + '* [[Monte Nido, California|Monte Nido]]';
+  const res = await labelled(true).resolveMany(['Monte Nido, California']);
+  const out = applyResolutions(text, res, NAMES);
+  ok('a Persian label becomes the interwiki label, unchanged',
+     out.text.includes('[[:en:Monte Nido, California|مونت نیدو]]'), out.text);
+  ok('the same target with no label is left alone',
+     out.text.includes('* [[Monte Nido, California]]\n'), out.text);
+  ok('the same target with an English label is left alone',
+     out.text.includes('[[Monte Nido, California|Monte Nido]]'), out.text);
+  ok('only the labelled occurrence is counted', out.applied === 1, String(out.applied));
+  ok('the unlabelled ones still reach the review list', out.deferred.length === 2,
+     JSON.stringify(out.deferred));
+
+  const off = applyResolutions(text, await labelled(false).resolveMany(['Monte Nido, California']), NAMES);
+  ok('switched off, nothing changes', off.text === text && off.applied === 0, off.text);
+
+  // The label is never read as a title: «سیاست» is a fine label for `Politics of Indiana`
+  // and the wrong article. The output must not point at fa at all.
+  const pol = applyResolutions('[[Monte Nido, California|سیاست]]', res, NAMES);
+  ok('the label is not used as a fa link target', pol.text === '[[:en:Monte Nido, California|سیاست]]', pol.text);
+
+  const fa = applyResolutions('[[Los Angeles Times|روزنامه]]',
+    await labelled(true).resolveMany(['Los Angeles Times']), NAMES);
+  ok('an fa article still wins over the label rule', fa.text === '[[لس آنجلس تایمز|روزنامه]]', fa.text);
+
+  const viaRedirect = (await labelled(true).resolveMany(['Canadian Albums Chart', 'Homeric']));
+  ok('an en redirect with no same-subject evidence is not interwikied',
+     (await new Resolver(async ts => new Map(ts.map(t => [t,
+       { enExists: true, faTitle: null, viaRedirect: true, redirectFrom: t, redirectTo: 'Homer',
+         redirectCats: ['Redirects from adjectives'] }])), NAMES, undefined, undefined, true, true)
+       .resolveMany(['Homeric'])).get('Homeric')!.kind === REVIEW);
+  ok('fixtures with an fa article are unaffected', viaRedirect.get('Homeric')!.kind !== 'en-label');
+
+  const anchor = await new Resolver(async ts => new Map(ts.map(t => [t,
+    { enExists: true, faTitle: null, viaRedirect: false }])), NAMES, undefined, undefined, true, true)
+    .resolveMany(['Valerie (song)#Version']);
+  ok('a section link is not interwikied', anchor.get('Valerie (song)#Version')!.kind === REVIEW);
+
+  const cite = applyResolutions('<ref>{{cite web|publisher=[[Monte Nido, California|مونت نیدو]]}}</ref>',
+    res, NAMES, { foreign: [[0, 80]], opaque: [] });
+  ok('inside a citation it stays review', cite.applied === 0, cite.text);
+}
+
 console.log('\n== the red-link guard (new in the port) ==');
 {
   // The Python version wrote the page first and then aborted the RUN if red links had
