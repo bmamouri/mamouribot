@@ -29,6 +29,7 @@ import { populationBoxTask } from './tasks/task-14/population-box.js';
 import { sourceTagsTask } from './tasks/task-15/source-tags.js';
 import { stripTextFragmentTask } from './tasks/task-16/strip-text-fragment.js';
 import { portalLinksTask } from './tasks/task-18/portal-links-task.js';
+import { citeUrlsTask } from './tasks/task-19/cite-urls.js';
 
 const TASKS: Record<string, BotTask> = {
   [useDmyDatesTask.id]: useDmyDatesTask,
@@ -47,6 +48,7 @@ const TASKS: Record<string, BotTask> = {
   [sourceTagsTask.id]: sourceTagsTask,
   [stripTextFragmentTask.id]: stripTextFragmentTask,
   [portalLinksTask.id]: portalLinksTask,
+  [citeUrlsTask.id]: citeUrlsTask,
 };
 
 function parseArgs(argv: string[]) {

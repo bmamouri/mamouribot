@@ -1,0 +1,37 @@
+# وظیفهٔ ۱۹ — تکمیل یادکردهای نشانی عریان و اصلاح نشانی منبع‌ها.   see the ⚠️ below
+#
+# NOT APPROVED. Only `cu-check` and `cu-dry` may be created until the request page says
+# {{مجوز دارد}}. The scheduled job is written out so the approved shape is reviewable, and
+# is commented out.
+#
+# ⚠️ `toolforge jobs load` SYNCS — it deletes scheduled jobs absent from the file it is
+# given, including every other task's jobs. Use `toolforge jobs run` / `delete` per job.
+---
+- name: cu-check
+  command: ./task-19-cite-urls/run.sh --check
+  image: node20
+  mem: 512Mi
+  emails: onfailure
+  filelog-stdout: logs/cu-check.out
+  filelog-stderr: logs/cu-check.err
+
+# Dry run, no login, no writes. Read every diff before trusting a batch size.
+- name: cu-dry
+  command: ./task-19-cite-urls/run.sh --limit 50
+  image: node20
+  mem: 1Gi
+  emails: onfailure
+  filelog-stdout: logs/cu-dry.out
+  filelog-stderr: logs/cu-dry.err
+
+# After approval. 05:40 UTC is clear of وظیفهٔ ۱ (06:20), ۱۵ (03:05), ۱۶ (06:50), ۱۲ (08:00)
+# and ۳'s hourly :25. 150 edits a run, as the request states.
+# - name: cu-daily
+#   command: ./task-19-cite-urls/run.sh --live --limit 150 --delay 15
+#   image: node20
+#   mem: 1Gi
+#   schedule: "40 5 * * *"
+#   retry: 0
+#   emails: onfailure
+#   filelog-stdout: logs/cu-daily.out
+#   filelog-stderr: logs/cu-daily.err

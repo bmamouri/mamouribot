@@ -31,6 +31,7 @@ only copies of what was reviewed when each task was approved.
 | ۱۵ | `task-15/` | `source-tags` | Adds `{{بدون منبع}}` and related banners to unsourced articles, removes stale ones | Approved. Daily, `st-daily`, at most 200 edits |
 | ۱۶ | `task-16/` | `strip-text-fragment` | Removes `#:~:text=` from URLs | Approved. Daily, `tf-daily` |
 | ۱۸ | `task-18/` | `portal-links` | Adds `{{درگاه}}` to articles in a portal's exact-name subject category (or its name-matching subcategories) | Approved. Every 6 hours, `pl-full` |
+| ۱۹ | `task-19/` | `cite-urls` | Turns bare-URL references into full citations from the page's own metadata, fills missing citation titles, repairs broken citation URLs | Not filed yet. Not run live |
 
 Task ۲ (the ship-infobox conversion) was a one-off run from a separate script and is not part
 of this runner. Task ۱۳ is not a `BotTask`: it has its own entry point,

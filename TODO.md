@@ -294,3 +294,19 @@ percent-encoded leftovers. Before changing anything, dry-run 40 pages and read t
 **Then.** If someone on the wiki asks, explain how `recheckAfterDays: 30` fits the request's
 promise «هرگز صفحه‌ای را که ویرایش کرده دوباره ویرایش نمی‌کند» (see
 `docs/task-16-text-fragment.md`).
+
+---
+
+## 14. وظیفهٔ ۱۹: file the request
+
+**Background.** Code, tests and jobs are ready (`docs/task-19-cite-urls.md`). Nothing has run
+live. The decisions the request has to state: whether `<ref>[URL label]</ref>` is in scope
+(`T19_LABELLED`), whether percent-decoding may cause an edit on its own
+(`T19_MINOR_ALONE`), and the daily edit cap.
+
+**Trigger.** None. Do it when I decide to.
+
+**Then.** Dry-run 60 pages from each search and read every diff. Draft the request in the
+companion repository's `drafts/`, copying the structure of وظیفهٔ ۱۶'s. Trial under
+`--as-me`, 30 edits, and report it in full.
+

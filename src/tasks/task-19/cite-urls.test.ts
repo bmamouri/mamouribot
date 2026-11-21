@@ -1,0 +1,301 @@
+/**
+ * وظیفهٔ ۱۹ — offline tests.   npx tsx src/tasks/task-19/cite-urls.test.ts
+ *
+ * Most cases are real text from fa articles (حسین کاظم‌زاده ایرانشهر and the 1,000-page
+ * random sample of ۲۱ نوامبر ۲۰۲۶), and the citoid answers are the ones the service gave.
+ */
+import { canonHref, decodePercentUnicode, repairScheme, stripTracking, unwrapRedirector } from './url.js';
+import { matchBareRef, planPage, type Lookup } from './plan.js';
+import { buildCitation, formatDate } from './build.js';
+import { judgeAuthor, judgeDate, judgeTitle, langOf, stripSiteSuffix } from './quality.js';
+import { combine, siteFor, softDead, splitPipeSite } from './resolve.js';
+import { unexplainedLoss } from './cite-urls.js';
+import { appendParams, escapeParam } from './wikitext.js';
+
+let pass = 0;
+const fails: string[] = [];
+const ok = (what: string, cond: boolean, detail = '') => {
+  if (cond) pass++; else { fails.push(`${what}${detail ? ' — ' + detail : ''}`); console.log(`  ✗ ${what}\n      ${detail}`); }
+};
+const eq = (what: string, a: unknown, b: unknown) => ok(what, JSON.stringify(a) === JSON.stringify(b), `${JSON.stringify(a)}\n      ≠ ${JSON.stringify(b)}`);
+const TODAY = '۲۱ نوامبر ۲۰۲۶';
+
+console.log('== percent-decoding ==');
+{
+  const cg = 'https://www.cgie.org.ir/fa/news/263705/%D8%AF%D8%B1%D8%A8%D8%A7%D8%B1%D9%87-%D8%AD%D8%B3%DB%8C%D9%86-%DA%A9%D8%A7%D8%B8%D9%85-%D8%B2%D8%A7%D8%AF%D9%87';
+  eq('the user\'s cgie.org.ir example decodes', decodePercentUnicode(cg), 'https://www.cgie.org.ir/fa/news/263705/درباره-حسین-کاظم-زاده');
+  eq('lowercase escapes decode too', decodePercentUnicode('https://foneix.ir/portfolio/%d9%85%d8%a7'), 'https://foneix.ir/portfolio/ما');
+  eq('ZWNJ is decoded (renders a working link)', decodePercentUnicode('https://t.ir/%D8%A8%D8%A7%D9%86%DA%A9%E2%80%8C%D9%87%D8%A7'), 'https://t.ir/بانک‌ها');
+  eq('ASCII escapes are kept: space, pipe, percent, hash', decodePercentUnicode('https://x.ir/a%20b%7Cc%25d%23e/%D8%A8'), 'https://x.ir/a%20b%7Cc%25d%23e/ب');
+  eq('Persian digits stay encoded (the en CS1 route would make them Latin)', decodePercentUnicode('https://irna.ir/news/1/%DB%B1%DB%B3-%D9%85%D8%B9%D8%AF%D9%86'), 'https://irna.ir/news/1/%DB%B1%DB%B3-معدن');
+  eq('invalid UTF-8 (windows-1256) is left whole', decodePercentUnicode('http://x.com/q=%C7%E1%DA'), 'http://x.com/q=%C7%E1%DA');
+  eq('a Wayback URL is never touched', decodePercentUnicode('https://web.archive.org/web/2016/http://s.ir/%D8%AA'), 'https://web.archive.org/web/2016/http://s.ir/%D8%AA');
+  eq('a URL with Arabic kaf stays encoded (a normalizer would rewrite it)', decodePercentUnicode('http://j.ir/%D8%A8%D8%A7%D9%86%D9%83'), 'http://j.ir/%D8%A8%D8%A7%D9%86%D9%83');
+  eq('decomposed alef+madda stays encoded (NFC would change it on save)', decodePercentUnicode('http://x.ir/%D8%A7%D9%93'), 'http://x.ir/%D8%A7%D9%93');
+  eq('non-breaking space stays encoded', decodePercentUnicode('http://x.ir/%C2%A0%D8%A8'), 'http://x.ir/%C2%A0ب');
+  eq('nothing to decode → same string', decodePercentUnicode('http://x.ir/a%20b'), 'http://x.ir/a%20b');
+  eq('Cyrillic decodes', decodePercentUnicode('https://ru.x/%D0%9A%D0%B0'), 'https://ru.x/Ка');
+}
+
+console.log('== schemes ==');
+eq('www. gets http://', repairScheme('www.shahbazi.org/pages/Maryamiyya3.htm'), 'http://www.shahbazi.org/pages/Maryamiyya3.htm');
+eq('bare domain with known TLD', repairScheme('tabnak.ir/fa/news/1'), 'http://tabnak.ir/fa/news/1');
+eq('https// typo', repairScheme('https//copaamerica.com/'), 'https://copaamerica.com/');
+eq('http:/ single slash', repairScheme('http:/www.battle.net/blizzcon/en/'), 'http://www.battle.net/blizzcon/en/');
+eq('doubled scheme keeps the inner one', repairScheme('http://https://www.isna.ir/news/96102211487/'), 'https://www.isna.ir/news/96102211487/');
+eq('triple slash', repairScheme('http:///x.org/a'), 'http://x.org/a');
+eq('not a URL', repairScheme('کتاب فلان'), null);
+eq('spaces inside → not a URL', repairScheme('www.x.org/a b'), null);
+eq('a good URL is unchanged', repairScheme('https://x.org/a'), 'https://x.org/a');
+
+console.log('== tracking and redirectors ==');
+eq('utm_* removed, other params kept in order', stripTracking('https://w.com/a?noredirect=on&utm_term=.7052'), 'https://w.com/a?noredirect=on');
+eq('fbclid alone removes the ?', stripTracking('http://www.anunner.com/?fbclid=IwAR3bz'), 'http://www.anunner.com/');
+eq('fragment kept', stripTracking('https://x.com/a?utm_source=t&id=5#sec'), 'https://x.com/a?id=5#sec');
+eq('&amp; queries are left alone', stripTracking('https://x.com/a?b=1&amp;utm_source=t'), 'https://x.com/a?b=1&amp;utm_source=t');
+eq('youtube si= removed', stripTracking('https://www.youtube.com/watch?v=abc&si=XYZ'), 'https://www.youtube.com/watch?v=abc');
+eq('si= on other sites kept', stripTracking('https://x.com/?si=1'), 'https://x.com/?si=1');
+eq('google /url?', unwrapRedirector('https://www.google.com/url?sa=t&rct=j&url=https%3A%2F%2Fx.org%2Fa%3Fb%3D1&usg=AOv'), 'https://x.org/a?b=1');
+eq('google amp', unwrapRedirector('https://www.google.com/amp/s/www.bbc.com/persian/iran-1'), 'https://www.bbc.com/persian/iran-1');
+eq('dead google cache', unwrapRedirector('http://webcache.googleusercontent.com/search?q=cache:VsB2mSEIEJYJ:irna.ir/NewsShow.aspx?NID=1'), 'http://irna.ir/NewsShow.aspx?NID=1');
+eq('google search is not a redirector', unwrapRedirector('https://www.google.com/search?q=x'), 'https://www.google.com/search?q=x');
+
+console.log('== bare-ref recognition ==');
+eq('plain URL', matchBareRef('http://www.nobelprize.org/nomination/archive/show_people.php?id=4486', false), { url: 'http://www.nobelprize.org/nomination/archive/show_people.php?id=4486' });
+eq('bracketed URL', matchBareRef('[http://melimazhabi.com/?p=22409]', false), { url: 'http://melimazhabi.com/?p=22409' });
+eq('trailing full stop is not part of the URL', matchBareRef('http://x.org/a.', false), { url: 'http://x.org/a' });
+eq('with an inline bare-URL tag', matchBareRef('http://x.org/a {{Bare URL inline|date=March 2022}}', false), { url: 'http://x.org/a' });
+eq('labelled link is off by default', matchBareRef('[http://x.org/a Title]', false), null);
+eq('labelled link when enabled', matchBareRef('[http://x.org/a Title here]', true), { url: 'http://x.org/a', label: 'Title here' });
+eq('URL plus prose is not bare', matchBareRef('http://x.org/a ص ۱۲', false), null);
+eq('template in ref is not bare', matchBareRef('{{یادکرد وب|نشانی=http://x}}', false), null);
+
+console.log('== quality ==');
+ok('«INDEX» rejected', !judgeTitle('INDEX', { url: 'http://jahannews.com/x' }).ok);
+ok('«{title}» rejected', !judgeTitle('{title}', { url: 'http://iran-emrooz.net/x' }).ok);
+ok('«Technical Difficulties» rejected', !judgeTitle('Technical Difficulties', { url: 'https://ir.usembassy.gov/x' }).ok);
+ok('parked domain rejected', !judgeTitle('yjc.news - This website is for sale!', { url: 'https://www.yjc.news/x' }).ok);
+ok('«Nomination%20Archive» decodes then reads as generic? no — it is a real but poor title; handled by sites.json', true);
+ok('empty rejected', !judgeTitle('', { url: 'http://x' }).ok);
+ok('title equal to host rejected', !judgeTitle('www.irna.ir', { url: 'http://www.irna.ir/x' }).ok);
+ok('real Persian title accepted', judgeTitle('دانشجویان ایرانی به حافظ منافع مصر در تهران گل هدیه دادند', { url: 'http://mehrnews.com/x' }).ok);
+eq('site suffix stripped', stripSiteSuffix('جمعیت تهران از ۹ میلیون نفر عبور کرد - خبرگزاری مهر | اخبار ایران و جهان | Mehr News Agency', { url: 'https://www.mehrnews.com/news/1', site: 'خبرگزاری مهر' }), 'جمعیت تهران از ۹ میلیون نفر عبور کرد');
+eq('host-named suffix stripped', stripSiteSuffix('بانک‌ها پول مردم … + فیلم | تابناک', { url: 'http://www.tabnak.ir/x', site: 'tabnak.ir', names: ['تابناک'] }), 'بانک‌ها پول مردم … + فیلم');
+eq('a dash inside a real title is kept', stripSiteSuffix('Iran - Iraq war: a history', { url: 'http://x.org/a', site: 'Some Site' }), 'Iran - Iraq war: a history');
+ok('«David BrennanDiplomatic Correspondent» rejected as an author', !judgeAuthor('David BrennanDiplomatic', 'Correspondent'));
+ok('«Behnegarsoft.com» rejected', !judgeAuthor('', 'Behnegarsoft.com'));
+ok('«Ap» with no first name rejected', !judgeAuthor('', 'Ap'));
+ok('a real author kept', judgeAuthor('Lesley', 'Wroughton'));
+eq('webpage dates are not trusted', judgeDate('2024-05-21', '2026-11-21', 'webpage'), undefined);
+eq('news dates are', judgeDate('2019-02-14', '2026-11-21', 'newspaperArticle'), '2019-02-14');
+eq('future date dropped', judgeDate('2030-01-01', '2026-11-21', 'newspaperArticle'), undefined);
+
+ok('a title that is only the site name rejected', !judgeTitle('| مرکز دائرةالمعارف بزرگ اسلامی', { url: 'http://cgie.org.ir/fa/news/2510', names: ['مرکز دائرةالمعارف بزرگ اسلامی'] }).ok);
+ok('«No data found» rejected', !judgeTitle('No data found', { url: 'http://www.pwinsider.com/a' }).ok);
+ok('geoblock title rejected', !judgeTitle('TNT Sports is not available in your region', { url: 'https://www.eurosport.com/x' }).ok);
+eq("backslash-escaped quote unescaped", judgeTitle("L\\'Eau froide (1994)", { url: 'http://x.com/a' }), { ok: true, title: "L'Eau froide (1994)" });
+ok('«WELT» is not an author', !judgeAuthor('Daniel-Dylan Böhmer', 'WELT'));
+eq('English title declared fr → no language', langOf('The Kurdish population', 'fr'), undefined);
+eq('French title declared tr → no language', langOf('Soumeylou Boubèye Maïga, nommé Premier ministre du Mali', 'tr'), undefined);
+eq('English title declared en-US', langOf('Marketing Myopia', 'en-US'), 'en');
+eq('German title declared de', langOf('Münchner Sicherheitskonferenz: „In Berlin wurde“', 'de'), 'de');
+eq('Armenian title declared hy', langOf('ՀՀ պաշտպանության նախարարությունը', 'hy'), 'hy');
+eq('Persian title, no language', langOf('درباره حسین کاظم زاده', 'fa'), undefined);
+eq('geoblock redirect is soft-dead', softDead('https://www.eurosport.com/wrestling/x/story.shtml', 'https://www.eurosport.com/geoblocking.shtml'), 'soft-404');
+eq('redirected to an unrelated page', softDead('http://www.wwe.com/events/all/summerslam/2003', 'https://www.wwe.com/tickets'), 'redirected-elsewhere');
+eq('canonical slug redirect is fine', softDead('https://www.isna.ir/news/1405080603988/', 'https://www.isna.ir/news/1405080603988/%D8%A7%D9%84%D9%81'), null);
+
+eq('leading site name stripped', judgeTitle('Magiran | روزنامه دنیای اقتصاد: وداع با استاد', { url: 'https://www.magiran.com/article/3427693' }), { ok: true, title: 'روزنامه دنیای اقتصاد: وداع با استاد' });
+eq('leading site name with a colon', judgeTitle('Pong-Story : Magnavox Odyssey, the first video game system', { url: 'http://www.pong-story.com/odyssey.htm' }), { ok: true, title: 'Magnavox Odyssey, the first video game system' });
+eq('a colon in a real title is kept', judgeTitle('Pence: Europe must quit the deal', { url: 'https://apnews.com/x', site: 'AP NEWS' }), { ok: true, title: 'Pence: Europe must quit the deal' });
+ok('a site home title is rejected', !judgeTitle('Sam Harris | Home of the Making Sense Podcast', { url: 'https://samharris.org/killing-the-buddha/', site: 'Sam Harris' }).ok);
+ok('an author equal to a title segment is the site', !judgeAuthor('باشگاه شاهنامه', 'پژوهان', 'shahnamehpajohan.ir', ['صفر عبدالله : نام مبارک ایران همیشه بوده است', 'باشگاه شاهنامه پژوهان']));
+{
+  const r = combine({ url: 'https://matomo.org/faq/x', today: '2026-11-21', citoid: { ok: true, item: { itemType: 'webpage', title: 'How do I pronounce Matomo?', websiteTitle: 'Analytics Platform - Matomo' } } });
+  eq('the site-name segment that is the host wins', r.meta?.website, 'Matomo');
+}
+{
+  const r = combine({ url: 'http://www.jmm.gov.my/en/museum/x', today: '2026-11-21', citoid: { ok: true, item: { itemType: 'webpage', title: 'National Museum', websiteTitle: 'www.jmm.gov.my' } } });
+  eq('www. stripped from a three-label host', r.meta?.website, 'jmm.gov.my');
+}
+{
+  const r = combine({ url: 'https://www.isna.ir/news/95072514229/x', today: '2026-11-21', site: siteFor('https://www.isna.ir/news/95072514229/x'),
+    citoid: { ok: true, item: { itemType: 'webpage', title: '' } },
+    page: { status: 200, finalUrl: 'https://www.isna.ir/news/95072514229/x', challenge: true },
+    capture: { timestamp: '20161016000000', original: 'http://www.isna.ir/news/95072514229/x' },
+    snapshot: { status: 200, finalUrl: '', ogTitle: 'برنامه مراسم چهلم فرهنگ شریف اعلام شد' } });
+  eq('bot wall: title from the capture, live URL, no archive fields', [r.status, r.meta?.title, r.meta?.archive, r.meta?.website, r.meta?.news], ['live', 'برنامه مراسم چهلم فرهنگ شریف اعلام شد', undefined, '[[ایسنا]]', true]);
+}
+{
+  const r = combine({ url: 'https://www.isna.ir/news/1/x', today: '2026-11-21',
+    citoid: { ok: true, item: { itemType: 'webpage', title: '' } },
+    page: { status: 200, finalUrl: 'https://www.isna.ir/news/1/x', challenge: true },
+    capture: { timestamp: '20200101000000', original: 'https://www.isna.ir/news/1/x' },
+    snapshot: { status: 200, finalUrl: '', title: '', challenge: true } });
+  eq('bot wall captured by Wayback too → left alone', [r.status, r.meta, r.reason], ['live', undefined, 'bot-challenge']);
+}
+
+eq('trailing | site name used when only the host was known', splitPipeSite('طبیعت روستای «زیوه و کهنه لاهیجان» پیرانشهر | آخرین خبر', 'akharinkhabar.ir', 'https://akharinkhabar.ir/photo/7116065'), { title: 'طبیعت روستای «زیوه و کهنه لاهیجان» پیرانشهر', website: 'آخرین خبر' });
+eq('…but not when a real site name is known', splitPipeSite('A long enough title | Section', 'BBC', 'https://bbc.com/x'), { title: 'A long enough title | Section', website: 'BBC' });
+
+console.log('== dates ==');
+eq('Gregorian day', formatDate('2019-02-14'), '۱۴ فوریه ۲۰۱۹');
+eq('Jalali day', formatDate('1392-03-29'), '۲۹ خرداد ۱۳۹۲');
+eq('month (۲۰۱۹-۰۲ is a CS1 error, so it is written out)', formatDate('2019-02'), 'فوریه ۲۰۱۹');
+eq('year', formatDate('2004'), '۲۰۰۴');
+eq('nonsense', formatDate('0000-13-40'), undefined);
+
+console.log('== citation builder ==');
+eq('minimal web citation', buildCitation({ url: 'https://a.org/x', title: 'T', website: 'a.org' }, { today: TODAY }),
+  '{{یادکرد وب |نشانی=https://a.org/x |عنوان=T |وبگاه=a.org |تاریخ بازبینی=۲۱ نوامبر ۲۰۲۶}}');
+eq('news with author, date, language', buildCitation({ url: 'https://r.com/x', title: 'Pence urges', website: '[[رویترز]]', date: '2019-02-14', language: 'en', news: true, authors: [['Lesley', 'Wroughton'], ['Alicja', 'Ptak']] }, { today: TODAY }),
+  '{{یادکرد خبر |نشانی=https://r.com/x |عنوان=Pence urges |نام خانوادگی=Wroughton |نام=Lesley |نام خانوادگی۲=Ptak |نام۲=Alicja |وبگاه=[[رویترز]] |تاریخ=۱۴ فوریه ۲۰۱۹ |زبان=en |تاریخ بازبینی=۲۱ نوامبر ۲۰۲۶}}');
+eq('a pipe in a title is escaped', escapeParam('A | B [c]'), 'A {{!}} B &#91;c&#93;');
+eq("italic quotes in a title are escaped", escapeParam("Bob''s"), 'Bob&#39;&#39;s');
+
+console.log('== resolver decisions ==');
+eq('siteFor picks the longest key', siteFor('https://www.nobelprize.org/nomination/archive/show_people.php?id=4486')?.titleFrom, 'h2');
+eq('siteFor host only', siteFor('https://www.mehrnews.com/news/1')?.article, 'خبرگزاری مهر');
+eq('siteFor bbc persian path', siteFor('http://www.bbc.co.uk/persian/iran/2008/12/x.shtml')?.article, 'بی‌بی‌سی فارسی');
+eq('suspended page is soft-dead', softDead('http://www.shahbazi.org/pages/Maryamiyya3.htm', 'https://www.shahbazi.org/cgi-sys/suspendedpage.cgi'), 'soft-404');
+eq('redirect to the home page is soft-dead', softDead('http://x.ir/news/123', 'https://x.ir/'), 'redirected-home');
+eq('http→https on the same path is alive', softDead('http://x.ir/news/123', 'https://x.ir/news/123'), null);
+{
+  const r = combine({ url: 'https://hbr.org/2004/07/marketing-myopia', today: '2026-11-21',
+    citoid: { ok: true, item: { itemType: 'magazineArticle', title: 'Marketing Myopia', websiteTitle: 'Harvard Business Review', date: '2004-07-01', author: [['Theodore', 'Levitt']] } } });
+  eq('good citoid answer is used as is', [r.status, r.meta?.title, r.meta?.date, r.meta?.authors, r.meta?.news], ['live', 'Marketing Myopia', '2004-07-01', [['Theodore', 'Levitt']], true]);
+}
+{
+  const r = combine({ url: 'http://www.shahbazi.org/pages/Maryamiyya3.htm', today: '2026-11-21',
+    citoid: { ok: true, item: { itemType: 'webpage', url: 'https://www.shahbazi.org/cgi-sys/suspendedpage.cgi', title: '', websiteTitle: 'www.shahbazi.org' } },
+    page: { status: 200, finalUrl: 'https://www.shahbazi.org/cgi-sys/suspendedpage.cgi', title: 'Account Suspended' },
+    capture: { timestamp: '20250509112651', original: 'https://www.shahbazi.org/pages/Maryamiyya3.htm' },
+    snapshot: { status: 200, finalUrl: '', title: 'The Maryamiyya: From Frithjof Schuon to Seyyed Hossein Nasr, part 3', lang: 'en' } });
+  eq('dead page → archive from the CAPTURED URL', r.meta?.archive, { url: 'https://web.archive.org/web/20250509112651/https://www.shahbazi.org/pages/Maryamiyya3.htm', date: '2025-05-09' });
+  eq('…and the snapshot title', r.meta?.title, 'The Maryamiyya: From Frithjof Schuon to Seyyed Hossein Nasr, part 3');
+}
+{
+  const r = combine({ url: 'http://www.irna.ir/fa/News/83178819', today: '2026-11-21',
+    citoid: { ok: true, item: { itemType: 'webpage', title: '', websiteTitle: 'www.irna.ir' } },
+    page: { status: 200, finalUrl: 'https://www.irna.ir/fa/News/83178819', title: '', challenge: true } });
+  eq('an ArvanCloud challenge is not a citation and not a dead link', [r.status, r.meta, r.reason], ['live', undefined, 'bot-challenge']);
+}
+{
+  const r = combine({ url: 'http://www.magiran.com/npview.asp?ID=3861532', today: '2026-11-21',
+    citoid: { ok: false, status: 404 }, page: { status: 403, finalUrl: 'http://www.magiran.com/npview.asp?ID=3861532' } });
+  eq('403 is unknown, never dead', r.status, 'unknown');
+}
+{
+  const r = combine({ url: 'https://www.nobelprize.org/nomination/archive/show_people.php?id=4486', today: '2026-11-21',
+    site: siteFor('https://www.nobelprize.org/nomination/archive/show_people.php?id=4486'),
+    citoid: { ok: true, item: { itemType: 'blogPost', title: 'Nomination%20Archive', blogTitle: 'NobelPrize.org', date: '2024-05-21', author: [['Hans', 'Mehlin']] } },
+    page: { status: 200, finalUrl: 'https://www.nobelprize.org/nomination/archive/show_people.php?id=4486', title: 'Nomination Archive - NobelPrize.org', h2: 'Kazenizade H Iranschär', siteName: 'NobelPrize.org', published: '2024-05-21T13:07:42+00:00', lang: 'en-US' } });
+  eq('NobelPrize: per-site title rule, no web editor as author, no page date', [r.meta?.title, r.meta?.authors, r.meta?.website, r.meta?.language, r.meta?.date],
+    ['Nomination archive: Kazenizade H Iranschär', undefined, 'NobelPrize.org', 'en', undefined]);
+}
+
+console.log('== planPage: the user\'s example article ==');
+{
+  const text = [
+    'گرایش پیدا کرد.<ref>{{یادکرد وب | تاریخ بازبینی = ۴ دسامبر ۲۰۱۴ | عنوان=تئوسوفیسم و باستان‌گرایی هندو- آریایی | ناشر=وبگاه شهبازی | نشانی=www.shahbazi.org/pages/Maryamiyya3.htm}}</ref>',
+    'نشد.<ref>http://www.nobelprize.org/nomination/archive/show_people.php?id=4486</ref>',
+    'چاپ کرد.<ref>https://www.cgie.org.ir/fa/news/263705/%D8%AF%D8%B1%D8%A8%D8%A7%D8%B1%D9%87-%D8%AD%D8%B3%DB%8C%D9%86-%DA%A9%D8%A7%D8%B8%D9%85-%D8%B2%D8%A7%D8%AF%D9%87</ref>',
+    '* [http://www.iranicaonline.org/articles/iransahr-hosayn-kazemzada IRĀNŠAHR, ḤOSAYN KĀẒEMZĀDA – Encyclopaedia Iranica]',
+  ].join('\n');
+  const meta: Record<string, ReturnType<Lookup>> = {
+    'http://www.nobelprize.org/nomination/archive/show_people.php?id=4486': { ok: true, meta: { url: 'http://www.nobelprize.org/nomination/archive/show_people.php?id=4486', title: 'Nomination archive: Kazenizade H Iranschär', website: 'NobelPrize.org', language: 'en' } },
+    'https://www.cgie.org.ir/fa/news/263705/درباره-حسین-کاظم-زاده': { ok: true, meta: { url: 'https://www.cgie.org.ir/fa/news/263705/درباره-حسین-کاظم-زاده', title: 'درباره حسین کاظم زاده', website: '[[مرکز دائرةالمعارف بزرگ اسلامی]]' } },
+  };
+  const p = planPage(text, 'حسین کاظم‌زاده ایرانشهر', { lookup: u => meta[u], today: TODAY });
+  ok('changed', p.changed);
+  ok('schemeless URL in the cite web repaired', p.text.includes('نشانی=http://www.shahbazi.org/pages/Maryamiyya3.htm}}'), p.text);
+  ok('Nobel bare ref completed', p.text.includes('<ref>{{یادکرد وب |نشانی=http://www.nobelprize.org/nomination/archive/show_people.php?id=4486 |عنوان=Nomination archive: Kazenizade H Iranschär |وبگاه=NobelPrize.org |زبان=en |تاریخ بازبینی=۲۱ نوامبر ۲۰۲۶}}</ref>'), p.text);
+  ok('cgie bare ref completed with a decoded URL', p.text.includes('<ref>{{یادکرد وب |نشانی=https://www.cgie.org.ir/fa/news/263705/درباره-حسین-کاظم-زاده |عنوان=درباره حسین کاظم زاده |وبگاه=[[مرکز دائرةالمعارف بزرگ اسلامی]] |تاریخ بازبینی=۲۱ نوامبر ۲۰۲۶}}</ref>'), p.text);
+  ok('external-links line untouched', p.text.includes('* [http://www.iranicaonline.org/articles/iransahr-hosayn-kazemzada IRĀNŠAHR'));
+  eq('kinds', [...new Set(p.changes.map(c => c.kind))].sort(), ['bare-ref', 'decode', 'scheme']);
+}
+{
+  const p = planPage('a<ref>http://x.org/a</ref>', 't', { lookup: () => undefined, today: TODAY });
+  eq('unknown URL → asked for, page unchanged', [p.changed, p.needs], [false, ['http://x.org/a']]);
+}
+{
+  const p = planPage('a<ref>http://x.org/a</ref>', 't', { lookup: () => ({ ok: false, reason: 'bot-challenge' }), today: TODAY });
+  eq('declined URL → reported, page unchanged', [p.changed, p.declined], [false, [{ url: 'http://x.org/a', reason: 'bot-challenge' }]]);
+}
+
+console.log('== planPage: must-not-change ==');
+const noop = (what: string, text: string, lookup: Lookup = () => ({ ok: true, meta: { url: 'x', title: 'T', website: 'w' } })) =>
+  eq(what, planPage(text, 't', { lookup, today: TODAY }).text, text);
+noop('decode-only page is not edited (no rendered change)', 'a<ref>{{یادکرد وب|نشانی=https://x.ir/%D8%A8|عنوان=t}}</ref>');
+noop('tracking-only page is not edited', 'a<ref>{{cite web|url=https://x.com/a?utm_source=t|title=t}}</ref>');
+noop('inside a comment', '<!-- <ref>http://x.org/a</ref> -->');
+noop('inside nowiki', '<nowiki><ref>http://x.org/a</ref></nowiki>');
+noop('an {{در دست ویرایش}} page', '{{در دست ویرایش}}\na<ref>http://x.org/a</ref>');
+noop('a self-closed ref', 'a<ref name="x" />');
+noop('a PDF bare ref (needs a different template)', 'a<ref>http://x.org/a.pdf</ref>');
+noop('a Wikipedia link', 'a<ref>https://en.wikipedia.org/wiki/X</ref>');
+noop('a positional-argument template', '{{یادکرد وب|www.x.org}}');
+noop('after an unclosed {{', '{{جعبه اطلاعات|a=1\n<ref>{{یادکرد وب|نشانی=www.x.org/a|عنوان=t}}</ref>');
+noop('a URL inside a wikilink target is not touched', '[[پرونده:X.jpg|بند=http://x.org/a?utm_source=y]]');
+noop('a cite with a real title keeps it', 'a<ref>{{یادکرد وب|نشانی=https://x.org/a|عنوان=Real title}}</ref>');
+noop('archive URL in a cite is not decoded', 'a<ref>{{یادکرد وب|نشانی=https://x.org/a|عنوان=t|پیوند بایگانی=https://web.archive.org/web/2016/http://s.ir/%D8%AA}}</ref>');
+
+console.log('== planPage: title fill ==');
+{
+  const text = 'a<ref>{{cite web|url=http://results.cik.bg/x.html|title=Archived copy|accessdate=2011-10-31|url-status=dead|archive-url=https://web.archive.org/web/20111027202947/http://results.cik.bg/x.html}}</ref>';
+  const p = planPage(text, 't', { lookup: u => u.startsWith('https://web.archive.org/') ? { ok: true, meta: { url: 'http://results.cik.bg/x.html', title: 'Избор на кмет' } } : undefined, today: TODAY });
+  ok('«Archived copy» replaced from the archived snapshot', p.text.includes('|title=Избор на кмет|'), p.text);
+}
+{
+  const text = 'a<ref>{{یادکرد وب|نشانی=https://www.yjc.ir/fa/news/6619715/x|وبگاه=www.yjc.ir|بازبینی=2021-01-05}}</ref>';
+  const p = planPage(text, 't', { lookup: () => ({ ok: true, meta: { url: 'x', title: 'روش محاسبه چرتکه‌ای' } }), today: TODAY });
+  eq('missing title added with a Persian key', p.text, 'a<ref>{{یادکرد وب|نشانی=https://www.yjc.ir/fa/news/6619715/x|وبگاه=www.yjc.ir|بازبینی=2021-01-05|عنوان=روش محاسبه چرتکه‌ای}}</ref>');
+}
+{
+  const text = '{{cite web\n|url=https://a.org/x\n|work=W\n}}';
+  const p = planPage(text, 't', { lookup: () => ({ ok: true, meta: { url: 'x', title: 'T' } }), today: TODAY });
+  eq('multi-line call gets a multi-line param, English key', p.text, '{{cite web\n|url=https://a.org/x\n|work=W\n|title=T\n}}');
+}
+
+{
+  const text = 'a<ref>{{یادکرد وب |نشانی=https://mehreganprize.ir/x |عنوان=نسخه آرشیو شده |پیوند بایگانی=https://web.archive.org/web/20230629091139/https://mehreganprize.ir/x/}}</ref>';
+  const p = planPage(text, 't', { lookup: u => u.startsWith('https://web.archive.org/') ? { ok: true, meta: { url: 'x', title: 'درباره ما' } } : undefined, today: TODAY });
+  ok('Persian «نسخه آرشیو شده» is a placeholder too', p.text.includes('|عنوان=درباره ما |'), p.text);
+}
+{
+  const text = 'a<ref>{{یادکرد وب|وبگاه=www.google.com|نشانی=https://www.google.com/url?url=https%3A%2F%2Fwww.bbc.com%2Fpersian%2Fx|عنوان=t}}</ref>';
+  const p = planPage(text, 't', { lookup: () => ({ ok: true, meta: { url: 'x', title: 'T', website: '[[بی‌بی‌سی فارسی]]' } }), today: TODAY });
+  eq('redirector unwrapped and the google site name replaced', p.text, 'a<ref>{{یادکرد وب|وبگاه=[[بی‌بی‌سی فارسی]]|نشانی=https://www.bbc.com/persian/x|عنوان=t}}</ref>');
+}
+{
+  const text = 'a<ref>{{یادکرد وب|وبگاه=www.google.com|نشانی=https://fa.euronews.com/amp/x|عنوان=t}}</ref>';
+  const p = planPage(text, 't', { lookup: () => undefined, today: TODAY });
+  eq('google site name with an unknown target: ask, change nothing yet', [p.changed, p.needs], [false, ['https://fa.euronews.com/amp/x']]);
+}
+
+console.log('== planPage: URLs elsewhere ride along with a substantive change ==');
+{
+  const text = 'a<ref>http://x.org/a</ref> b<ref>[https://www.google.com/url?url=https%3A%2F%2Fy.org%2Fb y]</ref> c<ref>{{یادکرد وب|نشانی=https://z.ir/%D8%A8|عنوان=t}}</ref>';
+  const p = planPage(text, 't', { lookup: () => ({ ok: true, meta: { url: 'http://x.org/a', title: 'T', website: 'x.org' } }), today: TODAY });
+  ok('redirector in a bracket link unwrapped', p.text.includes('[https://y.org/b y]'), p.text);
+  ok('percent URL in a citation decoded', p.text.includes('نشانی=https://z.ir/ب|'), p.text);
+  ok('urlMap has both', p.urlMap.size === 2, JSON.stringify([...p.urlMap]));
+}
+{
+  const p = planPage('a<ref>{{یادکرد وب|نشانی=http://x.com/a.php؟id=5|عنوان=t}}</ref>', 't', { lookup: () => undefined, today: TODAY });
+  ok('Persian question mark before key= fixed', p.text.includes('a.php?id=5'), p.text);
+}
+noop('Persian question mark in a slug is real text', 'a<ref>{{یادکرد وب|نشانی=http://shiasay.com/ask/14/چرا-ایرانیان-شیعه-شدند؟|عنوان=t}}</ref>');
+
+console.log('== wikitext helpers ==');
+eq('appendParams on one line with spaced style', appendParams('{{یادکرد وب | نشانی = x | عنوان = }}', [['وبگاه', 'w']]), '{{یادکرد وب | نشانی = x | عنوان = | وبگاه = w}}');
+
+console.log('== verify: link accounting ==');
+eq('a rewritten URL is accounted for', unexplainedLoss(['https://z.ir/%D8%A8'], ['https://z.ir/ب'], new Map()), []);
+eq('a decoded URL with different escape case', unexplainedLoss(['https://z.ir/%d8%a8'], ['https://z.ir/%D8%A8'], new Map()), []);
+eq('an unwrapped redirector via urlMap', unexplainedLoss(['https://www.google.com/url?url=https%3A%2F%2Fy.org%2Fb'], ['https://y.org/b'], new Map([['https://www.google.com/url?url=https%3A%2F%2Fy.org%2Fb', 'https://y.org/b']])), []);
+eq('a dropped link is caught', unexplainedLoss(['https://a.org/x', 'https://b.org/y'], ['https://a.org/x'], new Map()).length, 1);
+eq('canonHref lowercases host only', canonHref('HTTPS://X.ORG/A'), 'https://x.org/A');
+
+console.log(`\n${pass} passed, ${fails.length} failed`);
+if (fails.length) process.exit(1);
