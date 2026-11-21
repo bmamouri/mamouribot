@@ -248,8 +248,9 @@ const flatName = (x: string) => x.replace(/[\s\u200c.\-]+/g, '').toLowerCase();
 export function isHomeLike(url: string): boolean {
   const m = /^https?:\/\/[^/?#]+(\/[^?#]*)?(\?[^#]*)?/i.exec(url);
   if (!m) return false;
+  // the fragment never changes which page it is («…/statweb/en/home#graph…»)
   const path = (m[1] ?? '/').replace(/\/+$/, '');
-  return !m[2] && /^(?:|\/(?:index\.\w+|home|fa|en|ar|default\.aspx?))$/i.test(path);
+  return !m[2] && /^(?:|\/(?:index\.\w+|home|fa|en|ar|default\.aspx?)|(?:\/[a-z]{2,10}){0,2}\/(?:en|fa|ar)\/home)$/i.test(path);
 }
 
 export function crossCheck(c: Meta, p: PageResult, today: string, site?: SiteEntry): { meta: Meta; notes: string[] } {

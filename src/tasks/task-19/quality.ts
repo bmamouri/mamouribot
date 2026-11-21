@@ -72,6 +72,8 @@ export function judgeTitle(raw: string | undefined, ctx: { url: string; site?: s
   if (siteNames.includes(low)) return { ok: false, reason: 'title-is-site' };
   const stem = bare.split('.')[0].replace(/-/g, '');
   if (stem.length >= 4 && low.replace(/[\s.-]/g, '') === stem) return { ok: false, reason: 'title-is-site' };
+  // a bare acronym («SURS», «BBC», «IRNA»): the organisation, not the page
+  if (/^[A-Z][A-Z0-9&.-]{1,7}$/.test(t)) return { ok: false, reason: 'title-is-site' };
   if (/^https?:\/\//i.test(t) || /^www\./i.test(t)) return { ok: false, reason: 'title-is-url' };
   // CS1 errors on any URL inside a title («Redirecting to https://…»)
   if (/https?:\/\/|\bwww\.[a-z0-9-]+\./i.test(t)) return { ok: false, reason: 'title-has-url' };

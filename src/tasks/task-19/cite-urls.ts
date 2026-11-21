@@ -391,6 +391,14 @@ async function publishReview(bot: Bot, dryRun: boolean) {
   if (problems.length) { console.log(`صفحهٔ بازبینی منتشر نشد، دروازه: ${problems.join(' | ')}`); return; }
   if (dryRun) { console.log(`\n--- صفحهٔ بازبینی (آزمایشی، ${merged.length} پیشنهاد) ---\n${text.slice(0, 2000)}`); return; }
   review.saveStore(merged);
+  // The queue lives in the bot's user space. A run under my own account keeps it on disk
+  // only; it reaches the wiki with the first bot-identity run.
+  if (bot.opts.identity === 'human') {
+    const f = join(process.env.BOT_STATE_DIR ?? '.state', 'cite-urls.review.wiki');
+    writeFileSync(f, text);
+    console.log(`صفحهٔ بازبینی در ${f} نوشته شد (اجرای دستی، روی ویکی منتشر نشد)`);
+    return;
+  }
   const cur = await bot.apiGet({ action: 'query', prop: 'revisions', titles: review.REVIEW_PAGE, rvprop: 'content|ids|timestamp', rvslots: 'main' });
   const p = cur.query.pages[0];
   if (!p.missing && p.revisions[0].slots.main.content === text) return;

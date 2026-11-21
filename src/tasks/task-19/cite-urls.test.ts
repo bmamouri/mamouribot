@@ -252,6 +252,10 @@ ok('«Eurasianet» on eurasianet.org is the site name', !judgeTitle('Eurasianet'
 ok('«مجلة هي» is not an author', !judgeAuthor('', 'مجلة هي'));
 eq('Arabic site tail stripped', judgeTitle('بالصورة: الإيرانية كوكوش بكامل رشاقتها في السبعين! - مجلة هي', { url: 'http://www.hiamag.com/x', names: ['مجلة هي'] }), { ok: true, title: 'بالصورة: الإيرانية كوكوش بكامل رشاقتها في السبعين!' });
 
+ok('home page with a fragment', isHomeLike('http://www.stat.si/statweb/en/home#graphBrezposelnost'));
+ok('an acronym title is the site', !judgeTitle('SURS', { url: 'http://www.stat.si/statweb/en/home' }).ok);
+ok('a title with an acronym in it is fine', judgeTitle('UK to attend US summit on Iran', { url: 'https://x.com/a/1' }).ok);
+
 console.log('== review queue ==');
 {
   const text = 'a<ref>http://x.org/a</ref>';
