@@ -210,7 +210,8 @@ export function unwrapRedirector(url: string): string {
   if (!host) return url;
   const param = (name: string): string | null => {
     const m = new RegExp(`[?&](?:amp;)?${name}=([^&#]*)`, 'i').exec(url);
-    return m ? decodeSafe(m[1]) : null;
+    // In a query string «+» is a space (form encoding), and decodeURIComponent leaves it.
+    return m ? decodeSafe(m[1].replace(/\+/g, ' ')) : null;
   };
   let target: string | null = null;
   if (/(^|\.)google\.[a-z.]+$/.test(host) && /^https?:\/\/[^/]+\/url\?/i.test(url)) {
@@ -220,7 +221,8 @@ export function unwrapRedirector(url: string): string {
     if (m) target = 'https://' + m[1];
   } else if (host === 'webcache.googleusercontent.com') {
     const q = param('q');
-    const m = q ? /^cache:[^:]+:(.+)$/i.exec(q) : null;
+    // `cache:KEY:URL SEARCH TERMS`: the URL ends at the first space
+    const m = q ? /^cache:[^:]+:(\S+)/i.exec(q) : null;
     if (m) target = /^https?:\/\//i.test(m[1]) ? m[1] : 'http://' + m[1];
   } else if (/^(l|lm|m)\.facebook\.com$/.test(host) && /\/l\.php\?/i.test(url)) {
     target = param('u');

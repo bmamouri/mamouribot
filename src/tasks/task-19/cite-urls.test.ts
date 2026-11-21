@@ -60,6 +60,8 @@ eq('si= on other sites kept', stripTracking('https://x.com/?si=1'), 'https://x.c
 eq('google /url?', unwrapRedirector('https://www.google.com/url?sa=t&rct=j&url=https%3A%2F%2Fx.org%2Fa%3Fb%3D1&usg=AOv'), 'https://x.org/a?b=1');
 eq('google amp', unwrapRedirector('https://www.google.com/amp/s/www.bbc.com/persian/iran-1'), 'https://www.bbc.com/persian/iran-1');
 eq('dead google cache', unwrapRedirector('http://webcache.googleusercontent.com/search?q=cache:VsB2mSEIEJYJ:irna.ir/NewsShow.aspx?NID=1'), 'http://irna.ir/NewsShow.aspx?NID=1');
+eq('Google cache: the «+» after the URL is a space, not part of it', unwrapRedirector('http://webcache.googleusercontent.com/search?q=cache:LTE-0altzvUJ:jamejamonline.ir/Shared/CreatePdf/669746673134190619+&cd=11&hl=en'), 'http://jamejamonline.ir/Shared/CreatePdf/669746673134190619');
+eq('Google /url?q= with + in the target', unwrapRedirector('https://www.google.com/url?q=https://x.org/a&sa=U'), 'https://x.org/a');
 eq('google search is not a redirector', unwrapRedirector('https://www.google.com/search?q=x'), 'https://www.google.com/search?q=x');
 
 console.log('== bare-ref recognition ==');
