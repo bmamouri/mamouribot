@@ -21,6 +21,7 @@ const GENERIC_EXACT = new Set([
   'object moved', '301 moved permanently', '302 found', 'blocked page', 'suspended page',
   'account suspended', 'domain for sale', 'coming soon', 'under construction', 'about', 'about us',
   'contact', 'contact us', 'no data found', 'no results found', 'tickets', 'sitemap',
+  'newsdetails', 'news details', 'details', 'detail', 'article', 'page', 'view', 'show', 'content',
   'صفحه اصلی', 'صفحهٔ اصلی', 'خانه', 'خوش آمدید', 'جستجو', 'نتایج جستجو', 'ورود', 'خطا', 'اخبار',
   'صفحه مورد نظر یافت نشد', 'صفحه یافت نشد', 'یافت نشد', 'در حال انتقال', 'بایگانی', 'آرشیو',
   'نسخه بایگانی شده', 'نسخه بایگانی‌شده', 'بدون عنوان',
@@ -43,6 +44,8 @@ export type TitleVerdict = { ok: true; title: string } | { ok: false; reason: st
 export function judgeTitle(raw: string | undefined, ctx: { url: string; site?: string; names?: string[] }): TitleVerdict {
   if (!raw) return { ok: false, reason: 'no-title' };
   let t = decodeEntities(raw).replace(/\\(['"])/g, '$1').replace(/\s+/g, ' ').trim();
+  // decorations: «.:: X :: Site ::.», «.: X :.», «» X «»
+  t = t.replace(/^[\s.:|»«·•*~=_-]*(?=\S)/, '').replace(/(?<=\S)[\s.:|»«·•*~=_-]*$/, '').trim();
   t = t.replace(/^(?:[|:»·•–—-]\s*)+/, '').trim();
   if (/%[0-9a-f]{2}/i.test(t)) {
     try { t = decodeURIComponent(t); } catch { return { ok: false, reason: 'title-encoded' }; }
@@ -54,6 +57,13 @@ export function judgeTitle(raw: string | undefined, ctx: { url: string; site?: s
   if (/^\{[^}]*\}$/.test(t) || /\{\{|\}\}|\$\{/.test(t)) return { ok: false, reason: 'template-placeholder' };
   if (/^\d{3}\b/.test(t) && /^(?:4\d\d|5\d\d)\b/.test(t)) return { ok: false, reason: 'http-error-title' };
   if (GENERIC_EXACT.has(low)) return { ok: false, reason: 'generic-title' };
+  // a home page's title wearing the site's name: «صفحه اصلی - پورتال …», «Home | X»
+  if (/^(?:home|homepage|home page|main page|welcome|صفحه ?ی? ?اصلی|صفحهٔ اصلی|خانه|خوش ?آمدید)\s*(?:[-|–—:»]|::)/i.test(t) || /^(?:home|homepage|صفحه ?ی? ?اصلی|صفحهٔ اصلی)\s*(?:[-|–—:»]|::)/i.test(raw.replace(/^[\s.:|»«·•*~=_-]+/, ''))) return { ok: false, reason: 'generic-title' };
+  // a URL slug passed off as a title: «دانشنامه-هنرهای-رزمی-(نخستین-…)»
+  // Judged on the first segment, before any « | site» tail.
+  const head = t.split(/\s+[|–—]\s+/)[0];
+  const hyph = (head.match(/[\p{L}\p{N})][:]?-[\p{L}\p{N}(]/gu) ?? []).length, spaces = (head.match(/ /g) ?? []).length;
+  if (hyph >= 3 && hyph > spaces) return { ok: false, reason: 'slug-title' };
   if (GENERIC_SUBSTR.some(s => low.includes(s))) return { ok: false, reason: 'generic-title' };
   const host = hostOf(ctx.url) ?? '';
   const bare = host.replace(/^www\d*\./, '');
@@ -85,10 +95,13 @@ export function stripSiteSuffix(t: string, ctx: { url: string; site?: string; na
   // segment that names the site, so «Pence: Europe must…» keeps its colon.
   const lead = /^(.{2,40}?)\s+(?:\||::|:|»|·|•|–|—|-)\s+(.+)$/.exec(t);
   if (lead && named(lead[1]) && lead[2].length >= 3) t = lead[2];
-  const parts = t.split(/\s+(?:\||-|–|—|::|»|·|•)\s+/);
-  if (parts.length < 2) return t;
+  // «A Phonology of Southern Luri: …: Amazon.com: Books» — a colon segment that is a domain.
+  const colon = t.split(/\s*:\s+/);
+  for (let i = 1; i < colon.length; i++) if (named(colon[i]) && /\./.test(colon[i])) { t = colon.slice(0, i).join(': '); break; }
   // Cut at the FIRST segment that names the site: what follows it is the site's tagline
   // («… - خبرگزاری مهر | اخبار ایران و جهان | Mehr News Agency»).
+  const parts = t.split(/\s+(?:\||-|–|—|::|»|·|•)\s+/);
+  if (parts.length < 2) return t;
   for (let i = 1; i < parts.length; i++) {
     if (named(parts[i])) {
       const out = parts.slice(0, i).join(' - ').trim();
@@ -109,22 +122,43 @@ export function decodeEntities(s: string): string {
   }).replace(/[\u200e\u200f\u202a-\u202e]/g, '');
 }
 
+/**
+ * Arabic text, as opposed to Persian written with Arabic letterforms (old Iranian sites
+ * write «بانك»). Arabic-only letters (ة إ أ ى ؤ with tashkeel, «ال» articles everywhere)
+ * and no Persian-only letter (پ چ ژ گ).
+ */
+export function isArabic(t: string): boolean {
+  if (!/[\u0600-\u06ff]/.test(t) || /[پچژگ]/.test(t)) return false;
+  if (/[ةإأؤ]/.test(t)) return true;
+  const words = t.split(/\s+/).filter(w => /[\u0600-\u06ff]/.test(w));
+  return words.length >= 2 && words.filter(w => /^(?:ال|وال|بال|لل)/.test(w)).length / words.length >= 0.3;
+}
+
 /** Persian text gets Persian letterforms; Arabic text is left as published. */
-export function persianLetterforms(t: string): string {
-  if (!/[پچژگ]/.test(t) && /[ةإأ]/.test(t)) return t;
-  return t.replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ى/g, 'ی').replace(/^[\s\u200c]+|[\s\u200c]+$/g, '');
+export function persianLetterforms(t: string, arabic = isArabic(t)): string {
+  const trimmed = t.replace(/^[\s\u200c]+|[\s\u200c]+$/g, '');
+  if (arabic) return trimmed;
+  return trimmed.replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/ى/g, 'ی');
 }
 
 /** Is this an author name, or something a scraper mistook for one? */
 export function judgeAuthor(first: string, last: string, site?: string, titleSegments: string[] = []): boolean {
   const f = first.trim(), l = last.trim();
+  // A Persian byline comes whole, with no first name: «محمدرضا احمدی‌نژاد».
+  if (!f && /[\u0600-\u06ff]/.test(l)) return l.split(/\s+/).length >= 2 && l.split(/\s+/).length <= 5 && judgeAuthor(l.split(/\s+/)[0], l.split(/\s+/).slice(1).join(' '), site, titleSegments);
   if (!f || !l) return false;
   const whole = `${f} ${l}`;
   if (whole.length > 60) return false;
   if (/[\d@#/\\|[\]{}()<>:;=_]|\.(?:com|ir|org|net)\b|https?/i.test(whole)) return false;
   if (/[a-z][A-Z]/.test(l) || /[a-z][A-Z]/.test(f)) return false;     // «BrennanDiplomatic»
   if (/^[A-Z]{3,}$/.test(l) || /^[A-Z]{3,}$/.test(f)) return false;   // «WELT», an outlet in capitals
-  if (/\b(?:staff|reporter|correspondent|editor|admin|desk|news|agency|press|team|online|reuters|ap|afp|bbc|خبرگزاری|سرویس|گروه|تحریریه|خبرنگار)\b/i.test(whole)) return false;
+  if (/\b(?:staff|reporter|correspondent|editor|admin|desk|news|agency|press|team|online|reuters|ap|afp|bbc|r[ée]daction|redacci[óo]n|redaktion|redazione)\b/i.test(whole)) return false;
+  if (/^(?:كتب|کتب|بقلم|إعداد|اعداد|written|by)$/i.test(f.split(/\s+/)[0])) return false;
+  // `\b` is ASCII-only in JS, so the Persian words are matched as substrings.
+  if (/خبرگزاری|سرویس|گروه|تحریریه|خبرنگار|روابط عمومی|مدیر سایت|ادمین|نیوز|آنلاین|پایگاه|وبگاه|سایت|ایرنا|ایسنا|تسنیم/.test(whole)) return false;
+  // Institutions written where a byline goes: «بنیاد دایرةالمعارف اسلامی», «دانشگاه تهران».
+  if (/شهرداری|استانداری|فرمانداری|بنیاد|بنياد|دایرة ?المعارف|دائرة ?المعارف|دانشنامه|مؤسسه|موسسه|انتشارات|دانشگاه|پژوهشگاه|پژوهشکده|سازمان|مرکز|وزارت|اداره|شرکت|انجمن|کتابخانه|مجله|روزنامه|فصلنامه|ماهنامه/.test(whole)) return false;
+  if (/\b(?:university|institute|foundation|ministry|department|council|society|association|museum|library|press|publishing|inc|ltd|llc|corporation|company|magazine|journal)\b/i.test(whole)) return false;
   if (site && whole.toLowerCase().includes(site.toLowerCase())) return false;
   // «… | باشگاه شاهنامه پژوهان» with the same words as the author: the site, split in two
   const flat = (x: string) => x.replace(/[\s\u200c]+/g, '').toLowerCase();

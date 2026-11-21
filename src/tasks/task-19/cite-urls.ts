@@ -23,7 +23,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import type { Bot, BotTask } from '../../core.js';
+import { BOT_UA, HUMAN_UA, type Bot, type BotTask } from '../../core.js';
 import { auditCounts, checkWikitext } from '../../lib/gates.js';
 import { todayFa, faDigits } from './build.js';
 import { planPage, type Kind, type Lookup, type Plan } from './plan.js';
@@ -241,13 +241,16 @@ export const citeUrlsTask: BotTask = {
     const maxLookups = Number(process.env.T19_MAX_LOOKUPS ?? (Number.isFinite(limit) ? limit * 8 : 2000));
     const todo = [...need].slice(0, maxLookups);
     console.log(`${need.size} نشانی نیازمند فراداده؛ ${todo.length} در این اجرا بررسی می‌شود (${CACHE.size} از پیش در حافظه)`);
-    const net = new NetResolver();
+    // The same identity as the wiki requests: a run under my account reads as me, a bot run as the bot.
+    const net = new NetResolver(bot.opts.identity === 'human' ? HUMAN_UA : BOT_UA);
     let i = 0;
     for (const u of todo) {
       CACHE.set(u, isArchiveUrl(u) ? { resolved: await net.resolve(u) } : await net.gather(u));
       if (++i % 20 === 0) { console.log(`  …${i}/${todo.length}`); saveCache(); }
     }
     saveCache();
+    const notes = [...CACHE].map(([u, e]) => [u, judge(u, e).notes] as const).filter(([, n]) => n?.length);
+    if (notes.length) console.log(`بررسی متقابل با خود صفحه ${notes.length} مورد را اصلاح کرد:\n` + notes.slice(0, 30).map(([u, n]) => `  ${u.slice(0, 80)}  ${n!.join('; ')}`).join('\n'));
 
     const lookup = lookupFrom(CACHE, VERIFIED_ARTICLES);
     const work: string[] = [];
@@ -334,6 +337,13 @@ export const citeUrlsTask: BotTask = {
     const problems = checkWikitext(REPORT_PAGE, text);
     if (problems.length) { console.log(`گزارش منتشر نشد، دروازه: ${problems.join(' | ')}`); return; }
     if (dryRun) { console.log(`\n--- گزارش (آزمایشی، ${DECLINED.size} نشانی) ---\n${text.slice(0, 2500)}`); return; }
+    // A trial under my own account must not write into the bot's user space.
+    if (bot.opts.identity === 'human') {
+      const f = join(process.env.BOT_STATE_DIR ?? '.state', 'cite-urls.report.wiki');
+      writeFileSync(f, text);
+      console.log(`گزارش در ${f} نوشته شد (اجرای دستی، روی ویکی منتشر نشد)`);
+      return;
+    }
     const cur = await bot.apiGet({ action: 'query', prop: 'revisions', titles: REPORT_PAGE, rvprop: 'content|ids|timestamp', rvslots: 'main' });
     const p = cur.query.pages[0];
     await bot.edit(REPORT_PAGE, text, 'به‌روزرسانی فهرست نشانی‌های نیازمند بررسی',
@@ -361,4 +371,6 @@ const REASONS: Record<string, string> = {
   'unsupported-host': 'شبکهٔ اجتماعی یا وبگاهی که یادکرد ویژه می‌خواهد',
   'archive-url': 'نشانی بایگانی',
   'mojibake': 'عنوان با رمزگذاری نادرست',
+  'slug-title': 'عنوان صفحه فقط نشانی صفحه بود',
+  'title-slug-mismatch': 'عنوان صفحه با موضوع نشانی نمی‌خواند',
 };

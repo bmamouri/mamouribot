@@ -22,13 +22,15 @@
  */
 import { BOT_UA } from '../../core.js';
 import type { Meta } from './build.js';
-import { decodeEntities, judgeAuthor, judgeDate, judgeTitle, langOf, persianLetterforms } from './quality.js';
+import { decodeEntities, isArabic, judgeAuthor, judgeDate, judgeTitle, langOf, persianLetterforms } from './quality.js';
 import { hostOf, isArchiveUrl } from './url.js';
 import sitesData from './data/sites.json' with { type: 'json' };
 
 export type Status = 'live' | 'dead' | 'unknown';
 export interface Resolved {
   status: Status;
+  /** what the cross-check changed, for the trial report */
+  notes?: string[];
   /** present when a usable citation can be built */
   meta?: Meta;
   reason?: string;
@@ -76,6 +78,10 @@ export interface PageResult {
   h2?: string;
   siteName?: string;
   published?: string;
+  /** `article` = article:published_time or JSON-LD datePublished; `meta` = a generic date tag */
+  publishedFrom?: 'article' | 'meta';
+  /** names from `<meta name=author>`, `article:author` and JSON-LD `author`, as written */
+  authors?: string[];
   lang?: string;
   challenge?: boolean;     // Cloudflare / ArvanCloud / "transferring to the website…"
 }
@@ -127,7 +133,7 @@ function websiteName(url: string, candidates: (string | undefined)[]): string {
     if (!s) continue;
     if (/^(?:home|index|news|خانه|صفحه اصلی)$/i.test(s)) continue;
     if (s.length > 60) continue;
-    return persianLetterforms(s).replace(/^www\d*\.(?=[a-z0-9-]+(?:\.[a-z0-9-]+)+$)/i, '');
+    return persianLetterforms(s, isArabic(s)).replace(/^www\d*\.(?=[a-z0-9-]+(?:\.[a-z0-9-]+)+$)/i, '');
   }
   return (hostOf(url) ?? '').replace(/^www\d*\./, '');
 }
@@ -142,6 +148,9 @@ export interface CombineInput {
   site?: SiteEntry;
 }
 
+/** Open the page even when Citoid answered, to check its date and authors. `T19_CROSS_CHECK=0` turns it off. */
+export const CROSS_CHECK = process.env.T19_CROSS_CHECK !== '0';
+
 /** What was fetched for one URL: CombineInput without the parts that come from config. */
 export type Evidence = Omit<CombineInput, 'today' | 'site'>;
 
@@ -149,8 +158,9 @@ export type Evidence = Omit<CombineInput, 'today' | 'site'>;
 export function nextStep(inp: CombineInput): 'citoid' | 'page' | 'cdx' | 'snapshot' | null {
   if (!inp.citoid) return 'citoid';
   const c = draftFromCitoid(inp);
-  if (c && !inp.site?.titleFrom) return null;
+  if (c && !inp.site?.titleFrom && (!CROSS_CHECK || inp.page)) return null;
   if (!inp.page) return 'page';
+  if (c && !inp.site?.titleFrom) return null;
   const p = inp.page;
   const gone = p.status === 404 || p.status === 410 || !!softDead(inp.url, p.finalUrl)
     || (inp.citoid.ok && !!softDead(inp.url, inp.citoid.item.url));
@@ -182,14 +192,16 @@ function draftFromCitoid(inp: CombineInput): Meta | null {
   const site = websiteName(inp.url, [it.websiteTitle, it.publicationTitle, it.blogTitle]);
   const t = judgeTitle(it.title, { url: inp.url, site, names: [inp.site?.name ?? '', inp.site?.article ?? ''] });
   if (!t.ok) return null;
-  const sp = splitPipeSite(persianLetterforms(t.title), site, inp.url);
+  if (slugMismatch(inp.url, t.title)) return null;
+  const ar = isArabic(t.title) || /^ar\b/i.test(it.language ?? '');
+  const sp = splitPipeSite(persianLetterforms(t.title, ar), ar ? (site ?? '').trim() : site, inp.url);
   return {
     url: inp.url,
     title: sp.title,
     titleFromSite: true,
     website: sp.website,
     date: judgeDate(it.date, inp.today, it.itemType ?? ''),
-    authors: (it.author ?? []).map(([f, l]) => [persianLetterforms(f ?? ''), persianLetterforms(l ?? '')] as [string, string])
+    authors: (it.author ?? []).map(([f, l]) => [persianLetterforms(f ?? '', ar), persianLetterforms(l ?? '', ar)] as [string, string])
       .filter(([f, l]) => judgeAuthor(f, l, site, decodeEntities(it.title ?? '').split(/\s+[|–—-]\s+/))),
     language: langOf(t.title, it.language),
     news: it.itemType === 'newspaperArticle' || it.itemType === 'magazineArticle',
@@ -203,19 +215,91 @@ function draftFromPage(url: string, p: PageResult, site: SiteEntry | undefined, 
   if (site?.titleFrom && raw) raw = (site.titlePrefix ?? '') + raw;
   const t = judgeTitle(raw, { url, site: name, names: [site?.name ?? '', site?.article ?? ''] });
   if (!t.ok) return { reason: t.reason };
-  const sp = splitPipeSite(persianLetterforms(t.title), name, url);
+  if (slugMismatch(url, t.title)) return { reason: 'title-slug-mismatch' };
+  const ar = isArabic(t.title) || /^ar\b/i.test(p.lang ?? '');
+  const sp = splitPipeSite(persianLetterforms(t.title, ar), name, url);
+  const titleSegs = decodeEntities(raw ?? '').split(/\s+[|–—-]\s+/);
   return {
     url, title: sp.title, titleFromSite: true, website: sp.website,
-    date: judgeDate(p.published, today, 'page'),
+    date: p.publishedFrom === 'article' && !isHomeLike(url) ? judgeDate(p.published, today, 'page') : undefined,
+    authors: (p.authors ?? []).map(a => splitName(persianLetterforms(a, ar)))
+      .filter(([f, l]) => judgeAuthor(f, l, sp.website, titleSegs)),
     language: langOf(t.title, p.lang),
   };
+}
+
+const sameDay = (a?: string, b?: string) => !!a && !!b && a.slice(0, 10) === b.slice(0, 10);
+const flatName = (x: string) => x.replace(/[\s\u200c.\-]+/g, '').toLowerCase();
+
+/**
+ * Cross-check Citoid against the page's own tags. Citoid fills a date or an author from
+ * the same tags, so the two only disagree when Citoid used a different source: a sitewide
+ * template date, the site's web editor. The page's statement about itself wins; when the
+ * page states nothing, Citoid's value stays.
+ *
+ *   date    page date present and a different day      → the page's date
+ *   authors page names authors and none match Citoid's → the page's authors
+ *           page names no author but has JSON-LD/meta for the article with an
+ *           organisation, i.e. `authorless`             → no authors
+ */
+/** A site's front page or a section index: its date is when it last changed, not a publication. */
+export function isHomeLike(url: string): boolean {
+  const m = /^https?:\/\/[^/?#]+(\/[^?#]*)?(\?[^#]*)?/i.exec(url);
+  if (!m) return false;
+  const path = (m[1] ?? '/').replace(/\/+$/, '');
+  return !m[2] && /^(?:|\/(?:index\.\w+|home|fa|en|ar|default\.aspx?))$/i.test(path);
+}
+
+export function crossCheck(c: Meta, p: PageResult, today: string, site?: SiteEntry): { meta: Meta; notes: string[] } {
+  const notes: string[] = [];
+  const m = { ...c };
+  // Only an article's own publication tag is a date worth printing; a generic `date` meta on
+  // a front page is the last time the template changed («http://weather.com», ۲۰۲۶).
+  const pageDate = p.publishedFrom === 'article' && !isHomeLike(c.url) && !site?.noDate
+    ? judgeDate(p.published, today, 'page') : undefined;
+  if (m.date && pageDate && !sameDay(m.date, pageDate)) { notes.push(`date ${m.date}→${pageDate}`); m.date = pageDate; }
+  else if (!m.date && pageDate) { m.date = pageDate; notes.push(`date +${pageDate}`); }
+  const fromPage = (p.authors ?? []).map(a => splitName(persianLetterforms(a, isArabic(c.title))))
+    .filter(([f, l]) => judgeAuthor(f, l, m.website));
+  if (m.authors?.length && fromPage.length) {
+    const pageSet = new Set(fromPage.map(([f, l]) => flatName(f + l)));
+    const agree = m.authors.some(([f, l]) => pageSet.has(flatName(f + l)) || [...pageSet].some(x => x.includes(flatName(l))));
+    if (!agree) { notes.push(`authors ${JSON.stringify(m.authors)}→${JSON.stringify(fromPage)}`); m.authors = fromPage; }
+  } else if (!m.authors?.length && fromPage.length) {
+    m.authors = fromPage; notes.push('authors +page');
+  }
+  return { meta: m, notes };
+}
+
+/**
+ * A URL whose last path segment is a readable slug says what the page is about. A title
+ * sharing no word with it belongs to another page: pubiran.ir served «خوک کریسمس» for
+ * `/BookView/2390568/مكتب-تاپ-تكواندو…`. Only slugs of three or more words are trusted.
+ */
+export function slugMismatch(url: string, title: string): boolean {
+  let path: string;
+  try { path = decodeURIComponent(new URL(url).pathname); } catch { return false; }
+  const seg = path.split('/').filter(Boolean).pop() ?? '';
+  const norm = (x: string) => persianLetterforms(x.toLowerCase(), false).replace(/[\u064b-\u065f\u0670\u200c]/g, '');
+  const words = norm(seg.replace(/\.\w{2,5}$/, '')).split(/[-_+.\s]+/).filter(w => w.length >= 3 && /^\p{L}+$/u.test(w));
+  if (words.length < 3) return false;
+  const tw = new Set(norm(title).split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 3));
+  return !words.some(w => tw.has(w) || [...tw].some(t => t.startsWith(w) || w.startsWith(t)));
 }
 
 /** Pure: the final answer for a URL, from whatever has been fetched. */
 export function combine(inp: CombineInput): Resolved {
   const site = inp.site;
   const fromCitoid = site?.titleFrom ? null : draftFromCitoid(inp);
-  if (fromCitoid) return { status: 'live', meta: decorate(fromCitoid, inp) };
+  if (fromCitoid) {
+    const p = inp.page;
+    // The page we opened is the page we cite only when it answered 2xx without a bot wall.
+    if (p && p.status >= 200 && p.status < 300 && !p.challenge && !softDead(inp.url, p.finalUrl)) {
+      const x = crossCheck(fromCitoid, p, inp.today, site);
+      return { status: 'live', meta: decorate(x.meta, inp), ...(x.notes.length ? { notes: x.notes } : {}) };
+    }
+    return { status: 'live', meta: decorate(fromCitoid, inp) };
+  }
 
   const p = inp.page;
   if (!p) return { status: 'unknown', reason: citoidReason(inp.citoid) };
@@ -238,6 +322,7 @@ export function combine(inp: CombineInput): Resolved {
       if (inp.citoid?.ok && !site?.titleFrom) {
         const it = inp.citoid.item;
         d.date ??= judgeDate(it.date, inp.today, it.itemType ?? '');
+        if (!d.authors?.length) d.authors = (it.author ?? []).filter(([f, l]) => judgeAuthor(f ?? '', l ?? '', d.website));
       }
       return { status: 'live', meta: decorate(d, inp) };
     }
@@ -258,6 +343,7 @@ export function combine(inp: CombineInput): Resolved {
 }
 
 function citoidReason(c: CitoidResult | undefined): string {
+  if (c?.ok && c.item.title && c.item.url && slugMismatch(c.item.url, c.item.title)) return 'title-slug-mismatch';
   if (!c) return 'not-fetched';
   return c.ok ? 'citoid-poor-title' : `citoid-${c.status}`;
 }
@@ -297,6 +383,56 @@ class Gate {
 
 const CHALLENGE = /cf-browser-verification|cf_chl_|challenge-platform|__cf_chl|ddos-guard|arvancloud|در حال انتقال به سایت|transferring to the website|enable javascript and cookies|checking your browser/i;
 
+/**
+ * Author names a page states about itself. JSON-LD first (it says which object is the
+ * article), then `<meta name="author">`, then `article:author` when it is a name rather
+ * than a profile URL. Organisations in JSON-LD (`"@type":"Organization"`) are not people.
+ */
+export function pageAuthors(html: string, meta: (k: string) => string | undefined): string[] {
+  const out: string[] = [];
+  for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+    let j: unknown;
+    try { j = JSON.parse(m[1].trim()); } catch { continue; }
+    const visit = (o: any) => {
+      if (!o || typeof o !== 'object') return;
+      if (Array.isArray(o)) { o.forEach(visit); return; }
+      if (Array.isArray(o['@graph'])) o['@graph'].forEach(visit);
+      const type = [].concat(o['@type'] ?? []).join(' ');
+      if (!/Article|Posting|Report|BlogPosting|NewsArticle|WebPage/i.test(type) || !o.author) return;
+      for (const a of [].concat(o.author)) {
+        const at = typeof a === 'object' && a ? [].concat((a as any)['@type'] ?? []).join(' ') : '';
+        if (/Organization/i.test(at)) continue;
+        const name = typeof a === 'string' ? a : (a as any)?.name;
+        if (typeof name === 'string' && name.trim()) out.push(decodeEntities(name).trim());
+      }
+    };
+    visit(j);
+    if (out.length) break;
+  }
+  if (!out.length) {
+    for (const k of ['author', 'article:author', 'dc.creator', 'citation_author']) {
+      const v = meta(k);
+      if (v && !/^https?:/i.test(v)) { out.push(...decodeEntities(v).split(/\s*(?:,|;|،| and | و )\s*/).filter(Boolean)); break; }
+    }
+  }
+  return [...new Set(out.map(x => x.replace(/\s+/g, ' ').trim()))].slice(0, 9);
+}
+
+/**
+ * `"Lesley Wroughton"` → `["Lesley", "Wroughton"]`. A Persian or Arabic name has no
+ * reliable first/last split, so it goes whole into `نام خانوادگی` (rendered «X.»),
+ * which is how fa editors write a byline they cannot split.
+ */
+export function splitName(full: string): [string, string] {
+  const n = full.replace(/^(?:by|نوشته|نویسنده|به قلم|كتب|کتب|بقلم|إعداد)\s*:?\s*/i, '').trim();
+  if (/[\u0600-\u06ff]/.test(n)) return ['', n];
+  const comma = /^([^,]+),\s*(.+)$/.exec(n);
+  if (comma) return [comma[2].trim(), comma[1].trim()];
+  const parts = n.split(/\s+/);
+  if (parts.length < 2) return ['', n];
+  return [parts.slice(0, -1).join(' '), parts[parts.length - 1]];
+}
+
 export function parseHtml(html: string, status: number, finalUrl: string): PageResult {
   const meta = (k: string) => {
     const re1 = new RegExp(`<meta[^>]+(?:property|name)=["']${k}["'][^>]*content=["']([^"']*)["']`, 'i');
@@ -309,6 +445,7 @@ export function parseHtml(html: string, status: number, finalUrl: string): PageR
   };
   const body = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>/gi, '');
   const ld = /"datePublished"\s*:\s*"([^"]+)"/.exec(html)?.[1];
+  const authors = pageAuthors(html, meta);
   return {
     status, finalUrl,
     title: tag('title'),
@@ -317,6 +454,8 @@ export function parseHtml(html: string, status: number, finalUrl: string): PageR
     h2: (() => { const m = /<h2\b[^>]*>([\s\S]*?)<\/h2>/i.exec(body); return m ? decodeEntities(m[1].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim() : undefined; })(),
     siteName: meta('og:site_name'),
     published: meta('article:published_time') ?? ld ?? meta('date') ?? meta('pubdate'),
+    publishedFrom: meta('article:published_time') || ld ? 'article' : meta('date') || meta('pubdate') ? 'meta' : undefined,
+    authors,
     lang: /<html[^>]*\blang=["']?([a-zA-Z-]+)/i.exec(html)?.[1],
     challenge: CHALLENGE.test(html.slice(0, 20000)) && !meta('og:title'),
   };

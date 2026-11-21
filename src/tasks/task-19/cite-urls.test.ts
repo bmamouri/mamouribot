@@ -7,8 +7,8 @@
 import { canonHref, decodePercentUnicode, repairScheme, stripTracking, unwrapRedirector } from './url.js';
 import { matchBareRef, planPage, type Lookup } from './plan.js';
 import { buildCitation, formatDate } from './build.js';
-import { judgeAuthor, judgeDate, judgeTitle, langOf, stripSiteSuffix } from './quality.js';
-import { combine, siteFor, softDead, splitPipeSite } from './resolve.js';
+import { isArabic, judgeAuthor, judgeDate, judgeTitle, langOf, persianLetterforms, stripSiteSuffix } from './quality.js';
+import { combine, crossCheck, isHomeLike, slugMismatch, pageAuthors, parseHtml, siteFor, softDead, splitName, splitPipeSite } from './resolve.js';
 import { unexplainedLoss } from './cite-urls.js';
 import { appendParams, escapeParam } from './wikitext.js';
 
@@ -137,6 +137,93 @@ ok('an author equal to a title segment is the site', !judgeAuthor('باشگاه 
 
 eq('trailing | site name used when only the host was known', splitPipeSite('طبیعت روستای «زیوه و کهنه لاهیجان» پیرانشهر | آخرین خبر', 'akharinkhabar.ir', 'https://akharinkhabar.ir/photo/7116065'), { title: 'طبیعت روستای «زیوه و کهنه لاهیجان» پیرانشهر', website: 'آخرین خبر' });
 eq('…but not when a real site name is known', splitPipeSite('A long enough title | Section', 'BBC', 'https://bbc.com/x'), { title: 'A long enough title | Section', website: 'BBC' });
+
+console.log('== page authors and the cross-check ==');
+{
+  const html = '<html lang="en"><head><meta property="og:title" content="T"><script type="application/ld+json">{"@context":"https://schema.org","@type":"NewsArticle","author":[{"@type":"Person","name":"Lesley Wroughton"},{"@type":"Organization","name":"Reuters"}],"datePublished":"2019-02-14T10:00:00Z"}</script></head></html>';
+  const p = parseHtml(html, 200, 'https://r.com/x');
+  eq('JSON-LD person authors, organisations dropped', p.authors, ['Lesley Wroughton']);
+  eq('JSON-LD date', p.published, '2019-02-14T10:00:00Z');
+}
+eq('meta author list', pageAuthors('', k => k === 'author' ? 'Jane Doe, John Roe' : undefined), ['Jane Doe', 'John Roe']);
+eq('article:author profile URL ignored', pageAuthors('', k => k === 'article:author' ? 'https://facebook.com/x' : undefined), []);
+eq('Latin name split', splitName('Lesley Wroughton'), ['Lesley', 'Wroughton']);
+eq('surname-first with comma', splitName('Wroughton, Lesley'), ['Lesley', 'Wroughton']);
+eq('Persian byline kept whole', splitName('محمدرضا احمدی‌نژاد'), ['', 'محمدرضا احمدی‌نژاد']);
+ok('a Persian two-word byline is an author', judgeAuthor('', 'محمدرضا احمدی‌نژاد'));
+ok('«خبرگزاری مهر» is not', !judgeAuthor('', 'خبرگزاری مهر'));
+ok('a single Persian word is not', !judgeAuthor('', 'ادمین'));
+{
+  const c = { url: 'u', title: 'T', website: 'NobelPrize.org', date: '2024-05-21', authors: [['Hans', 'Mehlin']] as [string, string][] };
+  const x = crossCheck({ ...c, url: 'https://n.org/a/1' }, { status: 200, finalUrl: 'u', published: '2016-03-01', publishedFrom: 'article', authors: ['Ann Writer'] }, '2026-11-21');
+  eq('page date and authors win when they disagree', [x.meta.date, x.meta.authors], ['2016-03-01', [['Ann', 'Writer']]]);
+}
+{
+  const c = { url: 'u', title: 'T', date: '2019-02-14', authors: [['Lesley', 'Wroughton']] as [string, string][] };
+  const x = crossCheck({ ...c, url: 'https://n.org/a/1' }, { status: 200, finalUrl: 'u', published: '2019-02-14T10:00:00Z', publishedFrom: 'article', authors: ['Lesley Wroughton', 'Alicja Ptak'] }, '2026-11-21');
+  eq('agreeing values are kept as Citoid had them', [x.meta.date, x.meta.authors, x.notes], ['2019-02-14', [['Lesley', 'Wroughton']], []]);
+}
+{
+  const c = { url: 'u', title: 'T', date: '2019-02-14' };
+  const x = crossCheck(c, { status: 200, finalUrl: 'u' }, '2026-11-21');
+  eq('a page that states nothing changes nothing', [x.meta.date, x.notes], ['2019-02-14', []]);
+}
+{
+  const r = combine({ url: 'https://r.com/x', today: '2026-11-21',
+    citoid: { ok: true, item: { itemType: 'newspaperArticle', title: 'Pence urges Europe', websiteTitle: 'Reuters', date: '2021-04-20' } },
+    page: { status: 200, finalUrl: 'https://r.com/x', published: '2019-02-14', publishedFrom: 'article', authors: ['Lesley Wroughton'] } });
+  eq('combine applies the cross-check', [r.meta?.date, r.meta?.authors], ['2019-02-14', [['Lesley', 'Wroughton']]]);
+}
+{
+  const r = combine({ url: 'https://r.com/x', today: '2026-11-21',
+    citoid: { ok: true, item: { itemType: 'newspaperArticle', title: 'Pence urges Europe', websiteTitle: 'Reuters', date: '2021-04-20' } },
+    page: { status: 200, finalUrl: 'https://r.com/x', challenge: true, published: '2000-01-01' } });
+  eq('a bot-wall page is not used to cross-check', r.meta?.date, '2021-04-20');
+}
+{
+  const r = combine({ url: 'https://x.ir/n/1', today: '2026-11-21', citoid: { ok: false, status: 404 },
+    page: { status: 200, finalUrl: 'https://x.ir/n/1', ogTitle: 'عنوان واقعی خبر', authors: ['علی رضایی'] } });
+  eq('authors from the page when Citoid failed', r.meta?.authors, [['', 'علی رضایی']]);
+}
+
+ok('an institution is not an author', !judgeAuthor('', 'بنياد دایرة المعارف اسلامی'));
+ok('nor a university', !judgeAuthor('Harvard', 'University'));
+{
+  const c = { url: 'https://rch.ac.ir/article/Details/9556', title: 'T', authors: [['محمدحسن', 'یزدانی'], ['عبدالکریم', 'عطارزاده']] as [string, string][] };
+  const x = crossCheck(c, { status: 200, finalUrl: c.url, authors: ['بنياد دایرة المعارف اسلامی'] }, '2026-11-21');
+  eq('real Citoid authors are not replaced by an institution', x.meta.authors, c.authors);
+}
+ok('front page is home-like', isHomeLike('http://weather.com') && isHomeLike('http://www.crrks.org/') && isHomeLike('https://x.ir/fa/'));
+ok('an article is not', !isHomeLike('https://x.ir/fa/news/1') && !isHomeLike('http://x.com/?p=5'));
+{
+  const x = crossCheck({ url: 'http://weather.com', title: 'T' }, { status: 200, finalUrl: 'https://weather.com/', published: '2026-01-28', publishedFrom: 'article' }, '2026-11-21');
+  eq('no date on a front page', x.meta.date, undefined);
+  const y = crossCheck({ url: 'https://x.com/a/1', title: 'T' }, { status: 200, finalUrl: 'https://x.com/a/1', published: '2020-01-01', publishedFrom: 'meta' }, '2026-11-21');
+  eq('no date from a generic date meta', y.meta.date, undefined);
+}
+
+console.log('== dry-run findings, ۲۱ نوامبر ۲۰۲۶ ==');
+ok('Arabic text detected', isArabic('بالصور.. ياسر إبراهيم يوقع عقود الإعارة إلى سموحة') && isArabic('اليوم السابع'));
+ok('Persian with Arabic kaf is not Arabic', !isArabic('درآمد بانكها در شرايط ركود تورمي'));
+eq('Arabic site name kept as published', persianLetterforms('اليوم السابع'), 'اليوم السابع');
+eq('Persian with Arabic letters normalized', persianLetterforms('درآمد بانكها'), 'درآمد بانکها');
+ok('«كتب سليمان» is a byline prefix, not a name', !judgeAuthor('كتب', 'سليمان'));
+eq('byline prefix stripped', splitName('كتب: سليمان النقر'), ['', 'سليمان النقر']);
+ok('«شهرداری وردنجان» is not an author', !judgeAuthor('', 'شهرداری وردنجان'));
+ok('«La redaction» is not an author', !judgeAuthor('La', 'redaction'));
+ok('«NewsDetails» rejected', !judgeTitle('NewsDetails', { url: 'http://www.ihf.info/x' }).ok);
+ok('home page title with site rejected', !judgeTitle('صفحه اصلی - پورتال کتابخانه‌ی دیجیتال دانشگاه ایلام', { url: 'http://lib.ilam.ac.ir/web/guest' }).ok);
+ok('slug as title rejected', !judgeTitle('دانشنامه-هنرهای-رزمی-(نخستین-دایره‌المعارف-ورزش‌های-رزمی-در-ایران) | نگاه-بوستان', { url: 'https://ketab.ir/book/x' }).ok);
+eq('decorations stripped', judgeTitle('.:: کتابخانه بنیاد قلم چی دانشگاه ایلام افتتاح شد :: دانشگاه ایلام ::.', { url: 'https://www.ilam.ac.ir/news/show/?x', names: ['دانشگاه ایلام'] }), { ok: true, title: 'کتابخانه بنیاد قلم چی دانشگاه ایلام افتتاح شد' });
+eq('…: Amazon.com: Books stripped', judgeTitle('A Phonology of Southern Luri: Eric John Anonby: 9783895867231: Amazon.com: Books', { url: 'http://www.amazon.com/x' }), { ok: true, title: 'A Phonology of Southern Luri: Eric John Anonby: 9783895867231' });
+ok('pubiran wrong-book title caught by the slug', slugMismatch('https://pubiran.ir/BookView/2390568/مكتب-تاپ-تكواندو-نخستين-سبك-آزاد', 'خوک کریسمس'));
+ok('a matching title passes the slug check', !slugMismatch('https://www.mehrnews.com/news/4157206/نمایشگاه-دائمی-سوغات-شهرستان-بشرویه-افتتاح-شد', 'نمایشگاه دائمی سوغات شهرستان بشرویه افتتاح شد'));
+ok('Arabic-kaf slug vs Persian title still matches', !slugMismatch('https://www.isna.ir/news/8104-01363/مسوول-كانون-تكواندوكاران', 'مسوول کانون تکواندوکاران ایران در گفت‌وگو'));
+ok('an English slug vs a Persian title is not judged... unless no overlap', slugMismatch('https://x.com/a/the-great-wall-history', 'دیوار بزرگ'));
+ok('a numeric id is not a slug', !slugMismatch('https://www.irna.ir/news/84204251/', 'هر چیزی'));
+
+ok('ketab.ir slug title with colon and tail rejected', !judgeTitle('مکتب-تاپ-تکواندو:-نخستین-سبک-آزاد-تکواندو-جهان | پارس-میهن | خانه کتاب و ادبیات ایران', { url: 'https://ketab.ir/book/x', site: 'خانه کتاب و ادبیات ایران' }).ok);
+ok('a real hyphenated title is fine', judgeTitle('Austro-Hungarian Empire', { url: 'https://x.org/a' }).ok);
 
 console.log('== dates ==');
 eq('Gregorian day', formatDate('2019-02-14'), '۱۴ فوریه ۲۰۱۹');

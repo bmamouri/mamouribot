@@ -79,7 +79,16 @@ a redirect to the home page or an unrelated page, or a suspended/parked host.
 ### Where the metadata comes from
 
 1. Citoid (`/api/rest_v1/data/citation/mediawiki/<url>`), 3 s apart, `Retry-After` obeyed.
-2. The page itself, when Citoid's answer fails a rule or a site rule asks for it.
+2. The page itself, every time (`T19_CROSS_CHECK=0` turns this off). When Citoid's title is
+   good, the page is used only to check its date and authors (`crossCheck()`): a page date
+   on a different day replaces Citoid's, page authors that share no name with Citoid's
+   replace them, and a value the page does not state is left as Citoid gave it. When
+   Citoid's answer fails a rule or a site rule asks for it, the page is the source.
+   Authors come from JSON-LD `author` on the article object (organisations skipped), then
+   `<meta name="author">`, `article:author` (not a profile URL), `dc.creator`,
+   `citation_author`. A Latin name is split first/last; a Persian byline goes whole into
+   `نام خانوادگی`, rendered «محمدرضا احمدی‌نژاد.», since there is no reliable split.
+   A page behind a bot wall, or redirected elsewhere, is never used for the check.
 3. For a dead page, the newest Wayback capture with status 200 (CDX), and the snapshot's
    title. The archive URL is built from the **captured** URL the CDX row returns
    (`lessons/citations/wayback-archive-url-must-be-the-captured-url.md`).
@@ -175,5 +184,10 @@ npx tsx src/run.ts cite-urls --live --as-me --limit 30                    # tria
 | `T19_CACHE_DAYS` | 30 | evidence cache lifetime |
 | `T19_CITOID_GAP_MS` / `T19_WEB_GAP_MS` / `T19_WAYBACK_GAP_MS` | 3000 / 1500 / 2000 | request gaps |
 | `T19_SAVE_WORK` | | write the pages a dry run would edit to this JSON file |
+| `T19_CROSS_CHECK` | on | open the page to check Citoid's date and authors |
+
+A run under `--as-me` sends the browser user agent to Citoid and the cited sites, the same
+identity as its wiki requests, and writes the declined-URL report to
+`$BOT_STATE_DIR/cite-urls.report.wiki` instead of the bot's user page.
 
 Edit summary, per page: `تکمیل ۲ یادکرد نشانی عریان، اصلاح نشانی منبع، خواناکردن نشانی‌های درصدی`.
