@@ -7,7 +7,11 @@ without judgement.
 
 ## Status
 
-- **Not filed yet.** Code, tests and Toolforge jobs are ready. Nothing runs live.
+- **Not filed yet.** Trial done: 149 edits under my own account, 21–22 نوامبر ۲۰۲۶, four batches,
+  every edit audited (`src/tasks/task-19/audit-trial.replay.ts`): reference count unchanged on all,
+  citation errors up on none and down on 61, 6 pages refused before saving. Two defects found and
+  corrected by hand (front-page citations on وردنجان; a `+` left by the Google-cache unwrap on
+  مریم جعفرخانی کرمانی). Request draft: `drafts/brfa-task19-cite-urls.wiki` in the companion repo.
 - Request page, when filed: `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۹`.
 - Task id `cite-urls`. Directory `src/tasks/task-19/`. Jobs in `toolforge/task-19-cite-urls/`.
 
