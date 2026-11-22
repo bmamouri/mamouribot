@@ -5,8 +5,10 @@ This task translates two kinds of them, and only those two.
 
 ## Status
 
-Not filed yet. Dry runs only. The request draft is `drafts/brfa-task20-infobox-values.wiki`
-in the companion repository.
+Filed ۲۲ نوامبر ۲۰۲۶ at `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۲۰`, waiting
+for review. A 100-edit trial ran the same day under `--as-me` (97 articles, 3 navboxes, dictionary
+rev 45017783): 0 refused before saving, 0 reverted after, every diff checked on the wiki, and the
+new Persian value visible in every saved revision. The trial is reported on the request page.
 
 ## What it changes
 
