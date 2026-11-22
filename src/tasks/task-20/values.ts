@@ -42,15 +42,16 @@ const NAV_LIST_PARAM = /^(?:list\d+|content\d+)$/;
  * `*` lists parameter families safe on any infobox.
  */
 export const WHITELIST: Record<string, string[]> = {
-  '*': ['conservation', 'region_type', 'settlement_type', 'type'],
-  'جعبه اطلاعات منطقه مسکونی': [
-    'settlement_type', 'subdivision_type#', 'timezone#', 'timezone#_DST', 'timezone_DST',
-    'established_title#', 'leader_title#', 'seat_type', 'parts_type', 'postal_code_type',
-    'area_code_type', 'population_blank#_title', 'blank#_name', 'blank#_name_sec#',
-    'demographics_type#', 'demographics#_title#', 'subdivision_name',
-  ],
-  'Infobox ecoregion': ['conservation', 'region_type', 'global200', 'elevation'],
-  [NAVBOX_KEY]: ['title', 'above', 'below', 'group#', 'heading#'],
+  '*': [],
+  // The label families of this template (subdivision_type#, leader_title#, …) are translated
+  // at display time by پودمان:ترجمه مقدار جعبه since ۲۲ نوامبر ۲۰۲۶, so the bot leaves them
+  // alone: an article edit would change nothing a reader sees.
+  'جعبه اطلاعات منطقه مسکونی': [],
+  'Infobox ecoregion': ['conservation'],
+  'Infobox football biography': ['position'],
+  'جعبه اطلاعات شناگر': ['strokes'],
+  'جعبه اطلاعات دارو': ['routes_of_administration'],
+  [NAVBOX_KEY]: ['group#', 'heading#'],
 };
 
 const allowed = (template: string, param: string) => {
@@ -138,9 +139,14 @@ export function titleLabel(target: string): string {
 /** fa title → its en sitelink title; '' when it has none, undefined when not looked up. */
 export type EnTitle = (faTitle: string) => string | undefined;
 
-/** Compare an English label with an English title: case, spacing, disambiguator aside. */
+/**
+ * Compare an English label with an English title: spacing and disambiguator aside, case
+ * NOT aside. A label that differs only in case is a different thing written with the same
+ * letters: `http`, `ssh`, `git` in a list of URI schemes are scheme names, not the protocol
+ * «HTTP» or the program «Git» (dry run of ۲۲ نوامبر ۲۰۲۶).
+ */
 export const nameKey = (s: string) => s.replace(/_/g, ' ').replace(/\s*\([^()]*\)\s*$/, '')
-  .normalize('NFC').replace(/[\s\u00a0]+/g, ' ').trim().toLowerCase();
+  .normalize('NFC').replace(/[\s\u00a0]+/g, ' ').trim();
 
 /** A label that is a qualifier or code rather than the name of the target. */
 const QUALIFIER = /^(?:[A-Z]{1,4}\s*:|[IVXLCDM]+$)|\([^)]*\)|\d|^[A-Z0-9.\-]{1,5}$/;

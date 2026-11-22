@@ -26,3 +26,13 @@
   emails: onfailure
   filelog-stdout: logs/t20-nav-census.out
   filelog-stderr: logs/t20-nav-census.err
+
+# Dry run over the current target file. No login, no writes.
+- name: t20-dry
+  command: ./task-20-infobox-values/run.sh --limit 200
+  image: node20
+  mem: 1Gi
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/t20-dry.out
+  filelog-stderr: logs/t20-dry.err

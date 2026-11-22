@@ -183,14 +183,16 @@ export const infoboxValuesTask: BotTask = {
    * cosmetic edit; a label pointing somewhere new would be a link change this task does
    * not make.
    */
-  async verify(bot: Bot, title: string, _oldText: string, newText: string) {
-    const render = async (text?: string) => {
-      const p: Record<string, string> = { action: 'parse', prop: 'text', disablelimitreport: '1', disableeditsection: '1' };
-      const r = text === undefined ? await bot.apiGet({ ...p, page: title })
-        : await bot.apiPost({ ...p, title, text, contentmodel: 'wikitext' });
+  async verify(bot: Bot, title: string, oldText: string, newText: string) {
+    // Both sides through `text=`: `page=` and `text=` render differently (a preview shows
+    // template chrome such as the drug infobox's red doc link), and comparing one with the
+    // other refused 15 clean edits in the dry run of ۲۲ نوامبر ۲۰۲۶.
+    const render = async (text: string) => {
+      const r = await bot.apiPost({ action: 'parse', prop: 'text', disablelimitreport: '1', disableeditsection: '1',
+        title, text, contentmodel: 'wikitext' });
       return (r.parse?.text ?? '') as string;
     };
-    const [before, after] = [await render(), await render(newText)];
+    const [before, after] = [await render(oldText), await render(newText)];
     const plain = (h: string) => h.replace(/<(style|script)[^>]*>[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' ')
       .replace(/&nbsp;|&#160;/g, ' ').replace(/\s+/g, ' ');
     const shown = plain(after);

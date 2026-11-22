@@ -29,6 +29,7 @@ const DICT = parseDictionary(table([
   ['جعبه اطلاعات منطقه مسکونی', 'settlement_type', 'Village', 'روستا', 'attested'],
   ['ناوبری', 'group#', 'Related articles', 'مقاله‌های مرتبط', 'manual'],
   ['Infobox football biography', 'clubs#', 'Retired', 'بازنشسته', 'manual'],
+  ['Infobox football biography', 'position', 'Midfielder', 'هافبک', 'attested'],
 ]), 1);
 const canon = (n: string) => ({ 'Infobox settlement': 'جعبه اطلاعات منطقه مسکونی' } as Record<string, string>)[n] ?? n;
 const run = (t: string) => applyPage(t, DICT, canon);
@@ -63,10 +64,9 @@ console.log('== infobox values: what changes ==');
      '{{Infobox ecoregion|conservation= بحرانی/در معرض خطر }}');
   eq('a trailing ref and comment are kept', run('{{Infobox ecoregion|conservation=Vulnerable<ref>WWF</ref> <!-- x -->\n}}').text,
      '{{Infobox ecoregion|conservation=آسیب‌پذیر<ref>WWF</ref> <!-- x -->\n}}');
-  eq('a redirect name resolves to the canonical template', run('{{Infobox settlement|subdivision_type2=County}}').text,
-     '{{Infobox settlement|subdivision_type2=شهرستان}}');
-  eq('a parameter family matches any digit', run('{{Infobox settlement|subdivision_type4=County}}').text,
-     '{{Infobox settlement|subdivision_type4=شهرستان}}');
+  eq('a parameter family matches any digit', run('{{Infobox football biography|position=Midfielder}}').text,
+     '{{Infobox football biography|position=هافبک}}');
+  unchanged('settlement labels are the module\'s, not the bot\'s', '{{Infobox settlement|subdivision_type2=County}}');
 }
 
 console.log('== infobox values: what must not change ==');
@@ -92,7 +92,7 @@ console.log('== navbox labels ==');
 const EN: Record<string, string> = {
   'سالواتور موندی (نقاشی)': 'Salvator Mundi (Leonardo)', 'ربات لئوناردو': 'Leonardo\'s robot',
   'کمان زنبورکی لئوناردو': 'Crossbows', 'جرمی کوربین': 'Jeremy Corbyn', 'آهن': 'Iron',
-  'لامپ خلأ': 'Vacuum tube', 'بی‌پیوند': '',
+  'لامپ خلأ': 'Vacuum tube', 'بی‌پیوند': '', 'پروتکل انتقال ابرمتن': 'HTTP',
 };
 const runL = (t: string) => applyPage(t, DICT, canon, x => EN[x]);
 const sameL = (what: string, t: string) => eq(what, runL(t).text, t);
@@ -100,13 +100,15 @@ const sameL = (what: string, t: string) => eq(what, runL(t).text, t);
   eq('label equal to the en title (disambiguator aside) → the Persian title',
     runL('{{Navbox|list1=* [[سالواتور موندی (نقاشی)|Salvator Mundi]]}}').text,
     '{{Navbox|list1=* [[سالواتور موندی (نقاشی)|سالواتور موندی]]}}');
-  eq('case is ignored', runL('{{Navbox|list1=* [[کمان زنبورکی لئوناردو|crossbows]]}}').text,
+  sameL('a lower-case label stays (git, not Git)', '{{Navbox|list1=* [[کمان زنبورکی لئوناردو|crossbows]]}}');
+  eq('the exact en title changes', runL('{{Navbox|list1=* [[کمان زنبورکی لئوناردو|Crossbows]]}}').text,
     '{{Navbox|list1=* [[کمان زنبورکی لئوناردو]]}}');
   eq('a child navbox is handled as its own call, once',
     runL('{{Navbox|list1={{Navbox|child|list1=* [[کمان زنبورکی لئوناردو|Crossbows]]}}\n* [[سالواتور موندی (نقاشی)|Salvator Mundi]]}}').text,
     '{{Navbox|list1={{Navbox|child|list1=* [[کمان زنبورکی لئوناردو]]}}\n* [[سالواتور موندی (نقاشی)|سالواتور موندی]]}}');
   eq('inside a list wrapper', runL('{{Navbox|list1={{فهرست افقی|[[کمان زنبورکی لئوناردو|Crossbows]]|[[تهران]]}}}}').text,
     '{{Navbox|list1={{فهرست افقی|[[کمان زنبورکی لئوناردو]]|[[تهران]]}}}}');
+  sameL('a label differing in inner case stays (URI scheme, not protocol)', '{{Navbox|list1=* [[پروتکل انتقال ابرمتن|http]]}}');
   sameL('a short label (surname) stays', '{{Navbox|list1=* [[جرمی کوربین|Corbyn]]}}');
   sameL('a symbol stays', '{{Navbox|list1=* [[آهن|Fe]]}}');
   sameL('a label naming something else stays', '{{Navbox|list1=* [[لامپ خلأ|Diode]]}}');
