@@ -14,3 +14,15 @@
   emails: onfailure
   filelog-stdout: logs/t20-census.out
   filelog-stderr: logs/t20-census.err
+
+# Read-only census of navbox and sidebar templates in the same dump, plus how many
+# articles call each one. Writes nav-* files beside the infobox census.
+- name: t20-nav-census
+  command: ./task-20-infobox-values/navbox-census.sh
+  image: python3.13
+  cpu: 3
+  mem: 4Gi
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/t20-nav-census.out
+  filelog-stderr: logs/t20-nav-census.err

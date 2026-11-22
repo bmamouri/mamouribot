@@ -120,7 +120,11 @@ def visible(value):
         if FILE_PREFIX.match(target):
             return ' '
         return label if label else target.lstrip(':')
-    text = re.sub(r'\[\[([^\[\]]*)\]\]', link, text)
+    for _ in range(3):  # a link inside a file caption: innermost first
+        new = re.sub(r'\[\[([^\[\]]*)\]\]', link, text)
+        if new == text:
+            break
+        text = new
     text = re.sub(r'\[(?:https?:)?//\S+\s*([^\]]*)\]', r'\1', text)
     text = URL.sub(' ', text)
     text = re.sub(r'<[^>]+>', ' ', text)
