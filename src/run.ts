@@ -30,6 +30,7 @@ import { sourceTagsTask } from './tasks/task-15/source-tags.js';
 import { stripTextFragmentTask } from './tasks/task-16/strip-text-fragment.js';
 import { portalLinksTask } from './tasks/task-18/portal-links-task.js';
 import { citeUrlsTask } from './tasks/task-19/cite-urls.js';
+import { infoboxValuesTask } from './tasks/task-20/infobox-values.js';
 
 const TASKS: Record<string, BotTask> = {
   [useDmyDatesTask.id]: useDmyDatesTask,
@@ -49,6 +50,7 @@ const TASKS: Record<string, BotTask> = {
   [stripTextFragmentTask.id]: stripTextFragmentTask,
   [portalLinksTask.id]: portalLinksTask,
   [citeUrlsTask.id]: citeUrlsTask,
+  [infoboxValuesTask.id]: infoboxValuesTask,
 };
 
 function parseArgs(argv: string[]) {
