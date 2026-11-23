@@ -29,7 +29,7 @@ only copies of what was reviewed when each task was approved.
 | ۱۳ | `task-13/` | `reports-cli` | Publishes the database reports. Writes report pages only, never an article | No permission needed. Daily and weekly jobs, unflagged |
 | ۱۴ | `task-14/` | `population-box` | Adds `{{جمعیت ایران}}`, fed from Wikidata, to Iranian village articles | Filed, waiting for review and a نظرخواهی. Not run live |
 | ۱۵ | `task-15/` | `source-tags` | Adds `{{بدون منبع}}` and related banners to unsourced articles, removes stale ones | Approved. Daily, `st-daily`, at most 200 edits |
-| ۱۶ | `task-16/` | `strip-text-fragment` | Removes `#:~:text=` from URLs | Approved. Daily, `tf-daily` |
+| ۱۶ | `task-16/` | `strip-text-fragment` | Removes `#:~:text=` and tracking parameters (`fbclid`, `utm_*`, `si`, …) from URLs | Approved. Daily, `tf-daily` |
 | ۱۸ | `task-18/` | `portal-links` | Adds `{{درگاه}}` to articles in a portal's exact-name subject category (or its name-matching subcategories) | Approved. Every 6 hours, `pl-full` |
 | ۱۹ | `task-19/` | `cite-urls` | Turns bare-URL references into full citations from the page's own metadata, fills missing citation titles, repairs broken citation URLs | Not filed yet. Not run live |
 | ۲۱ | `task-21/` | `wiktionary-antivandal` | **fa.wiktionary**: reverts clear vandalism by new and unregistered users, tags non-dictionary new pages for speedy deletion. Own entry point, `src/tasks/task-21/cli.ts` | Not filed. Dry runs and backtest only; approval comes from fa.wiktionary |

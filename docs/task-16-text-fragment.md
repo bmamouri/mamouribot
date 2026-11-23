@@ -1,10 +1,14 @@
-# وظیفهٔ ۱۶: removing browser text-fragment directives (`#:~:text=`)
+# وظیفهٔ ۱۶: removing browser text-fragment directives (`#:~:text=`) and tracking parameters
 
 This task removes the `#:~:text=…` highlight that browsers add to copied links, from URLs and
 links in fa articles. Chrome and Edge add it when someone arrives from a Google search snippet
 or uses "Copy Link to Highlight". It only tells the browser what to highlight; cutting the URL
 at the directive always gives the same page. It also carries a quoted excerpt of the source
 into the citation.
+
+Since ۲۴ نوامبر ۲۰۲۶ it also removes the tracking parameters that Facebook,
+Instagram, YouTube, X, TikTok, Spotify, LinkedIn and ad clicks append to a shared link. See
+«Tracking parameters» below.
 
 ## Status
 
@@ -28,7 +32,36 @@ The directive can be anywhere: in a citation's `url=`/`نشانی=`, a bare URL 
 bracketed external link, plain text, or an internal wikilink. So `transform` scans the raw text
 for every `#` instead of handling templates separately.
 
-Edit summary: `حذف برچسب برجسته‌سازی مرورگر (#:~:text=) از نشانی منبع`.
+Edit summary, per page, by what was found:
+
+- both: `حذف برچسب برجسته‌سازی مرورگر (#:~:text=) و پارامترهای ردیابی از نشانی منبع`
+- fragment only: `حذف برچسب برجسته‌سازی مرورگر (#:~:text=) از نشانی منبع`
+- tracking only: `حذف پارامترهای ردیابی (مانند fbclid، utm_source و si) از نشانی منبع`
+
+## Tracking parameters
+
+`tracking-params.ts`, run after the fragment strip (`cleanUrls`). A parameter goes only if it
+is on the list; every other parameter keeps its place and bytes.
+
+| host | removed | kept (examples) |
+|---|---|---|
+| any | `utm_*`, `fbclid`, `gclid`, `gclsrc`, `dclid`, `gbraid`, `wbraid`, `msclkid`, `yclid`, `igshid`, `mibextid`, `srsltid`, `ttclid`, `twclid`, `li_fat_id`, `mc_cid`, `mc_eid`, `_hsenc`, `_hsmi`, `mkt_tok`, `gad_source`, `_gl` | |
+| facebook.com, fb.watch | `mibextid`, `__tn__`, `__xts__*`, `__cft__*`, `paipv`, `eav`, `rdid`, `_rdr`, `fref`, `ref`, `refsrc`, `notif_t`, `notif_id`, `comment_tracking`, `sfnsn`, `extid`, `hc_ref`, `hc_location`, `acontext` | `fbid`, `set`, `id`, `story_fbid`, `type`, `v` |
+| instagram.com | `igsh`, `igshid`, `ig_mid` | `hl`, `img_index` |
+| youtube.com, youtu.be | `si`, `feature`, `ab_channel`, `pp`, `embeds_*`, `source_ve_path`, `src_vid`, `annotation_id` | `v`, `list`, `index`, `t` |
+| twitter.com, x.com | `ref_src`, `ref_url`; `s` and `t` on `/status/` only | `lang` |
+| tiktok.com | `_r`, `_t`, `is_from_webapp`, `sender_device`, share ids | |
+| spotify.com | `si` | |
+| linkedin.com | `trk`, `trackingId`, `refId`, `lipi`, `midToken`, `midSig` | |
+
+Left alone: archive URLs (the captured URL is the archive's key), a query written with HTML
+entities, a `#/route?…` hash route, anything in a comment or `<nowiki>`/`<pre>`/…, and a URL
+whose last parameter would go when it is followed by sentence punctuation (a citation
+parameter would keep the `.`).
+
+Measured on a 456-page sample of the candidate searches (۲۴ نوامبر ۲۰۲۶): 392 pages change, no
+change to the count of `{{`, `}}`, `[[`, `]]`, `<ref`, `|` or URLs on any page, and a second
+pass changes nothing.
 
 ## Where the directive ends
 
@@ -47,25 +80,28 @@ convention), so every directive is stripped.
 
 ## Safety checks
 
-- It only deletes a substring. No HTTP requests and no guessing at the real URL, so the same
+- It only deletes substrings. No HTTP requests and no guessing at the real URL, so the same
   input always gives the same result.
 - It never takes a trailing `]`, `|`, `<ref>` close or template brace.
 - No template fields are added or renamed and no prose is touched.
-- `verify()` runs `transform` again on the old text and requires a byte-for-byte match with
+- `verify()` runs `cleanUrls` again on the old text and requires a byte-for-byte match with
   the new text, checks the change with `checkWikitext` (old against new, never the whole page),
-  and checks that no directive is left.
+  and checks that nothing is left to remove.
 - The built-in render-error check runs as for every task.
 
 ## Targets
 
-CirrusSearch `insource:/\#\:~\:text\=/`, namespace 0, 50 at a time up to the 10,000-offset
-limit, with duplicates removed (offset paging repeats titles). With about 1,940 candidates no
-saved list is needed; `--limit` splits the work into runs.
+CirrusSearch `insource:/\#\:~\:text\=/` first, then `TRACKING_QUERIES` in
+`tracking-params.ts` (`fbclid` 6,363 hits, `__tn__` 2,257, `utm_source` 1,099, YouTube
+`feature` 466, …), namespace 0, 50 at a time up to the 10,000-offset limit, with duplicates
+removed (offset paging repeats titles). Collection stops at `--limit × 6`; `--limit` splits the
+work into runs. Many `__tn__`/`fbclid` hits are inside archive URLs and come back as no-change.
 
 ## Running it
 
 ```sh
 npx tsx src/tasks/task-16/strip-text-fragment.test.ts        # offline tests
+npx tsx src/tasks/task-16/tracking-params.test.ts
 npx tsx src/tasks/task-16/corpus-check.replay.ts              # needs /tmp/tf_research/pages.json
 
 npx tsx src/run.ts strip-text-fragment --limit 20                         # dry run
@@ -95,8 +131,9 @@ checkpoint is in `~/state/`.
 
 | file | what |
 |---|---|
-| `src/tasks/task-16/strip-text-fragment.ts` | the task (`strip-text-fragment`): `getTargets`, `stripTextFragments`, `debrisAfter`, `verify` |
-| `src/tasks/task-16/strip-text-fragment.test.ts` | offline tests |
+| `src/tasks/task-16/strip-text-fragment.ts` | the task (`strip-text-fragment`): `getTargets`, `stripTextFragments`, `debrisAfter`, `cleanUrls`, `verify` |
+| `src/tasks/task-16/tracking-params.ts` | the tracking-parameter list, `cleanUrl`, `stripTrackingParams`, `TRACKING_QUERIES` |
+| `src/tasks/task-16/strip-text-fragment.test.ts`, `tracking-params.test.ts` | offline tests |
 | `src/tasks/task-16/corpus-check.replay.ts` | replay over the 200-page sample |
 | `toolforge/task-16-text-fragment/` | `run.sh`, `jobs.yaml` |
 | `research/google-text-fragment-links.md` in the parent repo | the research behind the task |

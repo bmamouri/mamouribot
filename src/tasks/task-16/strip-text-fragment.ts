@@ -33,9 +33,15 @@
  *
  * A single quote is deliberately NOT excluded (a second draft's mistake): see the note
  * on `URL_CHAR` below for the live fa.wikipedia example this broke on.
+ *
+ * EXTENDED (۲۴ نوامبر ۲۰۲۶) to the tracking parameters that Facebook, Instagram, YouTube, X,
+ * TikTok, Spotify and ad clicks append to a shared link (`fbclid`, `utm_*`, `igsh`, `si`, …).
+ * Same reasoning, same kind of edit: a substring the page does not need. That half lives in
+ * `tracking-params.ts`; `cleanUrls` below runs both.
  */
 import type { Bot, BotTask } from '../../core.js';
 import { checkWikitext } from '../../lib/gates.js';
+import { stripTrackingParams, TRACKING_QUERIES } from './tracking-params.js';
 
 /**
  * The end-of-fragment delimiter set is CONTEXT-DEPENDENT, and that is the one real
@@ -171,44 +177,77 @@ export function stripTextFragments(text: string): { text: string; changed: boole
   return { text: out, changed: true, note: count === 1 ? undefined : `${count} نشانه حذف شد` };
 }
 
+/**
+ * The whole task: text-fragment directives first (removing one can expose a query string
+ * that ended at its `#`), then the tracking parameters of `tracking-params.ts`.
+ */
+export function cleanUrls(text: string): { text: string; changed: boolean; fragments: boolean; tracking: boolean; note?: string } {
+  const a = stripTextFragments(text);
+  const b = stripTrackingParams(a.text);
+  if (!a.changed && !b.changed) {
+    return { text, changed: false, fragments: false, tracking: false, note: 'نشانهٔ #:~:text= یا پارامتر ردیابی یافت نشد' };
+  }
+  const notes: string[] = [];
+  if (a.changed && a.note) notes.push(a.note);
+  if (b.changed) notes.push(`پارامترهای ردیابی: ${[...new Set(b.removed)].join('، ')}`);
+  return { text: b.text, changed: true, fragments: a.changed, tracking: b.changed, note: notes.join('؛ ') || undefined };
+}
+
+const SUMMARY_BOTH = 'حذف برچسب برجسته‌سازی مرورگر (#:~:text=) و پارامترهای ردیابی از نشانی منبع';
+const SUMMARY_FRAGMENT = 'حذف برچسب برجسته‌سازی مرورگر (#:~:text=) از نشانی منبع';
+const SUMMARY_TRACKING = 'حذف پارامترهای ردیابی (مانند fbclid، utm_source و si) از نشانی منبع';
+
+/** What `transform` found on each title, for the summary at write time (see `perPageSummary`). */
+const found = new Map<string, { fragments: boolean; tracking: boolean }>();
+
 export const stripTextFragmentTask: BotTask = {
   id: 'strip-text-fragment',
   taskNumber: 16,
-  summary: 'حذف برچسب برجسته‌سازی مرورگر (#:~:text=) از نشانی منبع',
+  summary: SUMMARY_BOTH,
   description:
     'حذف نشانهٔ «تکه متن» (Text Fragment، #:~:text=…) که مرورگرهای مبتنی بر Chromium هنگام ' +
     'کپی‌کردن پیوند از نتیجهٔ جستجوی گوگل یا با «Copy Link to Highlight» به نشانی اینترنتی ' +
-    'می‌افزایند. این نشانه بخشی از نشانی واقعی صفحه نیست و تنها وضعیت مرورگر را حمل می‌کند؛ ' +
-    'حذف آن نشانی را بدون تغییر معنا به شکل درست بازمی‌گرداند. ربات تنها همین دنبالهٔ کاراکتری ' +
-    'را از هر نشانی حذف می‌کند (در یادکرد، <ref> ساده، پیوند کروشه‌ای یا متن معمولی)؛ هیچ ' +
-    'بخش دیگری از نشانی یا مقاله را تغییر نمی‌دهد.',
+    'می‌افزایند، و پارامترهای ردیابی که فیسبوک، اینستاگرام، یوتیوب، ایکس، تیک‌تاک، اسپاتیفای ' +
+    'و تبلیغات گوگل هنگام هم‌رسانی به نشانی می‌چسبانند (fbclid، utm_*، igsh، si، feature و مانند آن). ' +
+    'هیچ‌کدام بخشی از نشانی واقعی صفحه نیستند؛ حذفشان همان صفحه را باز می‌کند. ربات تنها همین ' +
+    'دنباله‌ها را حذف می‌کند و هیچ بخش دیگری از نشانی یا مقاله را تغییر نمی‌دهد.',
 
   async getTargets(bot: Bot): Promise<string[]> {
-    const out: string[] = [];
-    let offset = 0;
-    // CirrusSearch regex search; see docs/task-16-text-fragment.md «Targets».
-    // Capped at the 10,000-offset hard limit CirrusSearch imposes, same guard as task-15.
-    const want = bot.opts.limit ? Math.max(bot.opts.limit * 6, 200) : 10000;
-    while (out.length < want && offset < 10000) {
-      const r = await bot.apiGet({
-        action: 'query', list: 'search', srnamespace: '0',
-        srsearch: 'insource:/\\#\\:~\\:text\\=/', srlimit: '50',
-        sroffset: String(offset), srprop: '',
-      });
-      const hits = r.query?.search ?? [];
-      if (!hits.length) break;
-      out.push(...hits.map((h: { title: string }) => h.title));
-      offset += 50;
+    const out = new Set<string>();
+    // CirrusSearch regex search; see docs/task-16-text-fragment.md «Targets». Each query is
+    // capped at the 10,000-offset hard limit CirrusSearch imposes, same guard as task-15.
+    // Text fragments come first: they are the original scope and the larger edit.
+    const want = bot.opts.limit ? Math.max(bot.opts.limit * 6, 200) : Infinity;
+    const queries = ['insource:/\\#\\:~\\:text\\=/', ...TRACKING_QUERIES];
+    for (const srsearch of queries) {
+      let offset = 0;
+      while (out.size < want && offset < 10000) {
+        const r = await bot.apiGet({
+          action: 'query', list: 'search', srnamespace: '0',
+          srsearch, srlimit: '50', sroffset: String(offset), srprop: '',
+        });
+        const hits = r.query?.search ?? [];
+        if (!hits.length) break;
+        // Offset paging REPEATS titles: every page of results is a fresh query against an
+        // index that moves while the run walks it (وظیفهٔ ۱۵ hit this). The Set drops them.
+        for (const h of hits as { title: string }[]) out.add(h.title);
+        offset += 50;
+      }
+      if (out.size >= want) break;
     }
-    // Offset paging REPEATS titles: every page of results is a fresh query against an
-    // index that moves while the run walks it. وظیفهٔ ۱۵ hit this and put the same page
-    // in one batch twice. Harmless here (the second pass finds nothing to strip) but it
-    // wastes a read and a slot under `--limit`.
-    return [...new Set(out)];
+    return [...out];
   },
 
-  transform(text: string) {
-    return stripTextFragments(text);
+  transform(text: string, title: string) {
+    const r = cleanUrls(text);
+    if (r.changed) found.set(title, { fragments: r.fragments, tracking: r.tracking });
+    return { text: r.text, changed: r.changed, note: r.note };
+  },
+
+  perPageSummary(title: string) {
+    const f = found.get(title);
+    if (!f) return undefined;
+    return f.fragments && f.tracking ? SUMMARY_BOTH : f.fragments ? SUMMARY_FRAGMENT : SUMMARY_TRACKING;
   },
 
   /**
@@ -255,16 +294,16 @@ export const stripTextFragmentTask: BotTask = {
     // spellings of the same complaint cancel. This is the same shape as وظیفهٔ ۱۵'s
     // before/after error-marker count: an ABSOLUTE test on a page with pre-existing faults
     // refuses it forever.
-    const norm = (p: string) => stripTextFragments(p).text;
+    const norm = (p: string) => cleanUrls(p).text;
     const had = new Set(checkWikitext(title, oldText).map(norm));
     const fresh = checkWikitext(title, newText).filter(p => !had.has(norm(p)));
     if (fresh.length) return { ok: false, detail: 'دروازه: ' + fresh.join('؛ ') };
-    const recomputed = stripTextFragments(oldText);
+    const recomputed = cleanUrls(oldText);
     if (recomputed.text !== newText) {
       return { ok: false, detail: 'بازتولید تابع خالص با متن ذخیره‌شده یکسان نیست' };
     }
-    if (stripTextFragments(newText).changed) {
-      return { ok: false, detail: 'نشانهٔ #:~:text= همچنان در متن تازه باقی مانده' };
+    if (cleanUrls(newText).changed) {
+      return { ok: false, detail: 'نشانهٔ #:~:text= یا پارامتر ردیابی همچنان در متن تازه باقی مانده' };
     }
     return { ok: true, detail: '' };
   },
