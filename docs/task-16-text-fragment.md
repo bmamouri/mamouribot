@@ -14,8 +14,9 @@ Instagram, YouTube, X, TikTok, Spotify, LinkedIn and ad clicks append to a share
 
 - **Approved.** Request page:
   `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۶`.
-- Runs as MamouriBot, job `tf-daily`, daily at 06:50 UTC (`50 6 * * *`), at most 200 edits
-  per run with `--delay 15`.
+- Runs as MamouriBot, job `tf-daily`, daily at 06:50 UTC (`50 6 * * *`), at most 1,000 edits
+  per run with `--delay 15` (200 until ۲۴ نوامبر ۲۰۲۶, raised with the tracking-parameter
+  extension; announced on the request page).
 - Editors paste new directives every day, so it runs permanently. The task sets
   `recheckAfterDays: 30`: a page can be edited again after a month, but only if it has a new
   directive by then. That is how I read «هرگز صفحه‌ای را که ویرایش کرده دوباره ویرایش

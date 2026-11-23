@@ -128,7 +128,7 @@ A new name there is the only sign that something started reading a secret.
 | `ir-weekly` | ۱۳ | `20 6 * * 3` | `./task-13-move-report/run.sh --report iranica --live` |
 | `ud-daily` | ۱ | `20 6 * * *` | `./task-01-use-dmy-dates/run.sh --live --limit 200 --delay 15` |
 | `cp-daily` | ۴ | `35 6 * * *` | `./task-04-company-params/run.sh --live --limit 50 --delay 15` |
-| `tf-daily` | ۱۶ | `50 6 * * *` | `./task-16-text-fragment/run.sh --live --limit 200 --delay 15` |
+| `tf-daily` | ۱۶ | `50 6 * * *` | `./task-16-text-fragment/run.sh --live --limit 1000 --delay 15` |
 | `t20-daily` | ۲۰ | `5 7 * * *` | `./task-20-infobox-values/run.sh --live --limit 1000 --delay 15` |
 | `cu-daily` | ۱۹ | `40 5 * * *` | `env TARGET_CAP=4000 ./task-19-cite-urls/run.sh --live --limit 1000 --delay 15` |
 | `sw-weekly` | ۷ | `15 7 * * 2` | `./task-07-software-params/run.sh --live --limit 100 --delay 15` |

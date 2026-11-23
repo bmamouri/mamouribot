@@ -7,7 +7,7 @@
 # ۱۳ اکتبر ۱۴۰۵ — small enough that a `--limit` cap, not a frozen file, is the right tool.
 # The request declares «یک دور روی فهرست کنونی» and the operator added on the request page
 # that the bot should keep running because editors paste new directives in every day; so
-# this is a daily job, draining the backlog at 200/run and then just clearing the trickle.
+# this is a daily job, draining the backlog at 1,000/run and then just clearing the trickle.
 #
 # NOTE: the command is path-qualified. A Toolforge job starts in the TOOL HOME, not in the
 # directory you ran `toolforge jobs load` from, so a bare `./run.sh` exits 127.
@@ -47,8 +47,9 @@
 
 # The approved daily run. 06:50 UTC is clear of وظیفهٔ ۱ (06:20), وظیفهٔ ۱۵ (03:05),
 # وظیفهٔ ۱۳ (03:17) and وظیفهٔ ۳'s hourly job (every :25).
+# 1,000 since ۲۴ نوامبر ۲۰۲۶, when tracking parameters were added and the backlog grew to ~10,000.
 - name: tf-daily
-  command: ./task-16-text-fragment/run.sh --live --limit 200 --delay 15
+  command: ./task-16-text-fragment/run.sh --live --limit 1000 --delay 15
   image: node20
   mem: 1Gi
   schedule: "50 6 * * *"
