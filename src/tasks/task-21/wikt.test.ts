@@ -143,6 +143,18 @@ console.log('\n== decision ladder ==');
      pass1: v('not_dictionary', 0.96), pass2: v('not_dictionary', 0.93) }).action === 'tag');
   ok('a creation without a structure flag is only reported', decide({ ...base, isCreation: true, flags: [],
      pass1: v('not_dictionary', 0.96), pass2: v('not_dictionary', 0.93) }).action === 'report');
+  ok('ai_paste on an existing entry is reviewed, not reverted',
+     decide({ ...base, pass1: v('ai_paste', 0.99), pass2: v('ai_paste', 0.99) }).action === 'report');
+  ok('not_dictionary on an existing entry is reviewed, not reverted',
+     decide({ ...base, pass1: v('not_dictionary', 0.99), pass2: v('not_dictionary', 0.99) }).action === 'report');
+  ok('spam by a T1 account is reviewed', decide({ ...base, pass1: v('spam', 0.99), pass2: v('spam', 0.99) }).action === 'report');
+  ok('spam by an IP is reverted', decide({ ...base, tier: 'T0', pass1: v('spam', 0.99), pass2: v('spam', 0.99) }).action === 'revert');
+  const oneFlag = flags({ ns: 0, isCreation: true, oldText: '', newText: 'آب جاری به آبی گفته می شود که در حالت حرکت است',
+    added: ['آب جاری به آبی گفته می شود که در حالت حرکت است'], removed: [], summary: '', tags: [] });
+  ok('not_dictionary with one flag is only reported (the «آب‌های جاری» case)', oneFlag.length === 1 && decide({ ...base, isCreation: true,
+     flags: oneFlag, pass1: v('not_dictionary', 0.95), pass2: v('not_dictionary', 0.95) }).action === 'report', ids(oneFlag).join());
+  ok('a test creation tags on one flag', decide({ ...base, isCreation: true, flags: oneFlag,
+     pass1: v('test', 0.95), pass2: v('test', 0.95) }).action === 'tag');
   ok('second pass is requested only for actionable T0/T1', wantsSecondPass('T1', v('spam', 0.95))
      && !wantsSecondPass('T2', v('spam', 0.95)) && !wantsSecondPass('T1', v('ok', 0.99)) && !wantsSecondPass('T1', v('spam', 0.7)));
 }

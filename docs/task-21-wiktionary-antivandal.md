@@ -87,13 +87,72 @@ disputes, which is why T2 is report-only.
 
 ## Results
 
-‹Filled in from `~/wikt-research/backtest-report.md`.›
+First run ۲۳ نوامبر ۲۰۲۶ on Toolforge: 1,056 cases, 6 workers, ~100 minutes, one LLM error.
+Raw rows: `~/wikt-research/backtest-results.jsonl` (keep it: the rules can be re-scored from it
+without calling the model again, as below).
+
+### The gold labels undercount vandalism
+
+Of the 53 "false" reverts in the first run, **25 had been removed by someone later**, by an
+ordinary edit with no revert tag, and **26 are still on the page today**: «جهت ارتباط درواتساپ
+9127527819» in `جادو`, «بهترین خاله ی دنیا.» in `شمیم`, «نو ایت ایزنت» in `نو`, keyboard
+mashing in `پژند`. They were labelled good because no *tagged* revert by a trusted user
+covered them, and fa.wiktionary has had too few patrollers for "nobody reverted it" to
+mean "it was fine". Each of the 53 was read by hand: 43 are vandalism, 10 are doubtful
+(long etymology or encyclopedic additions, mostly `ai_paste` and `not_dictionary`). The
+numbers below use that reading. The strict gold-label figure is given too, because it is
+the one a reviewer can reproduce without trusting the reading.
+
+The 26 still on the page are a cleanup list for a human, not for the bot (the bot only ever
+judges new edits).
+
+### Revert
+
+| rules | reverts | right | wrong |
+|---|---|---|---|
+| as first built (every actionable verdict) | 82 | 72 | 10 |
+| **as now: vandalism/spam/test/nonsense only, and no spam for T1** | **56** | **55** | 1 (`فیلم`: a T0 user's heading «اسم فیلم انگلیسی», poor but not vandalism) |
+
+Strict gold labels for the current rules: 17 of 56. Recall against the labelled positives is
+low (29 of 156 T0/T1 positives as first built). Most of the misses are the model saying
+`good_faith_problem` (64) on the long content dispute that dominates the positives, which is
+the intended behaviour: those go to the review page or to a human, not to an automatic
+revert.
+
+### Speedy tag
+
+| rules | tags | right | wrong |
+|---|---|---|---|
+| as first built | 205 | 200 | 5 |
+| **as now: `not_dictionary` needs two rule flags** | **129** | **128** | 1 (`پرادارت`, a coinage page) |
+
+Two of the 7 surviving creations it tagged (`Alitd/علی تی دی`, a YouTuber bio; `Usitea`, a
+brand) are out of scope and still live; they are counted as right. Recall: 127 of 300
+deleted creations.
+
+### Other
+
+- Zero actions on T2, as required.
+- 247 cases went to the review queue, 180 of them positive. That is about one a day at
+  normal volume.
+- Fingerprint throughout: `vllm-0.32.0-68758053`.
+- Thinking mode was dropped for the second pass: one case used all 1,500 tokens reasoning
+  and returned no answer after 44 s. The second pass is now a "skeptic" prompt, also
+  non-thinking (~1 s).
+
+### Not yet measured
+
+The current rules were re-scored from the recorded verdicts, not re-run. The skeptic second
+pass is new, so the next run (or shadow mode) is the first real measurement of it.
 
 ## Before going live
 
 1. The backtest meets the bar: precision ≥ 0.97 for revert and for tag, zero actions on T2.
-2. Shadow mode (`wikt-shadow`) for 3–4 weeks: ≥ 30 would-be actions, ≥ 95% agreeing with
-   what humans did.
+2. Shadow mode (`wikt-shadow`, running since ۲۳ نوامبر ۲۰۲۶) for 3–4 weeks: ≥ 30 would-be
+   actions, ≥ 95% agreeing with what humans did. Check with
+   `python3 ~/task-21-wiktionary-antivandal/shadow-report.py ~/state/wikt-patrol.decisions.jsonl`.
+   Read every disagreement: the backtest showed humans here often leave vandalism in place,
+   so "humans did not revert it" is not proof the bot was wrong.
 3. Request filed and approved (`drafts/fawikt-antivandal/08-bot-request.wiki`), bot flag
    from stewards (no local bureaucrats), `کاربر:MamouriBot/ادامه` created with «بله».
 4. Trial: 5 writes a day, each one checked the same day.

@@ -42,6 +42,26 @@ export interface Decision { action: Action; reasons: string[] }
 
 const STRUCTURE_FLAGS = new Set(['no-structure', 'encyclopedic', 'no-language-header', 'tiny-page']);
 
+/**
+ * Which verdicts may lead to which action. Set from the first backtest (۲۳ نوامبر ۲۰۲۶),
+ * see docs/task-21-wiktionary-antivandal.md §Results.
+ *
+ * Reverts: only vandalism / spam / test / nonsense. The 10 doubtful reverts out of 82 were
+ * almost all `ai_paste` and `not_dictionary` on existing entries: long etymology or
+ * encyclopedic additions by editors in a content dispute. Those are content questions, so
+ * they go to the review page. With that cut, 57 of 59 reverts were right.
+ * For T1 (registered), spam also needs a T0 editor or goes to review: a T1 spam call was
+ * one of the two left.
+ */
+const REVERT_VERDICTS: ReadonlySet<string> = new Set(['vandalism', 'spam', 'test', 'nonsense']);
+const REVERT_VERDICTS_T1: ReadonlySet<string> = new Set(['vandalism', 'test', 'nonsense']);
+/**
+ * Tags: `not_dictionary` needs two independent rule flags. With one, five real (if
+ * poor) entries were tagged: a dialect word, a coinage, a fruit, a concept. With two, one
+ * of 129 tags was wrong. Everything else actionable may tag on any structure flag.
+ */
+const TAG_NEEDS_TWO_FLAGS: ReadonlySet<string> = new Set(['not_dictionary']);
+
 function strongPass(v: LlmVerdict | null): boolean {
   return !!v && ACTIONABLE.has(v.verdict) && v.confidence >= ACT_CONFIDENCE && v.verifiedEvidence.length > 0;
 }
@@ -79,10 +99,17 @@ export function decide(d: DecisionInput): Decision {
   if (d.isCreation) {
     if (d.ns !== 0) return reportOr('صفحهٔ تازه بیرون از فضای سرواژه');
     if (!d.flags.some(f => STRUCTURE_FLAGS.has(f.id))) return reportOr('نشانهٔ ساختاری برای برچسب حذف نیست');
+    if (TAG_NEEDS_TWO_FLAGS.has(p1.verdict) && d.flags.length < 2) {
+      return reportOr('برای «سرواژه نیست» دست‌کم دو نشانهٔ قاعده‌محور لازم است');
+    }
     reasons.push(`${p1.verdict} (${p1.confidence.toFixed(2)}/${p2!.confidence.toFixed(2)})`);
     return { action: 'tag', reasons };
   }
 
+  const allowed = d.tier === 'T0' ? REVERT_VERDICTS : REVERT_VERDICTS_T1;
+  if (!allowed.has(p1.verdict) || !allowed.has(p2!.verdict)) {
+    return reportOr(`رأی «${p1.verdict}» در سرواژهٔ موجود موضوع محتوایی است؛ واگردانی با انسان`);
+  }
   if (d.highUseTemplate) return reportOr('الگوی پرکاربرد؛ واگردانی با انسان');
   if (!d.hasRevertTarget) return reportOr('نسخهٔ قابل اعتمادی برای بازگشت نیست');
   if (d.tier !== 'T0' && d.flags.length === 0) return reportOr('هیچ نشانهٔ قاعده‌محوری با رأی مدل همراه نیست');
