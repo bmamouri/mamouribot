@@ -15,8 +15,8 @@
  */
 import { Bot, FAWIKT, BotStop, type BotTask } from '../../core.js';
 import {
-  ADMIN_BOARD, HISTORY_DEPTH, LLM_MAX_DIFF_CHARS, NAMESPACES, POLL_MS,
-  REVERTS_BEFORE_PROTECT_REPORT, REVERTS_BEFORE_USER_REPORT, SETTLE_MS, SUMMARY_REVERT,
+  ADMIN_BOARD, HISTORY_DEPTH, LLM_MAX_DIFF_CHARS, NAMESPACES, POLL_MS, REVIEW_KEEP_DAYS, REVIEW_PAGE,
+  REVIEW_PUBLISH_MS, REVERTS_BEFORE_PROTECT_REPORT, REVERTS_BEFORE_USER_REPORT, SETTLE_MS, SUMMARY_REVERT,
 } from './config.js';
 import { decide, wantsSecondPass, type Decision } from './decide.js';
 import { diffLines, renderForModel } from './diff.js';
@@ -200,6 +200,7 @@ export class Patrol {
       botAlreadyActedOnPairToday: this.ledger.actedOnPairToday(c.title, top.user),
       humanUndidBotOnPair: this.ledger.isBurned(c.title, top.user),
       writesInLastHour: this.ledger.writesInLastHour(),
+      actionsToday: this.ledger.actionsToday(),
       highUseTemplate: (c.ns === 10 || c.ns === 828) && (await this.highUseTemplates()).has(c.title),
     });
     return { c: { ...c, user: top.user, revid: top.revid, isCreation }, tier, decision,
@@ -221,6 +222,7 @@ export class Patrol {
       const ts = cur.query?.pages?.[0]?.revisions?.[0]?.timestamp ?? '';
       // baserevid = the suspect top: if anyone saved since, the edit conflicts and nothing happens.
       const r = await this.bot.edit(c.title, text, await this.bot.summaryFor(SUMMARY_TASK(SUMMARY_REVERT)), c.revid, ts);
+      if (!saved(r, c, 'revert', this.ledger)) return;
       this.ledger.record({ ts: new Date().toISOString(), page: c.title, user: c.user, kind: 'revert', revid: r?.edit?.newrevid });
       await this.bot.paceWrite();
       await this.escalate(c);
@@ -231,6 +233,7 @@ export class Patrol {
       const ts = cur.query?.pages?.[0]?.revisions?.[0]?.timestamp ?? '';
       const r = await this.bot.edit(c.title, `{{حذف سریع|خرابکاری}}\n${text}`,
         await this.bot.summaryFor(SUMMARY_TASK(SUMMARY_TAG)), c.revid, ts);
+      if (!saved(r, c, 'tag', this.ledger)) return;
       this.ledger.record({ ts: new Date().toISOString(), page: c.title, user: c.user, kind: 'tag', revid: r?.edit?.newrevid });
       await this.bot.paceWrite();
     }
@@ -275,12 +278,39 @@ export class Patrol {
     }
   }
 
+  /**
+   * The review page: every case reported in the last REVIEW_KEEP_DAYS days, newest first,
+   * plus what the bot did. Rebuilt whole, so a patroller can blank a row by hand and it
+   * comes back only if the case is still in the window. Written unflagged, in the bot's
+   * own user space.
+   */
+  async publishReview(force = false) {
+    if (!this.live) return;
+    const rows = this.ledger.decisions().filter(r => r.ts
+      && Date.now() - Date.parse(r.ts) < REVIEW_KEEP_DAYS * 86_400_000
+      && (r.action === 'report' || r.action === 'revert' || r.action === 'tag'));
+    const newest = rows.length ? rows[rows.length - 1].ts : '';
+    const st = this.ledger.state;
+    if (!force && newest === (st.reviewNewest ?? '')) return;
+    if (!force && st.reviewPublishedAt && Date.now() - Date.parse(st.reviewPublishedAt) < REVIEW_PUBLISH_MS) return;
+    const text = renderReview(rows);
+    const cur = await this.bot.apiGet({ action: 'query', prop: 'revisions', titles: REVIEW_PAGE, rvprop: 'ids|timestamp|content', rvslots: 'main' });
+    const pg = cur.query?.pages?.[0];
+    const rev = pg?.missing ? null : pg?.revisions?.[0];
+    if (rev?.slots?.main?.content === text) { st.reviewNewest = newest; this.ledger.save(); return; }
+    const stop = await this.bot.mustStop();
+    if (stop.stop) throw new BotStop(stop.why ?? 'stop', true);
+    await this.bot.edit(REVIEW_PAGE, text, 'به‌روزرسانی فهرست بازبینی', rev?.revid ?? 0, rev?.timestamp ?? '', { allowCreate: !rev });
+    st.reviewPublishedAt = new Date().toISOString(); st.reviewNewest = newest; this.ledger.save();
+    await this.bot.paceWrite();
+  }
+
   // ---------- loop ----------
   async run(opts: { once: boolean }) {
     const pending = new Map<number, { c: Case; due: number }>();
     for (;;) {
       try {
-        for (const c of await this.poll()) pending.set(c.pageid, { c, due: Date.now() + SETTLE_MS });
+        for (const c of await this.poll()) enqueue(pending, c, Date.now());
         for (const [pid, { c, due }] of [...pending]) {
           if (!opts.once && Date.now() < due) continue;
           pending.delete(pid);
@@ -293,7 +323,7 @@ export class Patrol {
           this.ledger.state.lastRcId = Math.max(this.ledger.state.lastRcId, c.rcid);
           this.ledger.save();
         }
-        if (this.live) await this.checkUndone();
+        if (this.live) { await this.checkUndone(); await this.publishReview(); }
         if (this.llm.consecutiveFailures >= 10) console.warn('  ⚠ مدل ۱۰ بار پشت سر هم پاسخ نداد؛ فقط گزارش');
       } catch (e) {
         if (e instanceof BotStop && e.fatal) { console.error(`⏹ ${e.message}`); return; }
@@ -303,6 +333,54 @@ export class Patrol {
       await sleep(opts.once ? 1000 : POLL_MS);
     }
   }
+}
+
+/**
+ * Queue a case to be judged SETTLE_MS after the page's latest edit.
+ *
+ * Only a NEWER edit resets the wait. The first version reset it on every poll: the poll
+ * returns everything above the checkpoint, the checkpoint only moves once a case is judged,
+ * so a 60 s poll kept pushing a 90 s wait forward and nothing was ever judged. Shadow mode
+ * sat at the same rcid for eleven hours before this was noticed.
+ */
+export function enqueue(pending: Map<number, { c: Case; due: number }>, c: Case, now: number) {
+  const cur = pending.get(c.pageid);
+  if (cur && cur.c.rcid >= c.rcid) return;
+  pending.set(c.pageid, { c, due: now + SETTLE_MS });
+}
+
+/** True when MediaWiki actually saved the edit. A CAPTCHA or a filter can refuse without an `error`. */
+function saved(r: any, c: Case, kind: string, ledger: Ledger): boolean {
+  const ok = r?.edit?.result === 'Success' && !r.edit.nochange;
+  if (!ok) {
+    console.warn(`  ⚠ ${kind} روی «${c.title}» ذخیره نشد: ${JSON.stringify(r?.edit ?? r).slice(0, 200)}`);
+    ledger.decision({ ts: new Date().toISOString(), kind: 'write-refused', action: kind, title: c.title, revid: c.revid, response: r?.edit ?? r });
+  }
+  return ok;
+}
+
+const FA = (n: number | string) => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+const VERDICT_FA: Record<string, string> = {
+  vandalism: 'خرابکاری', spam: 'هرزنگاری', test: 'ویرایش آزمایشی', nonsense: 'بی‌معنا',
+  not_dictionary: 'سرواژه نیست', ai_paste: 'رونوشت چت‌بات', good_faith_problem: 'با حسن نیت ولی نادرست', ok: 'درست',
+};
+const ACTION_FA: Record<string, string> = { report: 'گزارش', revert: 'واگردانی شد', tag: 'برچسب حذف خورد' };
+
+export function renderReview(rows: any[]): string {
+  const esc = (s: string) => String(s ?? '').replace(/\|/g, '{{!}}').replace(/\n/g, ' ');
+  const body = [...rows].reverse().map(r => {
+    const when = String(r.ts).slice(0, 16).replace('T', ' ');
+    const v = r.p1 ? `${VERDICT_FA[r.p1.v] ?? r.p1.v} (${FA(Math.round(r.p1.c * 100))}٪)` : '؟';
+    return `|-\n| ${FA(when)} || [[${r.title}]] || [[ویژه:تفاوت/${r.revid}|تفاوت]] || ${ACTION_FA[r.action] ?? r.action} || ${v} || ${esc(r.p1?.r ?? (r.reasons ?? []).join('؛ '))}`;
+  }).join('\n');
+  return [
+    `ویرایش‌هایی که [[کاربر:MamouriBot/ضدخرابکاری|ربات]] در ${FA(REVIEW_KEEP_DAYS)} روز گذشته مشکوک دانسته است. «گزارش» یعنی ربات کاری نکرده و نگاه یک کاربر لازم است. اگر ردیفی را بررسی کردید، می‌توانید آن را بردارید. اشتباه ربات را در [[کاربر:MamouriBot/ضدخرابکاری/گزارش اشتباه]] بگویید.`,
+    '',
+    '{| class="wikitable sortable" style="width:100%"',
+    '! زمان (UTC) !! صفحه !! تفاوت !! کار ربات !! داوری !! دلیل',
+    body || '|-\n| colspan="6" | موردی نیست.',
+    '|}',
+  ].join('\n');
 }
 
 export function summarise(j: Judged) {

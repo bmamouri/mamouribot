@@ -28,6 +28,15 @@ export const REPORT_CONFIDENCE = 0.6;
 
 /** Hard limits, whatever the score. */
 export const MAX_WRITES_PER_HOUR = 10;
+/**
+ * Reverts and tags per 24 h. The request (ویکی‌واژه:نظرخواهی‌ها/ربات-۲۰۲۶-۱۱/…) promised a
+ * trial of at most 5 a day, each checked the same day. Raise it only after reporting the
+ * trial there.
+ */
+export const MAX_ACTIONS_PER_DAY = Number(process.env.WIKT_MAX_ACTIONS_PER_DAY ?? 5);
+/** Rebuild the review page at most this often, and only when something new was reported. */
+export const REVIEW_PUBLISH_MS = 30 * 60_000;
+export const REVIEW_KEEP_DAYS = 7;
 export const REVERTS_BEFORE_PROTECT_REPORT = 3;   // same page, 24 h → ask an admin to protect
 export const REVERTS_BEFORE_USER_REPORT = 3;      // same user, 24 h → report the user
 export const HISTORY_DEPTH = 30;

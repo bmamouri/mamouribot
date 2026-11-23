@@ -1,7 +1,9 @@
 # وظیفهٔ ۲۱: fa.wiktionary anti-vandalism patrol.   toolforge jobs load jobs.yaml
 #
-# Only the DRY jobs are defined. `wikt-patrol-live` is added after the bot request on
-# fa.wiktionary is approved, with WIKT_PATROL_APPROVED=1 in its command.
+# Approved on ۲۳ نوامبر ۲۰۲۶ (ویکی‌واژه:نظرخواهی‌ها/ربات-۲۰۲۶-۱۱/…). `wikt-trial` runs live,
+# unflagged, at most 5 reverts/tags a day (MAX_ACTIONS_PER_DAY) as the request promised.
+# Raise WIKT_MAX_ACTIONS_PER_DAY only after reporting the trial on the request page.
+# `wikt-shadow` is the dry job it replaces; keep the definition for re-measuring.
 ---
 - name: wikt-backtest
   command: ./task-21-wiktionary-antivandal/run.sh backtest --per-bucket 300 --concurrency 4
@@ -20,3 +22,12 @@
   emails: onfailure
   filelog-stdout: logs/wikt-shadow.out
   filelog-stderr: logs/wikt-shadow.err
+
+- name: wikt-trial
+  command: ./task-21-wiktionary-antivandal/run.sh WIKT_PATROL_APPROVED=1 WIKT_MAX_ACTIONS_PER_DAY=5 patrol --live
+  image: node20
+  mem: 512Mi
+  continuous: true
+  emails: onfailure
+  filelog-stdout: logs/wikt-trial.out
+  filelog-stderr: logs/wikt-trial.err

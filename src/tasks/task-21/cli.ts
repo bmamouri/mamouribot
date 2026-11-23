@@ -24,7 +24,7 @@ async function main() {
     const f = flags({ ns: 0, isCreation: true, oldText: '', newText: 'علی متولد ۱۳۸۰ در تهران است', added: ['علی متولد ۱۳۸۰ در تهران است'], removed: [], summary: '', tags: [] });
     const d = decide({ tier: 'T3', ns: 0, isCreation: true, flags: f, pass1: null, pass2: null, fingerprintTrusted: true,
       revertsLowTrustUser: false, hasRevertTarget: true, trustedEditedSince: false, botAlreadyActedOnPairToday: false,
-      humanUndidBotOnPair: false, writesInLastHour: 0, highUseTemplate: false });
+      humanUndidBotOnPair: false, writesInLastHour: 0, actionsToday: 0, highUseTemplate: false });
     const ok = f.some(x => x.id === 'no-structure') && d.action === 'log';
     console.log(ok ? 'SELFTEST OK' : `SELFTEST FAILED ${JSON.stringify({ f, d })}`);
     process.exit(ok ? 0 : 1);

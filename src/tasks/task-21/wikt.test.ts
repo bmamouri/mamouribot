@@ -14,6 +14,7 @@ import { fingerprintTrusted, norm, userPrompt, verifyEvidence, type LlmVerdict }
 import { flags } from './rules.js';
 import { tierOf, type UserFacts } from './trust.js';
 import { FAWIKI, FAWIKT } from '../../core.js';
+import { enqueue, renderReview } from './patrol.js';
 import { LLM_URL } from './config.js';
 
 let pass = 0;
@@ -119,7 +120,7 @@ console.log('\n== decision ladder ==');
   const base: DecisionInput = { tier: 'T1', ns: 0, isCreation: false, flags: strong,
     pass1: v('vandalism', 0.97), pass2: v('vandalism', 0.95), fingerprintTrusted: true,
     revertsLowTrustUser: false, hasRevertTarget: true, trustedEditedSince: false,
-    botAlreadyActedOnPairToday: false, humanUndidBotOnPair: false, writesInLastHour: 0, highUseTemplate: false };
+    botAlreadyActedOnPairToday: false, humanUndidBotOnPair: false, writesInLastHour: 0, actionsToday: 0, highUseTemplate: false };
   ok('clear case reverts', decide(base).action === 'revert', JSON.stringify(decide(base)));
   ok('T2 is never reverted', decide({ ...base, tier: 'T2' }).action === 'report');
   ok('T3 is ignored', decide({ ...base, tier: 'T3' }).action === 'log');
@@ -131,6 +132,7 @@ console.log('\n== decision ladder ==');
   ok('a human undo burns the pair', decide({ ...base, humanUndidBotOnPair: true }).action === 'report');
   ok('one action per page and user a day', decide({ ...base, botAlreadyActedOnPairToday: true }).action === 'report');
   ok('the hourly cap holds', decide({ ...base, writesInLastHour: 10 }).action === 'report');
+  ok('the trial cap of 5 a day holds', decide({ ...base, actionsToday: 5 }).action === 'report' && decide({ ...base, actionsToday: 4 }).action === 'revert');
   ok('no trusted revision to go back to', decide({ ...base, hasRevertTarget: false }).action === 'report');
   ok('high-use templates are left to humans', decide({ ...base, ns: 10, highUseTemplate: true }).action === 'report');
   ok('T1 with no rule flag is only reported', decide({ ...base, flags: [] }).action === 'report');
@@ -157,6 +159,27 @@ console.log('\n== decision ladder ==');
      pass1: v('test', 0.95), pass2: v('test', 0.95) }).action === 'tag');
   ok('second pass is requested only for actionable T0/T1', wantsSecondPass('T1', v('spam', 0.95))
      && !wantsSecondPass('T2', v('spam', 0.95)) && !wantsSecondPass('T1', v('ok', 0.99)) && !wantsSecondPass('T1', v('spam', 0.7)));
+}
+
+console.log('\n== the settle queue ==');
+{
+  const q = new Map<number, { c: any; due: number }>();
+  const c = { rcid: 10, pageid: 1 } as any;
+  enqueue(q, c, 0);
+  enqueue(q, c, 60_000);           // the same edit seen again by the next poll
+  ok('re-polling the same edit does not push the wait back', q.get(1)!.due === 90_000, String(q.get(1)!.due));
+  enqueue(q, { rcid: 11, pageid: 1 } as any, 70_000);
+  ok('a newer edit on the page does restart the wait', q.get(1)!.due === 160_000 && q.get(1)!.c.rcid === 11);
+}
+
+console.log('\n== review page ==');
+{
+  const t = renderReview([{ ts: '2026-11-24T10:05:00Z', title: 'راغ', revid: 123, action: 'report',
+    p1: { v: 'ai_paste', c: 0.93, r: 'پاسخ | چت‌بات' }, reasons: [] }]);
+  ok('one row per case, with a diff link', /\[\[ویژه:تفاوت\/123\|تفاوت\]\]/.test(t) && (t.match(/^\|-$/gm) ?? []).length === 1, t);
+  ok('a pipe in the reason cannot break the table', t.includes('پاسخ {{!}} چت‌بات'));
+  ok('digits are Persian', t.includes('۹۳٪') && !/\d/.test(t.replace(/\[\[[^\]]*\]\]/g, '').replace(/^\{\|.*$/m, '')));
+  ok('an empty window still renders a table', renderReview([]).includes('موردی نیست'));
 }
 
 console.log('\n== wiring ==');

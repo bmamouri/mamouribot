@@ -22,6 +22,9 @@ export interface LedgerState {
   actions: ActionRecord[];
   /** `page|user` pairs a human has undone the bot on. Never acted on again. */
   burned: string[];
+  /** When the review page was last rebuilt, and the newest report it held (ISO). */
+  reviewPublishedAt?: string;
+  reviewNewest?: string;
 }
 
 const pair = (page: string, user: string) => `${page}|${user}`;
@@ -52,6 +55,12 @@ export class Ledger {
 
   decision(row: object) { appendFileSync(this.log, JSON.stringify(row) + '\n'); }
 
+  /** Every decision row still on disk (the JSONL is append-only). */
+  decisions(): any[] {
+    if (!existsSync(this.log)) return [];
+    return readFileSync(this.log, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l));
+  }
+
   burn(page: string, user: string) {
     const k = pair(page, user);
     if (!this.state.burned.includes(k)) { this.state.burned.push(k); this.save(); }
@@ -66,6 +75,9 @@ export class Ledger {
       && (a.kind === 'revert' || a.kind === 'tag'));
   }
   writesInLastHour(now = Date.now()) { return this.since(3_600_000, now).length; }
+  actionsToday(now = Date.now()) {
+    return this.since(86_400_000, now).filter(a => a.kind === 'revert' || a.kind === 'tag').length;
+  }
   revertsOnPageToday(page: string, now = Date.now()) {
     return this.since(86_400_000, now).filter(a => a.page === page && a.kind === 'revert').length;
   }

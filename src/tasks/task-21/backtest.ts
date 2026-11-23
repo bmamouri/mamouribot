@@ -111,7 +111,7 @@ export async function backtest(path: string, perBucket: number, concurrency: num
       const dec = decide({ tier, ns: g.ns, isCreation, flags: fl, pass1: p1, pass2: p2,
         fingerprintTrusted: fingerprintTrusted(p1?.fingerprint ?? null),
         revertsLowTrustUser: isRevertOf(g.tags ?? []), hasRevertTarget: true, trustedEditedSince: false,
-        botAlreadyActedOnPairToday: false, humanUndidBotOnPair: false, writesInLastHour: 0, highUseTemplate: false });
+        botAlreadyActedOnPairToday: false, humanUndidBotOnPair: false, writesInLastHour: 0, actionsToday: 0, highUseTemplate: false });
       const row = { kind: g.kind, label: g.label, tier, page: g.page, rev: g.rev_id, why: g.why,
         action: dec.action, reasons: dec.reasons, flags: fl.map(f => f.id),
         p1: p1 && [p1.verdict, p1.confidence, p1.verifiedEvidence.length, p1.reason_fa],

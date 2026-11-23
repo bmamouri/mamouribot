@@ -7,7 +7,7 @@
  * not a cheap thing to lose. So every action needs several independent signals to agree,
  * and any doubt lands on the review page instead.
  */
-import { ACT_CONFIDENCE, MAX_WRITES_PER_HOUR, REPORT_CONFIDENCE } from './config.js';
+import { ACT_CONFIDENCE, MAX_ACTIONS_PER_DAY, MAX_WRITES_PER_HOUR, REPORT_CONFIDENCE } from './config.js';
 import { ACTIONABLE, type LlmVerdict } from './llm.js';
 import type { Flag } from './rules.js';
 import type { Tier } from './trust.js';
@@ -34,6 +34,8 @@ export interface DecisionInput {
   botAlreadyActedOnPairToday: boolean;
   humanUndidBotOnPair: boolean;
   writesInLastHour: number;
+  /** Reverts and tags in the last 24 h. */
+  actionsToday: number;
   /** The page is a template/module used on many pages: never auto-revert there. */
   highUseTemplate: boolean;
 }
@@ -91,6 +93,7 @@ export function decide(d: DecisionInput): Decision {
   if (d.humanUndidBotOnPair) return reportOr('کاربری پیش‌تر کار ربات را روی همین صفحه و کاربر برگردانده است');
   if (d.botAlreadyActedOnPairToday) return reportOr('ربات امروز یک بار روی همین صفحه و کاربر کار کرده است');
   if (d.writesInLastHour >= MAX_WRITES_PER_HOUR) return reportOr('سقف ویرایش ساعتی پر است');
+  if (d.actionsToday >= MAX_ACTIONS_PER_DAY) return reportOr('سقف ویرایش روزانهٔ دورهٔ آزمایشی پر است');
   if (d.trustedEditedSince) return reportOr('کاربر مورد اعتماد پس از این ویرایش صفحه را ویرایش کرده است');
   if (!strongPass(p1) || !strongPass(p2)) {
     return reportOr(p2 ? 'دو بررسی مدل هم‌رأی و مطمئن نبودند' : 'اطمینان مدل کافی نیست');
