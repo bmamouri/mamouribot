@@ -119,7 +119,7 @@ export const FAWIKT: WikiConfig = {
   // comes from fa.wiktionary, not fawiki's BRFA, so the page follows the fa.wiktionary
   // pattern (iCEAGE bot, Rezabot, AyBot, DarafshBot). Until it exists summaryFor() finds it
   // missing and links nothing. Update the month when filing.
-  permissionPage: () => 'ویکی‌واژه:نظرخواهی‌ها/ربات-۲۰۲۶-۱۲/کاربر:MamouriBot برای مجوز ربات',
+  permissionPage: () => 'ویکی‌واژه:نظرخواهی‌ها/ربات-۲۰۲۶-۱۱/کاربر:MamouriBot برای مجوز ربات',
 };
 /**
  * Consecutive failures to READ the run page before the run halts itself.
