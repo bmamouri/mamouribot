@@ -5,8 +5,9 @@ This task translates two kinds of them, and only those two.
 
 ## Status
 
-Filed ۲۲ نوامبر ۲۰۲۶ at `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۲۰`, waiting
-for review. A 100-edit trial ran the same day under `--as-me` (97 articles, 3 navboxes, dictionary
+**Approved** by Huji ۲۳ نوامبر ۲۰۲۶ (`ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۲۰`).
+Runs as MamouriBot, job `t20-daily`, 07:05 UTC, at most 200 edits, over `targets.json` built by
+`targets.py` from the census. First live batch (30 edits) audited on ۲۳ نوامبر ۲۰۲۶: one line each. A 100-edit trial ran the same day under `--as-me` (97 articles, 3 navboxes, dictionary
 rev 45017783): 0 refused before saving, 0 reverted after, every diff checked on the wiki, and the
 new Persian value visible in every saved revision. The trial is reported on the request page.
 

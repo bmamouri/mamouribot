@@ -35,6 +35,14 @@ const CHANGES = new Map<string, Change[]>();
 const SKIPPED = new Map<string, string[]>();
 const REFUSED = new Map<string, string>();
 
+/** Titles this task already edited, from its own checkpoint file. */
+function doneTitles(): Set<string> {
+  const path = `${process.env.BOT_STATE_DIR ?? '.state'}/infobox-values.json`;
+  if (!existsSync(path)) return new Set();
+  try { return new Set(Object.keys(JSON.parse(readFileSync(path, 'utf8')).done ?? {})); }
+  catch { return new Set(); }
+}
+
 const canonical = (name: string) => CANON.get(normTemplate(name)) ?? normTemplate(name);
 /** fa article → en sitelink title ('' = none), read once in getTargets. Redirects are followed. */
 let EN_OF = new Map<string, string>();
@@ -126,7 +134,11 @@ export const infoboxValuesTask: BotTask = {
     for (const tpl of (process.env.TARGET_TRANSCLUDING ?? '').split('|').map(s => s.trim()).filter(Boolean)) {
       titles.push(...await transcluding(bot, tpl, process.env.TARGET_NAMESPACE ?? '0|10', cap));
     }
-    titles = [...new Set(titles)].filter(t => !NOT_A_TEMPLATE.test(t)).slice(0, cap);
+    // Skip pages this task already edited BEFORE capping: core.ts filters the checkpoint
+    // only after getTargets returns, so a cap taken first would re-read the same head of the
+    // target file every run and find it done.
+    const done = doneTitles();
+    titles = [...new Set(titles)].filter(t => !NOT_A_TEMPLATE.test(t) && !done.has(t)).slice(0, cap);
     if (!titles.length) {
       console.log('هیچ صفحه‌ای داده نشد. TARGET_FILE، TARGET_TITLES یا TARGET_TRANSCLUDING را تنظیم کنید.');
       return [];

@@ -1,4 +1,5 @@
-# وظیفهٔ ۲۰: English values left in infoboxes. Not filed yet; nothing here edits the wiki.
+# وظیفهٔ ۲۰: English values left in infoboxes and navboxes. Approved by Huji ۲۳ نوامبر ۲۰۲۶
+# after a 100-edit trial under the operator's account.
 #
 # ⚠️ Never `toolforge jobs load` this file: it deletes every other task's scheduled jobs.
 # Create each job with `toolforge jobs run`, copying the fields (bots/docs/TOOLFORGE.md §5).
@@ -26,6 +27,38 @@
   emails: onfailure
   filelog-stdout: logs/t20-nav-census.out
   filelog-stderr: logs/t20-nav-census.err
+
+# Check credentials, bot flag and stop page. No edits.
+- name: t20-check
+  command: ./task-20-infobox-values/run.sh --check
+  image: node20
+  mem: 512Mi
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/t20-check.out
+  filelog-stderr: logs/t20-check.err
+
+# First live batch as MamouriBot. One-off.
+- name: t20-first
+  command: ./task-20-infobox-values/run.sh --live --limit 30 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0
+  emails: all
+  filelog-stdout: logs/t20-first.out
+  filelog-stderr: logs/t20-first.err
+
+# Daily until the target file (~3,700 pages) is worked through, then weekly with a fresh
+# census. 07:05 UTC is clear of tasks 1 (06:20), 16 (06:50), 7/9/8 (07:15–07:45) and 12 (08:00).
+- name: t20-daily
+  command: ./task-20-infobox-values/run.sh --live --limit 200 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "5 7 * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/t20-daily.out
+  filelog-stderr: logs/t20-daily.err
 
 # Dry run over the current target file. No login, no writes.
 - name: t20-dry

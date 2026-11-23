@@ -129,6 +129,7 @@ A new name there is the only sign that something started reading a secret.
 | `ud-daily` | ۱ | `20 6 * * *` | `./task-01-use-dmy-dates/run.sh --live --limit 200 --delay 15` |
 | `cp-daily` | ۴ | `35 6 * * *` | `./task-04-company-params/run.sh --live --limit 50 --delay 15` |
 | `tf-daily` | ۱۶ | `50 6 * * *` | `./task-16-text-fragment/run.sh --live --limit 200 --delay 15` |
+| `t20-daily` | ۲۰ | `5 7 * * *` | `./task-20-infobox-values/run.sh --live --limit 200 --delay 15` |
 | `sw-weekly` | ۷ | `15 7 * * 2` | `./task-07-software-params/run.sh --live --limit 100 --delay 15` |
 | `tl-weekly` | ۹ | `30 7 * * 4` | `./task-09-taxonomy-link/run.sh --live --limit 200 --delay 15` |
 | `mp-weekly` | ۸ | `45 7 * * 2` | `./task-08-musician-params/run.sh --live --limit 100 --delay 15` |
@@ -165,6 +166,7 @@ These have no schedule. They are the check, dry-run and trial steps for each tas
 | ۱۵ | `st-check`, `st-dry`, `st-first` |
 | ۱۶ | `tf-check`, `tf-dry`, `tf-first` |
 | ۱۸ | `pl-check`, `pl-dry`, `pl-trial` (historical `--as-me` run), `pl-first` |
+| ۲۰ | `t20-census`, `t20-nav-census`, `t20-attested`, `t20-check`, `t20-dry`, `t20-first` |
 
 `--check` tests the credentials, the bot flag and the stop page, and makes no edits. A run
 without `--live` is a dry run.
