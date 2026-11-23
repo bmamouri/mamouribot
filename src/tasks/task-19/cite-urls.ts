@@ -21,7 +21,7 @@
  *
  * See docs/task-19-cite-urls.md.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync, writeSync } from 'fs';
 import { dirname, join } from 'path';
 import { BOT_UA, HUMAN_UA, type Bot, type BotTask } from '../../core.js';
 import { auditCounts, checkWikitext } from '../../lib/gates.js';
@@ -59,6 +59,7 @@ const SUMMARY = 'تکمیل یادکردهای نشانی عریان و اصلا
 let CACHE = new Map<string, Evidence | { resolved: Resolved }>();
 let VERIFIED_ARTICLES = new Set<string>();
 const PLANS = new Map<string, Plan>();
+const REFS_DONE = new Map<string, number>();
 const DECLINED = new Map<string, { reason: string; pages: Set<string> }>();
 const KIND_SUMMARY = new Map<string, Set<Kind>>();
 let TODAY = todayFa();
@@ -98,9 +99,19 @@ function saveCache() {
   const p = cachePath();
   mkdirSync(dirname(p), { recursive: true });
   const now = Date.now();
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of CACHE) out[k] = { ...v, at: AT.get(k) ?? now };
-  writeFileSync(p, JSON.stringify(out));
+  // Written entry by entry: one JSON.stringify of the whole cache is a single string of
+  // tens of MB, and building it is what ran the 1,000-edit job out of memory.
+  const tmp = p + '.tmp';
+  const fd = openSync(tmp, 'w');
+  writeSync(fd, '{');
+  let first = true;
+  for (const [k, v] of CACHE) {
+    writeSync(fd, (first ? '' : ',') + JSON.stringify(k) + ':' + JSON.stringify({ ...v, at: AT.get(k) ?? now }));
+    first = false;
+  }
+  writeSync(fd, '}');
+  closeSync(fd);
+  renameSync(tmp, p);
 }
 
 export function judge(url: string, e: Evidence | { resolved: Resolved }, todayIso = TODAY_ISO()): Resolved {
@@ -240,7 +251,7 @@ export const citeUrlsTask: BotTask = {
     const kinds = KIND_SUMMARY.get(title);
     if (!kinds) return undefined;
     const parts: string[] = [];
-    const n = PLANS.get(title)?.changes.filter(c => c.kind === 'bare-ref' || c.kind === 'labelled-ref').length ?? 0;
+    const n = PLANS.get(title)?.changes.filter(c => c.kind === 'bare-ref' || c.kind === 'labelled-ref').length ?? REFS_DONE.get(title) ?? 0;
     if (n) parts.push(`تکمیل ${faDigits(n)} یادکرد نشانی عریان`);
     if (kinds.has('title')) parts.push('افزودن عنوان یادکرد');
     if (kinds.has('scheme') || kinds.has('redirector') || kinds.has('qmark')) parts.push('اصلاح نشانی منبع');
@@ -286,12 +297,12 @@ export const citeUrlsTask: BotTask = {
     const lookup = lookupFrom(CACHE, VERIFIED_ARTICLES);
     const work: string[] = [];
     const counts: Record<string, number> = {};
-    const entries = [...texts];
-    let looked = 0, pagesSeen = 0;
+    const entries = [...texts.keys()];
+    let looked = 0, pagesSeen = 0, lastSave = 0;
     for (let c = 0; c < entries.length && work.length < want; c += CHUNK) {
       const chunk = entries.slice(c, c + CHUNK);
       const need = new Set<string>();
-      for (const [t, x] of chunk) for (const u of planPage(x, t, opt(() => undefined, t)).needs) if (!CACHE.has(u)) need.add(u);
+      for (const t of chunk) for (const u of planPage(texts.get(t)!, t, opt(() => undefined, t)).needs) if (!CACHE.has(u)) need.add(u);
       const todo = [...need].slice(0, Math.max(0, maxLookups - looked));
       // Several URLs in flight at once. Each service still has its own minimum gap
       // (resolve.ts Gate), so this overlaps waiting on different services and hosts; it
@@ -300,25 +311,30 @@ export const citeUrlsTask: BotTask = {
         CACHE.set(u, isArchiveUrl(u) ? { resolved: await net.resolve(u) } : await net.gather(u));
       });
       looked += todo.length;
-      saveCache();
-      for (const [t, x] of chunk) {
+      if (looked - lastSave >= 200) { saveCache(); lastSave = looked; }
+      for (const t of chunk) {
         pagesSeen++;
-        const p = planPage(x, t, opt(lookup, t));
+        const p = planPage(texts.get(t)!, t, opt(lookup, t));
         EXAMINED.add(t);
         for (const pr of p.proposals) FRESH.push({ title: t, ...pr });
         for (const d of p.declined) {
           const row = DECLINED.get(d.url) ?? { reason: d.reason, pages: new Set<string>() };
           row.pages.add(t); DECLINED.set(d.url, row);
         }
-        if (!p.changed) continue;
+        if (!p.changed) { texts.delete(t); continue; }
         for (const k of p.changes) counts[k.kind] = (counts[k.kind] ?? 0) + 1;
-        PLANS.set(t, p);
+        // Only what perPageSummary needs. transform() re-plans from the text the runner
+        // reads, so holding every planned page here (two full copies of up to 1,000 articles)
+        // only cost memory: the 1,000-edit run died of OOM at 553 ready pages.
         KIND_SUMMARY.set(t, new Set(p.changes.map(k => k.kind)));
+        REFS_DONE.set(t, p.changes.filter(k => k.kind === 'bare-ref' || k.kind === 'labelled-ref').length);
         work.push(t);
+        texts.delete(t);
       }
       console.log(`  …${pagesSeen}/${entries.length} صفحه، ${looked} نشانی بررسی شد، ${work.length} صفحه آماده`);
       if (looked >= maxLookups) { console.log(`سقف بررسی نشانی (${maxLookups}) رسید`); break; }
     }
+    saveCache();
     const notes = [...CACHE].map(([u, e]) => [u, judge(u, e).notes] as const).filter(([, n]) => n?.length);
     if (notes.length) console.log(`بررسی متقابل با خود صفحه ${notes.length} مورد را اصلاح کرد:\n` + notes.slice(0, 30).map(([u, n]) => `  ${u.slice(0, 80)}  ${n!.join('; ')}`).join('\n'));
     console.log(`گونهٔ تغییرها: ${JSON.stringify(counts)}`);
@@ -330,6 +346,8 @@ export const citeUrlsTask: BotTask = {
   transform(text: string, title: string) {
     const p = planPage(text, title, planOpts(lookupFrom(CACHE, VERIFIED_ARTICLES), title));
     if (!p.changed) return { text, changed: false, note: 'موردی برای اصلاح نبود' };
+    // Pipelined: at most a handful of pages are between transform and write at once.
+    if (PLANS.size > 16) PLANS.delete(PLANS.keys().next().value!);
     PLANS.set(title, p);
     KIND_SUMMARY.set(title, new Set(p.changes.map(c => c.kind)));
     return { text: p.text, changed: true, note: [...new Set(p.changes.map(c => c.kind))].join('، ') };

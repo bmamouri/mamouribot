@@ -38,7 +38,7 @@
 - name: cu-daily
   command: env TARGET_CAP=4000 ./task-19-cite-urls/run.sh --live --limit 1000 --delay 15
   image: node20
-  mem: 1Gi
+  mem: 2Gi
   schedule: "40 5 * * *"
   retry: 0
   emails: onfailure

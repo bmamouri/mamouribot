@@ -525,7 +525,10 @@ export class NetResolver {
         }
         if (!r.ok) { await r.body?.cancel(); return { ok: false, status: r.status }; }
         const j = await r.json() as CitoidItem[];
-        return j?.[0] ? { ok: true, item: j[0] } : { ok: false, status: 204 };
+        if (!j?.[0]) return { ok: false, status: 204 };
+        // Keep only what combine() reads: abstracts, tags and notes are most of the bytes.
+        const { itemType, title, url: u, date, language, websiteTitle, publicationTitle, blogTitle, author } = j[0];
+        return { ok: true, item: { itemType, title, url: u, date, language, websiteTitle, publicationTitle, blogTitle, author } };
       } catch { if (attempt >= 1) return { ok: false, status: 0 }; }
     }
     return { ok: false, status: 429 };
