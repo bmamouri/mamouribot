@@ -56,7 +56,8 @@ export function judgeTitle(raw: string | undefined, ctx: { url: string; site?: s
   if (!t || t.length < 3) return { ok: false, reason: 'no-title' };
   if (/^\{[^}]*\}$/.test(t) || /\{\{|\}\}|\$\{/.test(t)) return { ok: false, reason: 'template-placeholder' };
   if (/^\d{3}\b/.test(t) && /^(?:4\d\d|5\d\d)\b/.test(t)) return { ok: false, reason: 'http-error-title' };
-  if (GENERIC_EXACT.has(low)) return { ok: false, reason: 'generic-title' };
+  if (GENERIC_EXACT.has(low) || GENERIC_EXACT.has(low.replace(/^[\[(<{]\s*|\s*[\])>}]$/g, ''))) return { ok: false, reason: 'generic-title' };
+  if (/^[\[(<{]?\s*no\s+title(?:\s+found)?\s*[\])>}]?$/i.test(t)) return { ok: false, reason: 'generic-title' };
   // a home page's title wearing the site's name: «صفحه اصلی - پورتال …», «Home | X»
   if (/^(?:home|homepage|home page|main page|welcome|صفحه ?ی? ?اصلی|صفحهٔ اصلی|خانه|خوش ?آمدید)\s*(?:[-|–—:»]|::)/i.test(t) || /^(?:home|homepage|صفحه ?ی? ?اصلی|صفحهٔ اصلی)\s*(?:[-|–—:»]|::)/i.test(raw.replace(/^[\s.:|»«·•*~=_-]+/, ''))) return { ok: false, reason: 'generic-title' };
   // a URL slug passed off as a title: «دانشنامه-هنرهای-رزمی-(نخستین-…)»
@@ -92,14 +93,23 @@ export function stripSiteSuffix(t: string, ctx: { url: string; site?: string; na
   const host = (hostOf(ctx.url) ?? '').replace(/^www\d*\./, '');
   const stem = host.split('.')[0];
   const names = [ctx.site ?? '', host, stem, ...(ctx.names ?? [])]
-    .map(n => n.replace(/\s*\([^)]*\)$/, '').replace(/\s+/g, '').toLowerCase())
+    .map(n => n.replace(/\s*\([^)]*\)$/, '').replace(/[\s\u200c]+/g, '').toLowerCase())
     .filter(n => n.length >= 3);
+  // «پایگاه اطلاع رسانی دولت:::. : دولت نهم …» — a run of colons and dots is a separator
+  t = t.replace(/\s*(?::{2,}\.?|\.:{2,})\s*:?\s*/g, ' | ').replace(/^\s*\|\s*|\s*\|\s*$/g, '').trim();
   const named = (seg: string) => {
-    const x = seg.replace(/\s+/g, '').toLowerCase();
+    const x = seg.replace(/[\s\u200c]+/g, '').toLowerCase();
     return x.length >= 2 && names.some(n => x === n || x.includes(n) || (x.length >= 4 && n.includes(x)));
   };
   // A LEADING site name: «Magiran | روزنامه …», «Pong-Story : Magnavox Odyssey». Only a
   // segment that names the site, so «Pence: Europe must…» keeps its colon.
+  // A breadcrumb: «رادیو زمانه | خبر اول | موسیقی | دستگیری ۱۳ عامل موسیقی رپ در اصفهان». The
+  // site first and three or more pipe segments: the page's own title is the last one.
+  const crumbs = t.split(/\s+\|\s+/);
+  // Only when the FIRST segment is the site and no later one is: «… | Mehr News Agency» is
+  // a title with the site's tagline after it, the other shape.
+  if (crumbs.length >= 3 && named(crumbs[0]) && !crumbs.slice(1).some(named)
+    && !/\s+[-–—]\s+/.test(crumbs[0]) && crumbs[crumbs.length - 1].length >= 8) return crumbs[crumbs.length - 1].trim();
   const lead = /^(.{2,40}?)\s+(?:\||::|:|»|·|•|–|—|-)\s+(.+)$/.exec(t);
   if (lead && named(lead[1]) && lead[2].length >= 3) t = lead[2];
   // «A Phonology of Southern Luri: …: Amazon.com: Books» — a colon segment that is a domain.

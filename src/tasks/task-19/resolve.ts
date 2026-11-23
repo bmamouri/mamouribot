@@ -108,7 +108,12 @@ export function softDead(asked: string, finalUrl: string | undefined): string | 
     const dec = (x: string) => { try { return decodeURIComponent(x); } catch { return x; } };
     const ids = dec(ap).split(/[/?&=._-]+/).filter(t => t.length >= 4 && !/^(?:news|html?|php|aspx?|index|article|articles|content|detail|fa|en|www)$/i.test(t));
     const fin = dec(finalUrl).toLowerCase();
-    if (ids.length && !ids.some(t => fin.includes(t.toLowerCase()))) return 'redirected-elsewhere';
+    // A site that renumbered its articles and redirects old ids to the new page
+    // (farsnews.ir: `newstext.php?nn=13930929001054` → `/world/1419075840000481071`) keeps no
+    // id in the path, so a missing id is only evidence when the new path is shallow: a
+    // section index or a home page, not an article-shaped path with its own long id.
+    const articleShaped = /\/\d{6,}(?:[/?#.-]|$)|\/[^/]*-[^/]*-[^/]*(?:[/?#.]|$)/.test(bp);
+    if (ids.length && !ids.some(t => fin.includes(t.toLowerCase())) && !articleShaped) return 'redirected-elsewhere';
   }
   return null;
 }
@@ -286,6 +291,11 @@ export function slugMismatch(url: string, title: string): boolean {
   const norm = (x: string) => persianLetterforms(x.toLowerCase(), false).replace(/[\u064b-\u065f\u0670\u200c]/g, '');
   const words = norm(seg.replace(/\.\w{2,5}$/, '')).split(/[-_+.\s]+/).filter(w => w.length >= 3 && /^\p{L}+$/u.test(w));
   if (words.length < 3) return false;
+  // A slug in one script and a title in another is a translation, not a mismatch: BBC
+  // Persian and Euronews Persian give every Persian article an English slug, which
+  // refused 114 good citations in the first daily run.
+  const latin = (x: string) => /[a-z]/.test(x) && !/[\u0600-\u06ff]/.test(x);
+  if (latin(words.join('')) !== latin(norm(title).replace(/[^\p{L}]/gu, ''))) return false;
   const tw = new Set(norm(title).split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 3));
   return !words.some(w => tw.has(w) || [...tw].some(t => t.startsWith(w) || w.startsWith(t)));
 }
@@ -537,6 +547,17 @@ export class NetResolver {
   async page(url: string, gate = this.webGate): Promise<PageResult> {
     const first = await this.pageOnce(url, gate);
     if (first.status !== 0) return first;
+    // farsnews.ir: `www.` answers with a certificate for the bare host only, so every old
+    // `http://www.farsnews.ir/newstext.php?nn=…` link failed TLS after its redirect while
+    // `http(s)://farsnews.ir/…` serves the article. The page found there is the same page;
+    // the citation keeps the URL as the editor wrote it.
+    const bare = url.replace(/^(https?:\/\/)www\./i, '$1');
+    if (bare !== url) {
+      for (const v of [bare, bare.replace(/^http:/i, 'https:')]) {
+        const r = await this.pageOnce(v, gate);
+        if (r.status !== 0) return r;
+      }
+    }
     await sleep(5000);                         // one retry: DNS and TLS hiccups are common
     return this.pageOnce(url, gate);
   }

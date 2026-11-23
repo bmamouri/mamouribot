@@ -107,6 +107,7 @@ eq('Armenian title declared hy', langOf('ՀՀ պաշտպանության նախ�
 eq('Persian title, no language', langOf('درباره حسین کاظم زاده', 'fa'), undefined);
 eq('geoblock redirect is soft-dead', softDead('https://www.eurosport.com/wrestling/x/story.shtml', 'https://www.eurosport.com/geoblocking.shtml'), 'soft-404');
 eq('redirected to an unrelated page', softDead('http://www.wwe.com/events/all/summerslam/2003', 'https://www.wwe.com/tickets'), 'redirected-elsewhere');
+eq('a renumbered article redirect is fine (farsnews)', softDead('http://www.farsnews.ir/newstext.php?nn=13930929001054', 'https://farsnews.ir/world/1419075840000481071'), null);
 eq('canonical slug redirect is fine', softDead('https://www.isna.ir/news/1405080603988/', 'https://www.isna.ir/news/1405080603988/%D8%A7%D9%84%D9%81'), null);
 
 eq('leading site name stripped', judgeTitle('Magiran | روزنامه دنیای اقتصاد: وداع با استاد', { url: 'https://www.magiran.com/article/3427693' }), { ok: true, title: 'روزنامه دنیای اقتصاد: وداع با استاد' });
@@ -223,7 +224,8 @@ eq('…: Amazon.com: Books stripped', judgeTitle('A Phonology of Southern Luri: 
 ok('pubiran wrong-book title caught by the slug', slugMismatch('https://pubiran.ir/BookView/2390568/مكتب-تاپ-تكواندو-نخستين-سبك-آزاد', 'خوک کریسمس'));
 ok('a matching title passes the slug check', !slugMismatch('https://www.mehrnews.com/news/4157206/نمایشگاه-دائمی-سوغات-شهرستان-بشرویه-افتتاح-شد', 'نمایشگاه دائمی سوغات شهرستان بشرویه افتتاح شد'));
 ok('Arabic-kaf slug vs Persian title still matches', !slugMismatch('https://www.isna.ir/news/8104-01363/مسوول-كانون-تكواندوكاران', 'مسوول کانون تکواندوکاران ایران در گفت‌وگو'));
-ok('an English slug vs a Persian title is not judged... unless no overlap', slugMismatch('https://x.com/a/the-great-wall-history', 'دیوار بزرگ'));
+ok('an English slug vs a Persian title is a translation, not a mismatch (BBC Persian, Euronews)', !slugMismatch('http://www.bbc.com/persian/arts/2016/08/160828_l51_eaten_fish_prize_australia', 'جایزه بین‌المللی کاریکاتور برای پناهجوی ایرانی بازداشتی'));
+ok('an English slug vs an unrelated English title is still a mismatch', slugMismatch('https://www.esquire.com/entertainment/movies/a47958/dog-day-afternoon-true-story/', "Listen to George Carlin's Infamous 9/11 Cop Rant"));
 ok('a numeric id is not a slug', !slugMismatch('https://www.irna.ir/news/84204251/', 'هر چیزی'));
 
 ok('ketab.ir slug title with colon and tail rejected', !judgeTitle('مکتب-تاپ-تکواندو:-نخستین-سبک-آزاد-تکواندو-جهان | پارس-میهن | خانه کتاب و ادبیات ایران', { url: 'https://ketab.ir/book/x', site: 'خانه کتاب و ادبیات ایران' }).ok);
@@ -438,6 +440,32 @@ console.log('== planPage: title fill ==');
   const p = planPage(text, 't', { lookup: () => undefined, today: TODAY });
   eq('google site name with an unknown target: ask, change nothing yet', [p.changed, p.needs], [false, ['https://fa.euronews.com/amp/x']]);
 }
+
+ok('«[No title found]» rejected', !judgeTitle('[No title found]', { url: 'https://doi.org/10.1/x' }).ok);
+eq('breadcrumb title: the last segment', judgeTitle('رادیو زمانه | خبر اول | موسیقی | دستگیری ۱۳ عامل موسیقی رپ در اصفهان', { url: 'http://zamaaneh.com/news/2009/02/post_8076.html', names: ['رادیو زمانه'] }), { ok: true, title: 'دستگیری ۱۳ عامل موسیقی رپ در اصفهان' });
+eq('«:::.» separator and a ZWNJ-spelled site name', judgeTitle('پایگاه اطلاع رسانی دولت:::. : دولت نهم در روزهای پایانی کماکان به فعالیت خود ادامه می دهد', { url: 'http://www.dolat.ir/x', names: ['پایگاه اطلاع‌رسانی دولت'] }), { ok: true, title: 'دولت نهم در روزهای پایانی کماکان به فعالیت خود ادامه می دهد' });
+
+console.log('== title fill in citations that are not bare URLs ==');
+{
+  // نبرد سنجار (۲۰۱۴), live: the bot completed four bare refs and left this one with its CS1 error
+  const text = 'x<ref>{{یادکرد وب |نویسنده = |نشانی= http://www.farsnews.ir/newstext.php?nn=13930929001054|عنوان= | ناشر = خبرگزاری فارس|تاریخ = |تاریخ بازبینی=}}</ref>';
+  const p = planPage(text, 'نبرد سنجار (۲۰۱۴)', { lookup: () => ({ ok: true, meta: { url: 'x', title: 'منطقه «سنجار» عراق از دست داعش آزاد شد', website: '[[خبرگزاری فارس]]' } }), today: TODAY });
+  eq('empty عنوان= filled, nothing else touched', p.text, 'x<ref>{{یادکرد وب |نویسنده = |نشانی= http://www.farsnews.ir/newstext.php?nn=13930929001054|عنوان= منطقه «سنجار» عراق از دست داعش آزاد شد| ناشر = خبرگزاری فارس|تاریخ = |تاریخ بازبینی=}}</ref>');
+}
+{
+  const text = 'x<ref>{{cite web|url=https://www.ithome.com/1/001/450.htm|website=IT之家|date=2019}}</ref>';
+  const p = planPage(text, 'T', { lookup: () => ({ ok: true, meta: { url: 'x', title: '曝光', website: 'IT之家' } }), today: TODAY });
+  eq('an English-keyed cite web gets title=, not عنوان=', p.text, 'x<ref>{{cite web|url=https://www.ithome.com/1/001/450.htm|website=IT之家|date=2019|title=曝光}}</ref>');
+}
+{
+  const text = 'x<ref>{{یادکرد ژورنال|نشانی=https://pmc.ncbi.nlm.nih.gov/articles/PMC3148621/|ژورنال=J|سال=2011}}</ref>';
+  const p = planPage(text, 'T', { lookup: () => ({ ok: true, meta: { url: 'x', title: 'Psychochemical warfare' } }), today: TODAY });
+  ok('a journal citation with its article URL gets the title', p.text.includes('|عنوان=Psychochemical warfare}}'), p.text);
+}
+noop('a book citation pointing at Google Books is not given the page title', 'x<ref>{{cite book|url=https://books.google.com/books?id=QYoPkk04Yp4C|publisher=P}}</ref>');
+noop('a book citation pointing at a search page is not given the page title', 'x<ref>{{یادکرد کتاب|نشانی=https://www.cambridge.org/core/search?q=Mongols|ناشر=CUP}}</ref>');
+noop('a citation with a chapter is not given a title from the page', 'x<ref>{{cite book|url=https://x.org/b/1|chapter=Ch 1|publisher=P}}</ref>');
+noop('a book citation with no URL is untouched', 'x<ref>{{یادکرد کتاب|نام خانوادگی=X|ناشر=P}}</ref>');
 
 console.log('== planPage: URLs elsewhere ride along with a substantive change ==');
 {

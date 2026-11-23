@@ -125,6 +125,15 @@ function inlineUrlFix(url: string): { url: string; kinds: Kind[] } {
   return { url: r.url, kinds: [...kinds, ...r.kinds] };
 }
 
+/** A non-web citation gets a title from its URL only when the URL is an article page. */
+function TITLE_WITH_URL_OK(params: ReturnType<typeof parseParams>, url: string): boolean {
+  if (/books\.google|google\.[a-z.]+\/books|\/search[/?]|[?&](?:q|query|search)=|catalog|katalog|worldcat|opac/i.test(url)) return false;
+  if (/\.(?:pdf|docx?)(?:[?#]|$)/i.test(url)) return false;
+  // a chapter/article citation whose title is in another field (chapter=, contribution=) is
+  // not missing its title in a way a page title can fill
+  return !params.some(p => p.keyNorm && /^(?:chapter|فصل|contribution|entry|مدخل|مقاله|article|isbn|شابک)$/.test(p.keyNorm) && p.value);
+}
+
 const PLACEHOLDER_TITLE = /^(?:archived? copy|نسخهٔ? (?:بایگانی|آرشیو)[‌ ]?شده|(?:بایگانی|آرشیو)[‌ ]?شده|untitled|no title|بدون عنوان|title|عنوان)$/i;
 
 /** A site parameter left over from a Google redirect or cache link. */
@@ -222,7 +231,12 @@ export function planPage(text: string, title: string, opt: PlanOptions): Plan {
     }
 
     // title fill: only web/news, only from metadata, only when missing or a placeholder
-    if ((kind === 'web' || kind === 'news') && finalUrl && /^https?:/i.test(finalUrl)) {
+    // Every citation that cites a URL and has no title: {{یادکرد وب}}, {{cite news}}, and also
+    // {{یادکرد ژورنال}}, {{cite book}}… when the URL is the work's own page. Only the title
+    // is added; the template is never changed. Book and journal citations take the title
+    // only when the page's title shares a word with the URL slug or the citation's other
+    // text, since a library catalogue or a search page there is common (books.google, cambridge.org/core/search).
+    if (finalUrl && /^https?:/i.test(finalUrl) && (kind === 'web' || kind === 'news' || TITLE_WITH_URL_OK(params, finalUrl))) {
       const tP = getParam(params, TITLE_KEYS);
       const tv = tP?.value ?? '';
       const tvPlain = tv.replace(/^["«'']+|["»'']+$/g, '').trim();

@@ -24,6 +24,8 @@ without judgement.
 | `title` | `{{cite web|url=…|title=Archived copy|archive-url=…}}` | the title read from the archived snapshot |
 | `title` | `{{یادکرد وب|نشانی=…|وبگاه=…}}` with no `عنوان` | `|عنوان=` added from the page |
 | `title` | `عنوان=نسخه آرشیو شده` (the Persian placeholder; CS1 does not flag it) | the title from the snapshot |
+| `title` | any citation with a URL and an empty or missing title: `{{یادکرد وب|نشانی=…|عنوان= |ناشر=خبرگزاری فارس}}` (نبرد سنجار (۲۰۱۴)) | the page's title, under `عنوان` or `title` as the citation's other keys are written |
+| `title` | the same in `{{یادکرد ژورنال}}`, `{{cite book}}`, … when the URL is the work's own page | as above; never for Google Books, a search or catalogue page, a PDF, or a citation with a chapter |
 | `redirector` | `وبگاه=www.google.com` beside an unwrapped Google link | the real site name |
 | `scheme` | `نشانی=www.shahbazi.org/pages/x.htm` | `نشانی=http://www.shahbazi.org/pages/x.htm` |
 | `scheme` | `https//`, `http:/`, `http:///`, `http://https://` | one correct scheme |
@@ -195,3 +197,16 @@ identity as its wiki requests, and writes the declined-URL report to
 `$BOT_STATE_DIR/cite-urls.report.wiki` instead of the bot's user page.
 
 Edit summary, per page: `تکمیل ۲ یادکرد نشانی عریان، اصلاح نشانی منبع، خواناکردن نشانی‌های درصدی`.
+
+## Fetching notes
+
+- `www.farsnews.ir` serves a certificate for `farsnews.ir` only, so every old
+  `http://www.farsnews.ir/newstext.php?nn=…` link fails TLS after its redirect. When a fetch
+  fails at the network level and the host starts with `www.`, the bot tries the bare host; the
+  citation keeps the URL as written.
+- farsnews.ir renumbered its articles: `newstext.php?nn=13930929001054` redirects to
+  `/world/1419075840000481071`. A redirect to an article-shaped path is not «redirected
+  elsewhere» even though the old id is gone.
+- An English slug on a Persian title (BBC Persian, Euronews Persian) is a translation, not a
+  mismatch; the slug check compares only within one script.
+

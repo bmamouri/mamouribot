@@ -79,6 +79,8 @@
   "cgie.org.ir": { "article": "مرکز دائرةالمعارف بزرگ اسلامی" },
   "ensani.ir": { "name": "پرتال جامع علوم انسانی" },
   "magiran.com": { "name": "مگیران" },
+  "zamaaneh.com": { "name": "رادیو زمانه", "news": true },
+  "dolat.ir": { "name": "پایگاه اطلاع‌رسانی دولت" },
   "iranicaonline.org": { "article": "دانشنامه ایرانیکا" },
   "amar.org.ir": { "article": "مرکز آمار ایران" },
   "britannica.com": { "article": "دانشنامه بریتانیکا" },
