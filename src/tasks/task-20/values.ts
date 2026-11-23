@@ -51,7 +51,9 @@ export const WHITELIST: Record<string, string[]> = {
   'Infobox ecoregion': ['conservation'],
   'Infobox football biography': ['position'],
   'جعبه اطلاعات شناگر': ['strokes'],
-  'جعبه اطلاعات دارو': ['routes_of_administration'],
+  'جعبه اطلاعات دارو': ['routes_of_administration', 'metabolism', 'excretion', 'bioavailability',
+    'protein_bound', 'onset', 'elimination_half-life', 'duration_of_action', 'legal_status',
+    'dependency_liability', 'addiction_liability'],
   [NAVBOX_KEY]: ['group#', 'heading#'],
 };
 
@@ -130,6 +132,22 @@ export function core(value: string): { lead: string; body: string; tail: string 
   // anything structural inside: never a whole-value match
   if (/\{\{|\}\}|<ref|<!--|\[\[(?:file|image|پرونده|تصویر):|\n/i.test(body)) return null;
   return { lead: m[1], body, tail: m[3] };
+}
+
+/** `[[a|b]]` → `b`, `[[a]]` → `a`. */
+export const delink = (s: string) => s.replace(/\[\[[^\]|]*\|([^\]]*)\]\]/g, '$1').replace(/\[\[([^\]]*)\]\]/g, '$1');
+
+/**
+ * A value that is exactly one article link with an English label, refs and comments aside:
+ * returns the label as `body` (what the dictionary is keyed on). Anything else is null.
+ */
+export function singleLink(value: string): { lead: string; body: string; tail: string } | null {
+  const m = /^(\s*(?:<!--[\s\S]*?-->\s*)*)\[\[([^\[\]|#]+)(?:\|([^\[\]|]+))?\]\]((?:\s*(?:<!--[\s\S]*?-->|<ref\b[^>]*\/>|<ref\b[^>]*>[\s\S]*?<\/ref\s*>))*\s*)$/i.exec(value);
+  if (!m) return null;
+  const [, lead, target, label, tail] = m;
+  if (/^\s*:|^(?:file|image|پرونده|تصویر|رده|category)\s*:/i.test(target)) return null;
+  const body = (label ?? target).trim();
+  return { lead, body, tail };
 }
 
 /** Title shown for a Persian link label: the target with a trailing «(…)» removed. */
@@ -238,12 +256,19 @@ export function applyPage(text: string, dict: Dictionary | null, canonical: (nam
         }
       }
       if (!dict || !allowed(template, p.name)) continue;
-      const parts = core(p.value);
+      // A value that is exactly one link (`[[Kidney|Renal]]`) is matched on its label and
+      // takes the entry only when the entry itself carries a link to an fa article
+      // (`[[کلیه|کلیوی]]`); a plain value takes the entry's text without the link, so the
+      // bot never adds a link that was not there.
+      const one = singleLink(p.value);
+      const parts = one ? one : core(p.value);
       if (!parts || !LATIN2.test(parts.body)) continue;
       const entry = lookup(dict, template, p.name, parts.body);
       if (!entry) continue;
-      edits.push([p.valueStart, p.valueEnd, parts.lead + entry.fa + parts.tail]);
-      changes.push({ kind: isNav ? 'group' : 'value', template, param: p.name, from: parts.body.trim(), to: entry.fa });
+      if (one && !/\[\[/.test(entry.fa)) continue;
+      const to = one ? entry.fa : delink(entry.fa);
+      edits.push([p.valueStart, p.valueEnd, parts.lead + to + parts.tail]);
+      changes.push({ kind: isNav ? 'group' : 'value', template, param: p.name, from: parts.body.trim(), to });
     }
   }
   // overlapping edits should not happen (one per link or per value); refuse the page if they do

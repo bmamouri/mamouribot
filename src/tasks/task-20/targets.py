@@ -40,6 +40,9 @@ _TIME = re.compile(r'^(~|≈|<|>|≤|≥)?\s*' + _NUM + r'(?:\s*(–|-|—|to)\s
 _MOLAR = re.compile(r'^' + _NUM + r'\s*(?:g\s*/\s*mol(?:e)?|g\s*[·.]?\s*mol\s*[−-]\s*1)$', re.I)
 
 
+SINGLE_LINK = re.compile(r'^\[\[([^\[\]|#]+)(?:\|([^\[\]|]+))?\]\]$')
+
+
 def pattern_hit(template, param, value):
     rule = PATTERN_PARAMS.get(template, {}).get(param.strip())
     v = value.strip()
@@ -67,8 +70,15 @@ def main(a):
     for p in sorted(glob.glob(f'{a.census}/rows-*.tsv.gz')):
         for line in gzip.open(p, 'rt', encoding='utf-8'):
             title, t, k, flags, vis, raw = line.rstrip('\n').split('\t')
-            if 'T' in flags or 'L' in flags:
+            if 'T' in flags:
                 continue
+            if 'L' in flags:
+                # one article link with a label, nothing else: matched on the label (values.ts
+                # singleLink); the bot decides whether the row may replace a link
+                m = SINGLE_LINK.match(raw.strip())
+                if not m:
+                    continue
+                vis = (m.group(2) or m.group(1)).strip()
             if (C(t), fam(k), norm_value(vis)) in keys or pattern_hit(C(t), k, vis):
                 hits[title] += 1
     navs = {}

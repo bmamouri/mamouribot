@@ -120,15 +120,55 @@ export function pinnedRevid(): number {
 
 /** Read and parse the dictionary at the pinned revision, refusing anything else. */
 export async function loadPinnedDictionary(bot: Bot): Promise<Dictionary> {
+  // A local draft of the table, for a DRY run before it is published. Refused on --live,
+  // so a draft can never edit articles.
+  const draft = process.env.T20_DICT_FILE;
+  if (draft) {
+    if (!bot.opts.dryRun) throw new DictionaryError('T20_DICT_FILE تنها در اجرای آزمایشی پذیرفته می‌شود');
+    const { readFileSync } = await import('fs');
+    const d = parseDictionary(readFileSync(draft, 'utf8'), 0);
+    await checkLinkTargets(bot, d);
+    return d;
+  }
   const revid = pinnedRevid();
   if (!revid) throw new DictionaryError('هیچ نسخه‌ای از واژه‌نامه تأیید نشده است (data/pin.json)');
-  const d = await bot.apiGet({ action: 'query', prop: 'revisions', revids: String(revid),
+  const res = await bot.apiGet({ action: 'query', prop: 'revisions', revids: String(revid),
     rvprop: 'content|ids', rvslots: 'main' });
-  const page = d.query?.pages?.[0];
+  const page = res.query?.pages?.[0];
   if (!page || page.title !== DICTIONARY_PAGE) {
     throw new DictionaryError(`نسخهٔ ${revid} از صفحهٔ «${DICTIONARY_PAGE}» نیست (${page?.title ?? 'ناموجود'})`);
   }
   const text = page.revisions?.[0]?.slots?.main?.content;
   if (typeof text !== 'string') throw new DictionaryError(`متن نسخهٔ ${revid} خوانده نشد`);
-  return parseDictionary(text, revid);
+  const dict = parseDictionary(text, revid);
+  await checkLinkTargets(bot, dict);
+  return dict;
+}
+
+/** Every article a Persian value links to, e.g. `[[کلیه|کلیوی]]` → `کلیه`. */
+export function linkTargets(d: Dictionary): string[] {
+  const out = new Set<string>();
+  for (const e of d.entries) for (const m of e.fa.matchAll(/\[\[([^\]|]+)/g)) out.add(m[1].trim());
+  return [...out];
+}
+
+/**
+ * Refuse the whole table if any linked value points at a missing page, a redirect or a
+ * disambiguation page: the bot writes these links into articles, so a bad one would add a
+ * red or wrong link on every page that row matches.
+ */
+export async function checkLinkTargets(bot: Bot, d: Dictionary): Promise<void> {
+  const titles = linkTargets(d);
+  const bad: string[] = [];
+  for (let i = 0; i < titles.length; i += 50) {
+    const chunk = titles.slice(i, i + 50);
+    const r = await bot.apiGet({ action: 'query', titles: chunk.join('|'), prop: 'info|pageprops',
+      ppprop: 'disambiguation' });
+    for (const p of r.query?.pages ?? []) {
+      if (p.missing) bad.push(`${p.title} (ناموجود)`);
+      else if (p.redirect) bad.push(`${p.title} (تغییرمسیر)`);
+      else if (p.pageprops?.disambiguation !== undefined) bad.push(`${p.title} (ابهام‌زدایی)`);
+    }
+  }
+  if (bad.length) throw new DictionaryError(`واژه‌نامه نسخهٔ ${d.revid} پیوند نادرست دارد: ${bad.join('، ')}`);
 }

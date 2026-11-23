@@ -156,6 +156,32 @@ console.log('== pattern values (drug infobox) ==');
   same('already Persian stays', '{{Infobox drug|elimination_half-life=۲۱–۶۱ ساعت}}');
 }
 
+console.log('== linked dictionary values (drug infobox) ==');
+{
+  const D2 = parseDictionary(table([
+    ['جعبه اطلاعات دارو', 'excretion', 'Renal', '[[کلیه|کلیوی]]', 'هم‌سویی'],
+    ['جعبه اطلاعات دارو', 'metabolism', 'Hepatic', '[[کبد|کبدی]]', 'هم‌سویی'],
+    ['جعبه اطلاعات دارو', 'legal_status', 'Unscheduled', 'بدون رده', 'الگو'],
+  ]), 2);
+  const canonDrug = (n: string) => ({ 'Infobox drug': 'جعبه اطلاعات دارو' } as Record<string, string>)[n] ?? n;
+  const r2 = (t: string) => applyPage(t, D2, canonDrug).text;
+  eq('a linked value takes the linked entry (سفالوتین)', r2('{{Infobox drug|excretion=[[Kidney|Renal]]}}'),
+     '{{Infobox drug|excretion=[[کلیه|کلیوی]]}}');
+  eq('the label decides, not the target', r2('{{Infobox drug|metabolism=[[Liver|Hepatic]]}}'),
+     '{{Infobox drug|metabolism=[[کبد|کبدی]]}}');
+  eq('a plain value takes the entry without the link', r2('{{Infobox drug|excretion=Renal}}'),
+     '{{Infobox drug|excretion=کلیوی}}');
+  eq('a ref after a linked value is kept', r2('{{Infobox drug|excretion=[[Kidney|Renal]]<ref>x</ref>}}'),
+     '{{Infobox drug|excretion=[[کلیه|کلیوی]]<ref>x</ref>}}');
+  eq('a linked value whose entry has no link stays (the link is not dropped)',
+     r2('{{Infobox drug|legal_status=[[Controlled Substances Act|Unscheduled]]}}'),
+     '{{Infobox drug|legal_status=[[Controlled Substances Act|Unscheduled]]}}');
+  eq('two links stay', r2('{{Infobox drug|excretion=[[Kidney|Renal]], [[Bile]]}}'),
+     '{{Infobox drug|excretion=[[Kidney|Renal]], [[Bile]]}}');
+  eq('link plus words stays', r2('{{Infobox drug|excretion=[[Kidney|Renal]] 60%}}'),
+     '{{Infobox drug|excretion=[[Kidney|Renal]] 60%}}');
+}
+
 console.log('== helpers ==');
 {
   eq('titleLabel strips a disambiguator', titleLabel('مرکوری (سیاره)'), 'مرکوری');
