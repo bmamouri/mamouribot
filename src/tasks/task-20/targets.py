@@ -29,6 +29,22 @@ def norm_template(t):
 
 fam = lambda p: re.sub(r'\d+', '#', p.strip())
 
+# Mirrors patterns.ts: which (template, parameter) takes which number+unit rule, and the
+# shapes. The bot re-checks every value with the TypeScript rule; this only finds pages.
+PATTERN_PARAMS = {'جعبه اطلاعات دارو': {'elimination_half-life': 'time', 'duration_of_action': 'time',
+                                       'onset': 'time', 'molecular_weight': 'molar'}}
+_NUM = r'\d+(?:\.\d+)?'
+_TIME = re.compile(r'^(~|≈|<|>|≤|≥)?\s*' + _NUM + r'(?:\s*(–|-|—|to)\s*' + _NUM + r')?\s*'
+                   r'(seconds|second|sec|s|minutes|minute|mins|min|hours|hour|hrs|hr|h|days|day|d|weeks|week|wk|'
+                   r'months|month|years|year|yr)\.?$', re.I)
+_MOLAR = re.compile(r'^' + _NUM + r'\s*(?:g\s*/\s*mol(?:e)?|g\s*[·.]?\s*mol\s*[−-]\s*1)$', re.I)
+
+
+def pattern_hit(template, param, value):
+    rule = PATTERN_PARAMS.get(template, {}).get(param.strip())
+    v = value.strip()
+    return bool(rule) and bool((_TIME if rule == 'time' else _MOLAR).match(v))
+
 
 def dictionary(path):
     body = re.search(r'\{\|.*?\n\|\}', open(path, encoding='utf-8').read(), re.S).group(0)
@@ -53,7 +69,7 @@ def main(a):
             title, t, k, flags, vis, raw = line.rstrip('\n').split('\t')
             if 'T' in flags or 'L' in flags:
                 continue
-            if (C(t), fam(k), norm_value(vis)) in keys:
+            if (C(t), fam(k), norm_value(vis)) in keys or pattern_hit(C(t), k, vis):
                 hits[title] += 1
     navs = {}
     for r in csv.DictReader(open(f'{a.census}/navboxes.tsv'), delimiter='\t', quoting=csv.QUOTE_NONE):

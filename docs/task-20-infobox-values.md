@@ -6,7 +6,7 @@ This task translates two kinds of them, and only those two.
 ## Status
 
 **Approved** by Huji ۲۳ نوامبر ۲۰۲۶ (`ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۲۰`).
-Runs as MamouriBot, job `t20-daily`, 07:05 UTC, at most 200 edits, over `targets.json` built by
+Runs as MamouriBot, job `t20-daily`, 07:05 UTC, at most 1,000 edits, over `targets.json` built by
 `targets.py` from the census. First live batch (30 edits) audited on ۲۳ نوامبر ۲۰۲۶: one line each. A 100-edit trial ran the same day under `--as-me` (97 articles, 3 navboxes, dictionary
 rev 45017783): 0 refused before saving, 0 reverted after, every diff checked on the wiki, and the
 new Persian value visible in every saved revision. The trial is reported on the request page.
@@ -17,6 +17,7 @@ new Persian value visible in every saved revision. The trial is reported on the 
 |---|---|---|
 | dictionary value | `\|position=Midfielder` → `\|position=هافبک` | a row of the on-wiki dictionary at the pinned revision |
 | navbox label | `[[اترنت\|Ethernet]]` → `[[اترنت]]` | the title of the Persian article the link already points to |
+| number + unit | `\|elimination_half-life=18 to 159 days` → `۱۸ تا ۱۵۹ روز`, `\|molecular_weight=320.04 g/mol` → `۳۲۰٫۰۴ گرم بر مول` | a fixed rule in `patterns.ts`, drug infobox only, house style of hand-written fa drug articles |
 
 A dictionary value changes only when the **whole** value of a whitelisted parameter of a
 named template equals the row's English value (case and spacing aside). Refs, comments and

@@ -115,7 +115,7 @@ export const infoboxValuesTask: BotTask = {
     + 'واژه‌نامهٔ تأییدشده یا عنوان مقالهٔ فارسی‌ای که پیوند از پیش به آن می‌رود',
 
   perPageSummary(title: string) {
-    const kinds = new Set((CHANGES.get(title) ?? []).map(c => c.kind === 'value' ? 'v' : 'n'));
+    const kinds = new Set((CHANGES.get(title) ?? []).map(c => c.kind === 'value' || c.kind === 'pattern' ? 'v' : 'n'));
     return kinds.has('v') && kinds.has('n') ? SUMMARY_BOTH : kinds.has('n') ? SUMMARY_NAV : SUMMARY_VALUES;
   },
 

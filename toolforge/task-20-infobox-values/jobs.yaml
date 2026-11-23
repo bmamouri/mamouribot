@@ -48,10 +48,10 @@
   filelog-stdout: logs/t20-first.out
   filelog-stderr: logs/t20-first.err
 
-# Daily until the target file (~3,700 pages) is worked through, then weekly with a fresh
+# At most 1,000 edits a day (about 4–5 hours at 15 s). Daily until the target file is worked through, then weekly with a fresh
 # census. 07:05 UTC is clear of tasks 1 (06:20), 16 (06:50), 7/9/8 (07:15–07:45) and 12 (08:00).
 - name: t20-daily
-  command: ./task-20-infobox-values/run.sh --live --limit 200 --delay 15
+  command: ./task-20-infobox-values/run.sh --live --limit 1000 --delay 15
   image: node20
   mem: 1Gi
   schedule: "5 7 * * *"

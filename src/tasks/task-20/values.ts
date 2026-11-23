@@ -16,8 +16,9 @@
  * inside a ref, comment or nowiki.
  */
 import { lookup, normTemplate, paramFamily, type Dictionary, NAVBOX_KEY } from './dictionary.js';
+import { PATTERN_PARAMS, rewritePattern } from './patterns.js';
 
-export interface Change { kind: 'value' | 'group' | 'label'; template: string; param: string; from: string; to: string }
+export interface Change { kind: 'value' | 'group' | 'label' | 'pattern'; template: string; param: string; from: string; to: string }
 export interface Result { text: string; changes: Change[]; skipped: string[] }
 
 /** Navbox-family template names (canonical and redirects), lower-cased. */
@@ -225,6 +226,17 @@ export function applyPage(text: string, dict: Dictionary | null, canonical: (nam
         continue;
       }
       if (isNav && !NAV_LABEL_PARAM.test(p.name)) continue;
+      // number + unit values (half-life, molar mass): a fixed shape, not a dictionary row
+      const rule = PATTERN_PARAMS[template]?.[p.name.trim()];
+      if (rule) {
+        const parts = core(p.value);
+        const out = parts && LATIN2.test(parts.body) ? rewritePattern(rule, parts.body) : null;
+        if (parts && out) {
+          edits.push([p.valueStart, p.valueEnd, parts.lead + out + parts.tail]);
+          changes.push({ kind: 'pattern', template, param: p.name, from: parts.body.trim(), to: out });
+          continue;
+        }
+      }
       if (!dict || !allowed(template, p.name)) continue;
       const parts = core(p.value);
       if (!parts || !LATIN2.test(parts.body)) continue;

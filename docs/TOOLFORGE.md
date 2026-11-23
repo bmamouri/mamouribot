@@ -129,12 +129,12 @@ A new name there is the only sign that something started reading a secret.
 | `ud-daily` | ۱ | `20 6 * * *` | `./task-01-use-dmy-dates/run.sh --live --limit 200 --delay 15` |
 | `cp-daily` | ۴ | `35 6 * * *` | `./task-04-company-params/run.sh --live --limit 50 --delay 15` |
 | `tf-daily` | ۱۶ | `50 6 * * *` | `./task-16-text-fragment/run.sh --live --limit 200 --delay 15` |
-| `t20-daily` | ۲۰ | `5 7 * * *` | `./task-20-infobox-values/run.sh --live --limit 200 --delay 15` |
+| `t20-daily` | ۲۰ | `5 7 * * *` | `./task-20-infobox-values/run.sh --live --limit 1000 --delay 15` |
 | `sw-weekly` | ۷ | `15 7 * * 2` | `./task-07-software-params/run.sh --live --limit 100 --delay 15` |
 | `tl-weekly` | ۹ | `30 7 * * 4` | `./task-09-taxonomy-link/run.sh --live --limit 200 --delay 15` |
 | `mp-weekly` | ۸ | `45 7 * * 2` | `./task-08-musician-params/run.sh --live --limit 100 --delay 15` |
 | `lf-daily` | ۱۲ | `0 8 * * *` | `./task-12-linkfix/run.sh --live --limit 100 --delay 15` |
-| `lf-ib-daily` | ۱۲ | `30 9 * * *` | `env TARGET_CAP=400 ./task-12-linkfix/run-infobox.sh --live --limit 150 --delay 15` |
+| `lf-ib-daily` | ۱۲ | `30 9 * * *` | `env TARGET_CAP=2500 ./task-12-linkfix/run-infobox.sh --live --limit 1000 --delay 15` |
 | `cite-params-hourly` | ۳ | `25 * * * *` | `./task-03-cite-params/run.sh --live --limit 250 --delay 5` |
 | `tx-hourly` | ۱۱ | `45 * * * *` | `./task-11-taxonomy/run.sh --live --limit 150 --delay 10` |
 | `notelist-watch` | ۶ | `*/15 * * * *` | `cd /data/project/mamouribot && BOT_STATE_DIR=/data/project/mamouribot/state node mamouribot.mjs notelist-missing --live --delay 12` |

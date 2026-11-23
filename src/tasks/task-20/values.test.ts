@@ -135,6 +135,27 @@ const sameL = (what: string, t: string) => eq(what, runL(t).text, t);
   unchanged('a navbox style parameter', '{{Navbox|bodyclass=hlist|state=autocollapse|name=Foo}}');
 }
 
+console.log('== pattern values (drug infobox) ==');
+{
+  const canonDrug = (n: string) => ({ 'Infobox drug': 'جعبه اطلاعات دارو', 'Drugbox': 'جعبه اطلاعات دارو' } as Record<string, string>)[n] ?? n;
+  const runP = (t: string) => applyPage(t, null, canonDrug);
+  const box = '{{Infobox drug\n| legal_status = Unscheduled\n| elimination_half-life = 18 to 159 days\n| molecular_weight = 320.04 g/mol\n}}';
+  const r = runP(box);
+  eq('half-life and molar mass rewritten, nothing else (میتوتان)', r.text,
+     '{{Infobox drug\n| legal_status = Unscheduled\n| elimination_half-life = ۱۸ تا ۱۵۹ روز\n| molecular_weight = ۳۲۰٫۰۴ گرم بر مول\n}}');
+  eq('recorded as pattern changes', r.changes.map(c => c.kind), ['pattern', 'pattern']);
+  eq('a ref after the value is kept', runP('{{Drugbox|elimination_half-life=24 hours<ref>x</ref>\n}}').text,
+     '{{Drugbox|elimination_half-life=۲۴ ساعت<ref>x</ref>\n}}');
+  const same = (what: string, t: string) => eq(what, runP(t).text, t);
+  same('a second clause stays (تریامترن اچ)', '{{Infobox drug|elimination_half-life=1-2 hours, active metabolite 3 hours}}');
+  same('a salt qualifier stays (تاموکسیفن)', '{{Infobox drug|molecular_weight=563.638 g/mol (citrate salt)}}');
+  same('two values on one line stay', '{{Infobox drug|molecular_weight=371.515 g/mol{{سخ}}563.638 g/mol ([[citrate]] salt)}}');
+  same('a bare number stays (the template formats it)', '{{Infobox drug|molecular_weight=370.577}}');
+  same('the same shape in another template stays', '{{Infobox song|length=24 hours}}');
+  same('the same shape in another drug parameter stays', '{{Infobox drug|bioavailability=24 hours}}');
+  same('already Persian stays', '{{Infobox drug|elimination_half-life=۲۱–۶۱ ساعت}}');
+}
+
 console.log('== helpers ==');
 {
   eq('titleLabel strips a disambiguator', titleLabel('مرکوری (سیاره)'), 'مرکوری');
