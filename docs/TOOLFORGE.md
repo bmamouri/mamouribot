@@ -130,6 +130,7 @@ A new name there is the only sign that something started reading a secret.
 | `cp-daily` | ۴ | `35 6 * * *` | `./task-04-company-params/run.sh --live --limit 50 --delay 15` |
 | `tf-daily` | ۱۶ | `50 6 * * *` | `./task-16-text-fragment/run.sh --live --limit 200 --delay 15` |
 | `t20-daily` | ۲۰ | `5 7 * * *` | `./task-20-infobox-values/run.sh --live --limit 1000 --delay 15` |
+| `cu-daily` | ۱۹ | `40 5 * * *` | `env TARGET_CAP=4000 ./task-19-cite-urls/run.sh --live --limit 1000 --delay 15` |
 | `sw-weekly` | ۷ | `15 7 * * 2` | `./task-07-software-params/run.sh --live --limit 100 --delay 15` |
 | `tl-weekly` | ۹ | `30 7 * * 4` | `./task-09-taxonomy-link/run.sh --live --limit 200 --delay 15` |
 | `mp-weekly` | ۸ | `45 7 * * 2` | `./task-08-musician-params/run.sh --live --limit 100 --delay 15` |
