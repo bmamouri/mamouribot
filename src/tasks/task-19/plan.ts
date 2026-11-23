@@ -164,6 +164,7 @@ export function planPage(text: string, title: string, opt: PlanOptions): Plan {
       edits.push({ start: r.bodyStart, end: r.bodyStart + body.length, to: pre });
       taken.push([r.start, r.end]);
       record('bare-ref', bare.url, url);
+      if (url !== bare.url) plan.urlMap.set(bare.url, url);
       continue;
     }
     if (isHomeLike(url)) { plan.declined.push({ url, reason: 'home-page' }); continue; }
@@ -188,6 +189,9 @@ export function planPage(text: string, title: string, opt: PlanOptions): Plan {
     taken.push([r.start, r.end]);
     record(bare.label ? 'labelled-ref' : 'bare-ref', bare.url, url);
     for (const k of fixed.kinds) record(k, bare.url, url);
+    // verify() accounts for every href that changed; a bare URL cleaned on its way into
+    // the citation is one (فرودگاه اشتوتگارت: `…de.html?gclid=…` refused as «links lost»).
+    if (url !== bare.url) plan.urlMap.set(bare.url, url);
   }
 
   // --- 2. citation templates ----------------------------------------------------------

@@ -33,10 +33,10 @@
   filelog-stderr: logs/cu-first.err
 
 # Daily. 1,000 edits a run (the request said 150; raised ۲۳ نوامبر ۲۰۲۶, noted on the request
-# page). A run is ~3,000 metadata lookups (~5 h) then ~1,000 paced writes (~8 h).
+# page). Lookups and writes are interleaved by chunk; see docs/task-19-cite-urls.md.
 # 05:40 UTC is clear of وظیفهٔ ۱ (06:20), ۱۵ (03:05), ۱۶ (06:50), ۱۲ (08:00, 09:30), ۲۰ (07:05).
 - name: cu-daily
-  command: ./task-19-cite-urls/run.sh --live --limit 1000 --delay 15
+  command: env TARGET_CAP=4000 ./task-19-cite-urls/run.sh --live --limit 1000 --delay 15
   image: node20
   mem: 1Gi
   schedule: "40 5 * * *"

@@ -15,10 +15,8 @@ export BOT_STATE_DIR="${BOT_STATE_DIR:-$HOME/state}"
 export BOT_GATES_PY="${BOT_GATES_PY:-$HOME/gates.py}"
 # Metadata lookups per run. Each is up to four requests to Citoid, the site and Wayback,
 # all serialised behind their own gaps (src/tasks/task-19/resolve.ts).
-# About three lookups per edit in the trial; 4,000 covers a 1,000-edit run with room.
-export T19_MAX_LOOKUPS="${T19_MAX_LOOKUPS:-4000}"
-# Candidate pages read per run, split across the searches in cite-urls.ts.
-export TARGET_CAP="${TARGET_CAP:-2500}"
+# Lookups stop as soon as there are --limit pages to edit (cite-urls.ts); the cap is only a
+# ceiling. Candidate pages read per run scale with --limit unless TARGET_CAP is set.
 mkdir -p "$BOT_STATE_DIR" logs
 
 if [ ! -f .env ] && [ -z "${WIKIPEDIA_BOT_USERNAME:-}" ]; then

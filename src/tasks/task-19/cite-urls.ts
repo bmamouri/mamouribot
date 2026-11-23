@@ -64,6 +64,8 @@ const KIND_SUMMARY = new Map<string, Set<Kind>>();
 let TODAY = todayFa();
 let REVIEW: review.Proposal[] = [];
 const EXTRA_TITLES = new Set<string>();
+/** Whether the live review page lists rows, so an empty queue still rewrites a stale page. */
+let LIVE_REVIEW_ROWS = 0;
 let REVIEW_EXISTED = false;
 const FRESH: Omit<review.Proposal, 'decision' | 'seen' | 'id'>[] = [];
 const EXAMINED = new Set<string>();
@@ -151,6 +153,14 @@ async function candidates(bot: Bot): Promise<string[]> {
   const per = Math.ceil(cap / which.length);
   for (const k of which) if (QUERIES[k]) t.push(...(await search(bot, QUERIES[k], per)).slice(0, per));
   return [...new Set(t)].slice(0, cap);
+}
+
+/** Run `fn` over `items` with at most `n` in flight. */
+async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<void>): Promise<void> {
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (i < items.length) { const x = items[i++]; await fn(x); }
+  }));
 }
 
 async function fetchTexts(bot: Bot, titles: string[]): Promise<Map<string, string>> {
@@ -250,6 +260,7 @@ export const citeUrlsTask: BotTask = {
       const d = await bot.apiGet({ action: 'query', prop: 'revisions', titles: review.REVIEW_PAGE, rvprop: 'content', rvslots: 'main' });
       const live = d.query?.pages?.[0]?.revisions?.[0]?.slots?.main?.content ?? '';
       const decisions = review.readDecisions(live);
+      LIVE_REVIEW_ROWS = decisions.size;
       REVIEW = REVIEW.map(r => ({ ...r, decision: decisions.get(r.id) ?? r.decision }));
       const n = [...decisions.values()].filter(Boolean).length;
       if (n) console.log(`صفحهٔ بازبینی: ${n} تصمیم خوانده شد`);
@@ -262,41 +273,54 @@ export const citeUrlsTask: BotTask = {
     console.log(`${texts.size} صفحه خوانده شد`);
 
     const opt = (lookup: Lookup, t = '') => planOpts(lookup, t);
-    const need = new Set<string>();
-    for (const [t, x] of texts) for (const u of planPage(x, t, opt(() => undefined, t)).needs) if (!CACHE.has(u)) need.add(u);
-
+    // Pages are worked in chunks: look up the URLs one chunk needs, plan the chunk, and
+    // stop as soon as there are enough pages for this run's --limit. Looking up every
+    // URL on every candidate first meant ~4,000 lookups (5+ hours) before a 50-edit run
+    // wrote anything (cu-first, ۲۳ نوامبر ۲۰۲۶).
     const limit = bot.opts.limit || Infinity;
-    const maxLookups = Number(process.env.T19_MAX_LOOKUPS ?? (Number.isFinite(limit) ? limit * 8 : 2000));
-    const todo = [...need].slice(0, maxLookups);
-    console.log(`${need.size} نشانی نیازمند فراداده؛ ${todo.length} در این اجرا بررسی می‌شود (${CACHE.size} از پیش در حافظه)`);
+    const want = Number.isFinite(limit) ? Math.ceil(limit * 1.1) : Infinity;
+    const maxLookups = Number(process.env.T19_MAX_LOOKUPS ?? (Number.isFinite(limit) ? limit * 6 : 4000));
+    const CHUNK = 25;
     // The same identity as the wiki requests: a run under my account reads as me, a bot run as the bot.
     const net = new NetResolver(bot.opts.identity === 'human' ? HUMAN_UA : BOT_UA);
-    let i = 0;
-    for (const u of todo) {
-      CACHE.set(u, isArchiveUrl(u) ? { resolved: await net.resolve(u) } : await net.gather(u));
-      if (++i % 20 === 0) { console.log(`  …${i}/${todo.length}`); saveCache(); }
-    }
-    saveCache();
-    const notes = [...CACHE].map(([u, e]) => [u, judge(u, e).notes] as const).filter(([, n]) => n?.length);
-    if (notes.length) console.log(`بررسی متقابل با خود صفحه ${notes.length} مورد را اصلاح کرد:\n` + notes.slice(0, 30).map(([u, n]) => `  ${u.slice(0, 80)}  ${n!.join('; ')}`).join('\n'));
-
     const lookup = lookupFrom(CACHE, VERIFIED_ARTICLES);
     const work: string[] = [];
     const counts: Record<string, number> = {};
-    for (const [t, x] of texts) {
-      const p = planPage(x, t, opt(lookup, t));
-      EXAMINED.add(t);
-      for (const pr of p.proposals) FRESH.push({ title: t, ...pr });
-      for (const d of p.declined) {
-        const row = DECLINED.get(d.url) ?? { reason: d.reason, pages: new Set<string>() };
-        row.pages.add(t); DECLINED.set(d.url, row);
+    const entries = [...texts];
+    let looked = 0, pagesSeen = 0;
+    for (let c = 0; c < entries.length && work.length < want; c += CHUNK) {
+      const chunk = entries.slice(c, c + CHUNK);
+      const need = new Set<string>();
+      for (const [t, x] of chunk) for (const u of planPage(x, t, opt(() => undefined, t)).needs) if (!CACHE.has(u)) need.add(u);
+      const todo = [...need].slice(0, Math.max(0, maxLookups - looked));
+      // Several URLs in flight at once. Each service still has its own minimum gap
+      // (resolve.ts Gate), so this overlaps waiting on different services and hosts; it
+      // does not raise the rate to any one of them.
+      await pool(todo, Number(process.env.T19_CONCURRENCY ?? 4), async u => {
+        CACHE.set(u, isArchiveUrl(u) ? { resolved: await net.resolve(u) } : await net.gather(u));
+      });
+      looked += todo.length;
+      saveCache();
+      for (const [t, x] of chunk) {
+        pagesSeen++;
+        const p = planPage(x, t, opt(lookup, t));
+        EXAMINED.add(t);
+        for (const pr of p.proposals) FRESH.push({ title: t, ...pr });
+        for (const d of p.declined) {
+          const row = DECLINED.get(d.url) ?? { reason: d.reason, pages: new Set<string>() };
+          row.pages.add(t); DECLINED.set(d.url, row);
+        }
+        if (!p.changed) continue;
+        for (const k of p.changes) counts[k.kind] = (counts[k.kind] ?? 0) + 1;
+        PLANS.set(t, p);
+        KIND_SUMMARY.set(t, new Set(p.changes.map(k => k.kind)));
+        work.push(t);
       }
-      if (!p.changed) continue;
-      for (const c of p.changes) counts[c.kind] = (counts[c.kind] ?? 0) + 1;
-      PLANS.set(t, p);
-      KIND_SUMMARY.set(t, new Set(p.changes.map(c => c.kind)));
-      work.push(t);
+      console.log(`  …${pagesSeen}/${entries.length} صفحه، ${looked} نشانی بررسی شد، ${work.length} صفحه آماده`);
+      if (looked >= maxLookups) { console.log(`سقف بررسی نشانی (${maxLookups}) رسید`); break; }
     }
+    const notes = [...CACHE].map(([u, e]) => [u, judge(u, e).notes] as const).filter(([, n]) => n?.length);
+    if (notes.length) console.log(`بررسی متقابل با خود صفحه ${notes.length} مورد را اصلاح کرد:\n` + notes.slice(0, 30).map(([u, n]) => `  ${u.slice(0, 80)}  ${n!.join('; ')}`).join('\n'));
     console.log(`گونهٔ تغییرها: ${JSON.stringify(counts)}`);
     console.log(`${work.length} صفحه برای ویرایش؛ ${DECLINED.size} نشانی کنار گذاشته شد`);
     if (process.env.T19_SAVE_WORK) writeFileSync(process.env.T19_SAVE_WORK, JSON.stringify(work));
@@ -383,9 +407,10 @@ async function publishReview(bot: Bot, dryRun: boolean) {
   // An applied approval is done: the article no longer has that bare URL, so the row
   // is dropped by merge() when the article was examined and no longer proposes it.
   const merged = review.merge(REVIEW, FRESH, EXAMINED, new Map());
-  if (!merged.length && !REVIEW.length) return;
-  // Refuse to shrink a queue we could not read: a missing store is not an empty one.
-  if (!REVIEW_EXISTED && REVIEW.length === 0 && merged.length < FRESH.length) return;
+  // Nothing to list and nothing listed: no edit. A page that still lists rows the store does
+  // not know (a run from another machine, or rows since resolved) is rewritten from the store.
+  if (!merged.length && !LIVE_REVIEW_ROWS) return;
+  void REVIEW_EXISTED;
   const text = review.renderPage(merged, todayFa());
   const problems = checkWikitext(review.REVIEW_PAGE, text);
   if (problems.length) { console.log(`صفحهٔ بازبینی منتشر نشد، دروازه: ${problems.join(' | ')}`); return; }

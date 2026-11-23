@@ -451,6 +451,12 @@ noop('Persian question mark in a slug is real text', 'a<ref>{{یادکرد وب|
 console.log('== wikitext helpers ==');
 eq('appendParams on one line with spaced style', appendParams('{{یادکرد وب | نشانی = x | عنوان = }}', [['وبگاه', 'w']]), '{{یادکرد وب | نشانی = x | عنوان = | وبگاه = w}}');
 
+{
+  const p = planPage('a<ref>https://www.eurowings.com/de.html?gclid=CIH_t6&gclsrc=ds</ref>', 'T', { lookup: () => ({ ok: true, meta: { url: 'https://www.eurowings.com/de.html', title: 'Flüge buchen', website: 'Eurowings' } }), today: TODAY });
+  eq('a bare URL cleaned into the citation is in urlMap', [...p.urlMap], [['https://www.eurowings.com/de.html?gclid=CIH_t6&gclsrc=ds', 'https://www.eurowings.com/de.html']]);
+  eq('…so verify does not call it lost', unexplainedLoss(['https://www.eurowings.com/de.html?gclid=CIH_t6&gclsrc=ds'], ['https://www.eurowings.com/de.html'], p.urlMap), []);
+}
+
 console.log('== verify: link accounting ==');
 eq('a rewritten URL is accounted for', unexplainedLoss(['https://z.ir/%D8%A8'], ['https://z.ir/ب'], new Map()), []);
 eq('a decoded URL with different escape case', unexplainedLoss(['https://z.ir/%d8%a8'], ['https://z.ir/%D8%A8'], new Map()), []);
