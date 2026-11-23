@@ -114,8 +114,9 @@ export function renderPage(rows: Proposal[], today: string): string {
     'اگر نادرست است «نه» بنویسید تا دیگر پیشنهاد نشود. می‌توانید یادکرد را دستی هم در مقاله بگذارید.',
     '',
     `آخرین به‌روزرسانی: ${today}؛ ${faDigits(waiting.length)} مورد در انتظار بررسی.`,
-    '',
   ];
+  if (!rows.length) out.push('', 'در حال حاضر پیشنهادی برای بازبینی نیست.');
+  else out.push('');
   let cur = '';
   for (const r of rows) {
     if (r.title !== cur) { out.push(`== [[${r.title}]] ==`); cur = r.title; }

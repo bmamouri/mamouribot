@@ -298,6 +298,11 @@ console.log('== review queue ==');
   eq('a one-word encyclopedia headword is saved, not queued', [p.changed, p.proposals.length], [true, 0]);
 }
 
+{
+  const { checkWikitext } = await import('../../lib/gates.js');
+  eq('empty review page passes the publish gate', checkWikitext('کاربر:MamouriBot/وظیفه ۱۹/بازبینی', renderPage([], TODAY)), []);
+}
+
 console.log('== dates ==');
 eq('Gregorian day', formatDate('2019-02-14'), '۱۴ فوریه ۲۰۱۹');
 eq('Jalali day', formatDate('1392-03-29'), '۲۹ خرداد ۱۳۹۲');
