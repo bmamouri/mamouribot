@@ -1,12 +1,14 @@
-# fa.wiktionary anti-vandalism patrol
+# وظیفهٔ ۲۱: fa.wiktionary anti-vandalism patrol
 
 Status: **built, not approved, never run live.** Dry runs and the backtest only. The plan
 and the research behind it are in the companion repository:
 `docs/FAWIKTIONARY_ANTIVANDAL_PLAN.md` and `docs/FAWIKTIONARY_ANTIVANDAL_PREVENTION.md`.
 On-wiki drafts are in `drafts/fawikt-antivandal/`.
 
-This is the first MamouriBot work on a wiki other than fa.wikipedia, so it has its own
-prefix (`wikt-NN`) instead of a fawiki task number.
+The first MamouriBot task on a wiki other than fa.wikipedia. It takes the next MamouriBot
+number, ۲۱, like every task, but its approval comes from **fa.wiktionary**
+(`ویکی‌واژه:نظرخواهی‌ها/ربات-…/کاربر:MamouriBot برای مجوز ربات`), not from fawiki's
+`ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۲۱`, which should not be created.
 
 ## What it does
 
@@ -45,28 +47,28 @@ a labelled mistake.
 
 **Never call revertrisk or ORES** for Wiktionary. Given a fawiktionary rev id,
 `revertrisk-language-agnostic` silently scores the fawiki revision with the same number. A
-test asserts that no such call exists anywhere in `src/wikt/`.
+test asserts that no such call exists anywhere in `src/tasks/task-21/`.
 
 ## Running
 
 ```sh
-npx tsx src/wikt/cli.ts patrol --once         # one dry poll, prints decisions
-npx tsx src/wikt/cli.ts patrol                # dry loop (shadow mode)
-npx tsx src/wikt/cli.ts backtest gold.jsonl   # measure; run on Toolforge (LLM rate limit)
-npx tsx src/wikt/wikt.test.ts                 # offline tests (part of npm test)
+npx tsx src/tasks/task-21/cli.ts patrol --once         # one dry poll, prints decisions
+npx tsx src/tasks/task-21/cli.ts patrol                # dry loop (shadow mode)
+npx tsx src/tasks/task-21/cli.ts backtest gold.jsonl   # measure; run on Toolforge (LLM rate limit)
+npx tsx src/tasks/task-21/wikt.test.ts                 # offline tests (part of npm test)
 ```
 
 `--live` is refused unless `WIKT_PATROL_APPROVED=1`. Set it only in the job command of
 `wikt-patrol-live`, and only after the request is approved.
 
-On Toolforge: `~/wikt-patrol.mjs`, `~/wikt-01-antivandal/run.sh`, jobs in
-`toolforge/wikt-01-antivandal/jobs.yaml` (`wikt-backtest`, `wikt-shadow`). State:
+On Toolforge: `~/wikt-patrol.mjs`, `~/task-21-wiktionary-antivandal/run.sh`, jobs in
+`toolforge/task-21-wiktionary-antivandal/jobs.yaml` (`wikt-backtest`, `wikt-shadow`). State:
 `~/state/wikt-patrol.json` (checkpoint and action ledger) and
 `~/state/wikt-patrol.decisions.jsonl` (every decision).
 
 ## Gold set
 
-`src/wikt/gold.py` builds it from three replica exports (`fawiktionary_p`):
+`src/tasks/task-21/gold.py` builds it from three replica exports (`fawiktionary_p`):
 
 - **reverted edits**: revisions inside the range MediaWiki records in
   `change_tag.ct_params` (`oldestRevertedRevId`..`newestRevertedRevId`) of a revert by a

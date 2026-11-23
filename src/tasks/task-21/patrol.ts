@@ -1,9 +1,9 @@
 /**
  * The fa.wiktionary patrol loop.
  *
- *   npx tsx src/wikt/cli.ts patrol              # dry: reads, scores, logs, never writes
- *   npx tsx src/wikt/cli.ts patrol --once       # one poll, then exit (testing)
- *   npx tsx src/wikt/cli.ts patrol --live       # only after approval; see docs/wikt-01-antivandal.md
+ *   npx tsx src/tasks/task-21/cli.ts patrol              # dry: reads, scores, logs, never writes
+ *   npx tsx src/tasks/task-21/cli.ts patrol --once       # one poll, then exit (testing)
+ *   npx tsx src/tasks/task-21/cli.ts patrol --live       # only after approval; see docs/task-21-wiktionary-antivandal.md
  *
  * Polling, not EventStreams: ~12 edits a day do not justify a long-lived HTTP stream and
  * its reconnect logic, and a 60 s poll of list=recentchanges keyed on rcid cannot miss or
@@ -13,7 +13,7 @@
  * CUMULATIVE change from the last trusted revision to the current top is judged, not one
  * intermediate save.
  */
-import { Bot, FAWIKT, BotStop, type BotTask } from '../core.js';
+import { Bot, FAWIKT, BotStop, type BotTask } from '../../core.js';
 import {
   ADMIN_BOARD, HISTORY_DEPTH, LLM_MAX_DIFF_CHARS, NAMESPACES, POLL_MS,
   REVERTS_BEFORE_PROTECT_REPORT, REVERTS_BEFORE_USER_REPORT, SETTLE_MS, SUMMARY_REVERT,
@@ -48,7 +48,7 @@ export interface Judged {
  * `summaryFor()` so they carry the permission link («[[…|ربات]]: …») once the request
  * page exists, and none before. Only `taskNumber` and `summary` are read.
  */
-const SUMMARY_TASK = (summary: string) => ({ id: 'wikt-patrol', taskNumber: 1, summary } as unknown as BotTask);
+const SUMMARY_TASK = (summary: string) => ({ id: 'wiktionary-antivandal', taskNumber: 21, summary } as unknown as BotTask);
 const SUMMARY_TAG = 'نامزد حذف سریع: صفحهٔ تازه‌ای که سرواژهٔ واژه‌نامه نیست';
 
 export class Patrol {

@@ -1,8 +1,8 @@
 /**
- * fa.wiktionary anti-vandalism patrol: every tunable in one place.
+ * وظیفهٔ ۲۱: fa.wiktionary anti-vandalism patrol. Every tunable in one place.
  *
  * The design and the measurements behind each number are in
- * docs/wikt-01-antivandal.md. Change a threshold here, then re-run the backtest
+ * docs/task-21-wiktionary-antivandal.md. Change a threshold here, then re-run the backtest
  * (`wikt backtest`) before deploying: the thresholds are only as good as the last
  * backtest that used them.
  */

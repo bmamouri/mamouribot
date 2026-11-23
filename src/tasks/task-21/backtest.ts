@@ -1,7 +1,7 @@
 /**
  * Backtest the patrol against the gold set (gold.py). Reads only; never writes to a wiki.
  *
- *   npx tsx src/wikt/cli.ts backtest <gold.jsonl> [--per-bucket N] [--concurrency 4] [--out dir]
+ *   npx tsx src/tasks/task-21/cli.ts backtest <gold.jsonl> [--per-bucket N] [--concurrency 4] [--out dir]
  *
  * Runs the SAME rules, model calls and decision ladder as the live patrol, on a seeded
  * sample of the gold set, and reports precision for each action. Run it on Toolforge:
@@ -15,7 +15,7 @@
  *  - The revert target is assumed to exist for T0/T1 edits.
  */
 import { appendFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { Bot, FAWIKT } from '../core.js';
+import { Bot, FAWIKT } from '../../core.js';
 import { LLM_MAX_DIFF_CHARS } from './config.js';
 import { decide, wantsSecondPass } from './decide.js';
 import { diffLines, renderForModel } from './diff.js';

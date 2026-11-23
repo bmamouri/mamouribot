@@ -92,7 +92,7 @@ export const RUN_PAGE = 'کاربر:MamouriBot/ادامه';
 /**
  * Which wiki a run reads and writes. Everything in this framework was written for
  * fa.wikipedia, and every existing task still gets exactly that (`FAWIKI` is the default).
- * The fa.wiktionary patrol (src/wikt/) passes `FAWIKT`: its own API, its own stop page ON
+ * The fa.wiktionary patrol (وظیفهٔ ۲۱, src/tasks/task-21/) passes `FAWIKT`: its own API, its own stop page ON
  * THAT WIKI (a stop page on fawiki cannot stop edits on fawiktionary without everyone
  * knowing to look there), and its own permission page.
  */
@@ -115,8 +115,10 @@ export const FAWIKT: WikiConfig = {
   tag: 'wiktionary:fa',
   api: FAWIKT_API,
   runPage: RUN_PAGE,
-  // The fa.wiktionary pattern (iCEAGE bot, Rezabot, AyBot, DarafshBot). Until the page
-  // exists summaryFor() finds it missing and links nothing. Update the month when filing.
+  // Task numbers are MamouriBot's own (وظیفهٔ ۲۱ is the patrol), but approval for this wiki
+  // comes from fa.wiktionary, not fawiki's BRFA, so the page follows the fa.wiktionary
+  // pattern (iCEAGE bot, Rezabot, AyBot, DarafshBot). Until it exists summaryFor() finds it
+  // missing and links nothing. Update the month when filing.
   permissionPage: () => 'ویکی‌واژه:نظرخواهی‌ها/ربات-۲۰۲۶-۱۲/کاربر:MamouriBot برای مجوز ربات',
 };
 /**

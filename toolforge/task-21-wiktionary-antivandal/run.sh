@@ -1,5 +1,6 @@
 #!/bin/bash
-# Toolforge tool: mamouribot.  fa.wiktionary anti-vandalism patrol (docs/wikt-01-antivandal.md).
+# Toolforge tool: mamouribot.  وظیفهٔ ۲۱: fa.wiktionary anti-vandalism patrol
+# (docs/task-21-wiktionary-antivandal.md).
 #
 #   run.sh patrol            dry: reads, scores, logs decisions, never writes
 #   run.sh backtest          measure against the gold set (reads only)

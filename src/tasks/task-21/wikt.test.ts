@@ -1,7 +1,7 @@
 /**
  * fa.wiktionary patrol: offline tests. No network.
  *
- *   npx tsx src/wikt/wikt.test.ts
+ *   npx tsx src/tasks/task-21/wikt.test.ts
  *
  * Fixtures are real cases from the wiki (۲۳ نوامبر ۲۰۲۶), shortened.
  */
@@ -13,7 +13,7 @@ import { diffLines } from './diff.js';
 import { fingerprintTrusted, norm, userPrompt, verifyEvidence, type LlmVerdict } from './llm.js';
 import { flags } from './rules.js';
 import { tierOf, type UserFacts } from './trust.js';
-import { FAWIKI, FAWIKT } from '../core.js';
+import { FAWIKI, FAWIKT } from '../../core.js';
 import { LLM_URL } from './config.js';
 
 let pass = 0;

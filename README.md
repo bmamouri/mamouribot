@@ -32,6 +32,7 @@ only copies of what was reviewed when each task was approved.
 | ۱۶ | `task-16/` | `strip-text-fragment` | Removes `#:~:text=` from URLs | Approved. Daily, `tf-daily` |
 | ۱۸ | `task-18/` | `portal-links` | Adds `{{درگاه}}` to articles in a portal's exact-name subject category (or its name-matching subcategories) | Approved. Every 6 hours, `pl-full` |
 | ۱۹ | `task-19/` | `cite-urls` | Turns bare-URL references into full citations from the page's own metadata, fills missing citation titles, repairs broken citation URLs | Not filed yet. Not run live |
+| ۲۱ | `task-21/` | `wiktionary-antivandal` | **fa.wiktionary**: reverts clear vandalism by new and unregistered users, tags non-dictionary new pages for speedy deletion. Own entry point, `src/tasks/task-21/cli.ts` | Not filed. Dry runs and backtest only; approval comes from fa.wiktionary |
 
 Task ۲ (the ship-infobox conversion) was a one-off run from a separate script and is not part
 of this runner. Task ۱۳ is not a `BotTask`: it has its own entry point,

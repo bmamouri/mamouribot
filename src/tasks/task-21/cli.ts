@@ -1,12 +1,12 @@
 /**
  * fa.wiktionary anti-vandalism patrol: entry point.
  *
- *   npx tsx src/wikt/cli.ts patrol [--once] [--live]
- *   npx tsx src/wikt/cli.ts backtest <gold.jsonl> [--per-bucket 300] [--concurrency 4] [--out dir]
- *   npx tsx src/wikt/cli.ts selftest
+ *   npx tsx src/tasks/task-21/cli.ts patrol [--once] [--live]
+ *   npx tsx src/tasks/task-21/cli.ts backtest <gold.jsonl> [--per-bucket 300] [--concurrency 4] [--out dir]
+ *   npx tsx src/tasks/task-21/cli.ts selftest
  *
  * Dry unless --live. --live is refused until WIKT_PATROL_APPROVED=1 is set, which is to
- * be set only once the bot request on fa.wiktionary is approved (docs/wikt-01-antivandal.md).
+ * be set only once the bot request on fa.wiktionary is approved (docs/task-21-wiktionary-antivandal.md).
  */
 import { backtest } from './backtest.js';
 import { Patrol } from './patrol.js';

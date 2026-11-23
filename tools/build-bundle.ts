@@ -238,9 +238,9 @@ copyFileSync('dist/cite-scan-conflicts.mjs', 'toolforge/cite-scan-conflicts.mjs'
 console.log('ساخته شد: toolforge/cite-scan-conflicts.mjs (رونوشت از dist/cite-scan-conflicts.mjs)');
 
 // ---- dist/wikt-patrol.mjs ----
-// The fa.wiktionary anti-vandalism patrol and its backtest. Its own entry, like task 13:
+// وظیفهٔ ۲۱: the fa.wiktionary anti-vandalism patrol and its backtest. Its own entry, like task 13:
 // it is a loop, not a BotTask.
-await buildOne('src/wikt/cli.ts', 'dist/wikt-patrol.mjs');
+await buildOne('src/tasks/task-21/cli.ts', 'dist/wikt-patrol.mjs');
 {
   // gate 2: the rules and the decision ladder, no network. A bundle whose ladder was
   // folded wrong would otherwise look healthy until it reverted something.
