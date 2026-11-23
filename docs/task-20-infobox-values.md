@@ -23,6 +23,11 @@ A dictionary value changes only when the **whole** value of a whitelisted parame
 named template equals the row's English value (case and spacing aside). Refs, comments and
 whitespace around it are kept.
 
+A value that is exactly one link with an English label (`[[Kidney|Renal]]`) is matched on the
+label and takes a row only when the row itself is a link to an fa article (`[[کلیه|کلیوی]]`). A plain
+value takes the row's text without the link. The whole table is refused if a linked row points at a
+missing page, a redirect or a disambiguation page.
+
 A navbox label changes only when the label is **exactly** the English title of the linked
 Persian article (its en sitelink, disambiguator aside, case not aside), the article is not
 reached through a redirect, and is not a disambiguation page.
@@ -69,7 +74,9 @@ Every row is read by me before it goes on the page. No language model is involve
 - Census: 578,075 of 1,100,588 articles show a Latin-letter infobox value; 10,952 of 20,981
   navboxes show English. Those numbers describe the problem; this task reaches a small, safe
   part of it.
-- Dictionary v1 (12 rows) reaches 1,952 articles.
+- Dictionary v1 (12 rows) reached 1,952 articles. v2 (rev 45027968, 77 rows, ۲۴ نوامبر ۲۰۲۶) adds the
+  drug infobox's routes, metabolism, excretion, bioavailability, protein binding, legal status and
+  liability terms, from attested pairs; targets: 4,907 pages.
 - Navbox labels: 7 of the 1,240 English labels on Persian links in 100 navboxes pass the rule.
 - Dry run, ۲۲ نوامبر ۲۰۲۶, 212 pages: 132 to edit (129 values, 7 labels), 0 refused by
   `verify`. Every changed line was read.
