@@ -1,8 +1,6 @@
 # وظیفهٔ ۱۹ — تکمیل یادکردهای نشانی عریان و اصلاح نشانی منبع‌ها.   see the ⚠️ below
 #
-# NOT APPROVED. Only `cu-check` and `cu-dry` may be created until the request page says
-# {{مجوز دارد}}. The scheduled job is written out so the approved shape is reviewable, and
-# is commented out.
+# Approved by Huji, ۲۲ نوامبر ۲۰۲۶ ({{مجوز دارد}}). Everything below runs as MamouriBot.
 #
 # ⚠️ `toolforge jobs load` SYNCS — it deletes scheduled jobs absent from the file it is
 # given, including every other task's jobs. Use `toolforge jobs run` / `delete` per job.
@@ -24,14 +22,25 @@
   filelog-stdout: logs/cu-dry.out
   filelog-stderr: logs/cu-dry.err
 
-# After approval. 05:40 UTC is clear of وظیفهٔ ۱ (06:20), ۱۵ (03:05), ۱۶ (06:50), ۱۲ (08:00)
-# and ۳'s hourly :25. 150 edits a run, as the request states.
-# - name: cu-daily
-#   command: ./task-19-cite-urls/run.sh --live --limit 150 --delay 15
-#   image: node20
-#   mem: 1Gi
-#   schedule: "40 5 * * *"
-#   retry: 0
-#   emails: onfailure
-#   filelog-stdout: logs/cu-daily.out
-#   filelog-stderr: logs/cu-daily.err
+# The first live batch as MamouriBot, small: the trial was under my own account.
+- name: cu-first
+  command: ./task-19-cite-urls/run.sh --live --limit 50 --delay 15
+  image: node20
+  mem: 1Gi
+  retry: 0
+  emails: all
+  filelog-stdout: logs/cu-first.out
+  filelog-stderr: logs/cu-first.err
+
+# Daily. 1,000 edits a run (the request said 150; raised ۲۳ نوامبر ۲۰۲۶, noted on the request
+# page). A run is ~3,000 metadata lookups (~5 h) then ~1,000 paced writes (~8 h).
+# 05:40 UTC is clear of وظیفهٔ ۱ (06:20), ۱۵ (03:05), ۱۶ (06:50), ۱۲ (08:00, 09:30), ۲۰ (07:05).
+- name: cu-daily
+  command: ./task-19-cite-urls/run.sh --live --limit 1000 --delay 15
+  image: node20
+  mem: 1Gi
+  schedule: "40 5 * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/cu-daily.out
+  filelog-stderr: logs/cu-daily.err

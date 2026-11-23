@@ -7,12 +7,12 @@ without judgement.
 
 ## Status
 
-- **Not filed yet.** Trial done: 149 edits under my own account, 21–22 نوامبر ۲۰۲۶, four batches,
-  every edit audited (`src/tasks/task-19/audit-trial.replay.ts`): reference count unchanged on all,
-  citation errors up on none and down on 61, 6 pages refused before saving. Two defects found and
-  corrected by hand (front-page citations on وردنجان; a `+` left by the Google-cache unwrap on
-  مریم جعفرخانی کرمانی). Request draft: `drafts/brfa-task19-cite-urls.wiki` in the companion repo.
-- Request page, when filed: `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۹`.
+- **Approved** by Huji, ۲۲ نوامبر ۲۰۲۶, after a 149-edit trial under my own account (audited:
+  reference count unchanged on all, citation errors up on none and down on 61, 6 pages refused
+  before saving; two defects corrected by hand, see the request page).
+- Runs as MamouriBot. `cu-first` (50 edits) on ۲۳ نوامبر ۲۰۲۶, then `cu-daily`, 05:40 UTC, at
+  most 1,000 edits a run. The request said 150; the higher cap is announced on the request page.
+- Request page: `ویکی‌پدیا:سیاست ربات‌رانی/درخواست مجوز/MamouriBot/وظیفه ۱۹`.
 - Task id `cite-urls`. Directory `src/tasks/task-19/`. Jobs in `toolforge/task-19-cite-urls/`.
 
 ## What it changes

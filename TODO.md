@@ -297,16 +297,13 @@ promise «هرگز صفحه‌ای را که ویرایش کرده دوباره 
 
 ---
 
-## 14. وظیفهٔ ۱۹: file the request
+## 14. وظیفهٔ ۱۹: watch the daily run
 
-**Background.** Code, tests and jobs are ready (`docs/task-19-cite-urls.md`). Nothing has run
-live. The decisions the request has to state: whether `<ref>[URL label]</ref>` is in scope
-(`T19_LABELLED`), whether percent-decoding may cause an edit on its own
-(`T19_MINOR_ALONE`), and the daily edit cap.
+**Background.** Approved ۲۲ نوامبر ۲۰۲۶. `cu-daily` runs at 05:40 UTC, at most 1,000 edits.
+A run spends ~5 h on metadata lookups before the first write, then ~8 h writing.
 
-**Trigger.** None. Do it when I decide to.
+**Check.** `toolforge jobs logs cu-daily`; `logs/cu-daily.out` for «خلاصه». The review page
+`کاربر:MamouriBot/وظیفه ۱۹/بازبینی` for proposals and reviewers' بله/نه. Audit a sample with
+`npx tsx src/tasks/task-19/audit-trial.replay.ts MamouriBot <since>`.
 
-**Then.** Dry-run 60 pages from each search and read every diff. Draft the request in the
-companion repository's `drafts/`, copying the structure of وظیفهٔ ۱۶'s. Trial under
-`--as-me`, 30 edits, and report it in full.
-
+**Then.** If refusals rise above a few percent, stop the job and read the refused pages.
