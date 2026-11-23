@@ -53,9 +53,10 @@ export function brfaPage(taskNumber: number): string {
  * reads «[[…|ربات]]: …» once rather than «[[…|ربات]]: ربات: …» — وظیفهٔ ۷ is written that
  * way and would otherwise say it twice.
  */
-export function withBrfaLink(taskNumber: number, summary: string): string {
+export function withBrfaLink(taskNumber: number, summary: string,
+                             page: (n: number) => string = brfaPage): string {
   const body = summary.replace(/^\s*ربات\s*:\s*/, '');
-  return `[[${brfaPage(taskNumber)}|ربات]]: ${body}`;
+  return `[[${page(taskNumber)}|ربات]]: ${body}`;
 }
 
 /**

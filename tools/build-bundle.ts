@@ -237,3 +237,21 @@ await buildOne('src/tasks/task-03/scan-conflicts-cli.ts', 'dist/cite-scan-confli
 copyFileSync('dist/cite-scan-conflicts.mjs', 'toolforge/cite-scan-conflicts.mjs');
 console.log('ساخته شد: toolforge/cite-scan-conflicts.mjs (رونوشت از dist/cite-scan-conflicts.mjs)');
 
+// ---- dist/wikt-patrol.mjs ----
+// The fa.wiktionary anti-vandalism patrol and its backtest. Its own entry, like task 13:
+// it is a loop, not a BotTask.
+await buildOne('src/wikt/cli.ts', 'dist/wikt-patrol.mjs');
+{
+  // gate 2: the rules and the decision ladder, no network. A bundle whose ladder was
+  // folded wrong would otherwise look healthy until it reverted something.
+  const r = spawnSync('node', ['dist/wikt-patrol.mjs', 'selftest'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`.trim();
+  if (!out.startsWith('SELFTEST OK')) {
+    console.error('\nGATE 2 FAILED (dist/wikt-patrol.mjs):');
+    console.error(out.slice(0, 2000));
+    process.exit(1);
+  }
+  console.log('  گیت ۲: قاعده‌ها و نردبان تصمیم سالم‌اند ✓  (dist/wikt-patrol.mjs)');
+}
+copyFileSync('dist/wikt-patrol.mjs', 'toolforge/wikt-patrol.mjs');
+console.log('ساخته شد: toolforge/wikt-patrol.mjs (رونوشت از dist/wikt-patrol.mjs)');

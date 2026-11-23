@@ -1,0 +1,22 @@
+# fa.wiktionary anti-vandalism patrol.   toolforge jobs load jobs.yaml
+#
+# Only the DRY jobs are defined. `wikt-patrol-live` is added after the bot request on
+# fa.wiktionary is approved, with WIKT_PATROL_APPROVED=1 in its command.
+---
+- name: wikt-backtest
+  command: ./wikt-01-antivandal/run.sh backtest --per-bucket 300 --concurrency 4
+  image: node20
+  mem: 1Gi
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/wikt-backtest.out
+  filelog-stderr: logs/wikt-backtest.err
+
+- name: wikt-shadow
+  command: ./wikt-01-antivandal/run.sh patrol
+  image: node20
+  mem: 512Mi
+  continuous: true
+  emails: onfailure
+  filelog-stdout: logs/wikt-shadow.out
+  filelog-stderr: logs/wikt-shadow.err

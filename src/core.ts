@@ -88,6 +88,37 @@ export const HUMAN_UA =
  * but nothing in this file reads that title any more.
  */
 export const RUN_PAGE = 'کاربر:MamouriBot/ادامه';
+
+/**
+ * Which wiki a run reads and writes. Everything in this framework was written for
+ * fa.wikipedia, and every existing task still gets exactly that (`FAWIKI` is the default).
+ * The fa.wiktionary patrol (src/wikt/) passes `FAWIKT`: its own API, its own stop page ON
+ * THAT WIKI (a stop page on fawiki cannot stop edits on fawiktionary without everyone
+ * knowing to look there), and its own permission page.
+ */
+export interface WikiConfig {
+  /** For logs and the UA, e.g. `wikipedia:fa`. */
+  tag: string;
+  api: string;
+  runPage: string;
+  /** The page that authorises a task, linked from every bot summary. */
+  permissionPage(taskNumber: number): string;
+}
+export const FAWIKI: WikiConfig = {
+  tag: 'wikipedia:fa',
+  api: FA_API,
+  runPage: RUN_PAGE,
+  permissionPage: brfaPage,
+};
+export const FAWIKT_API = 'https://fa.wiktionary.org/w/api.php';
+export const FAWIKT: WikiConfig = {
+  tag: 'wiktionary:fa',
+  api: FAWIKT_API,
+  runPage: RUN_PAGE,
+  // The fa.wiktionary pattern (iCEAGE bot, Rezabot, AyBot, DarafshBot). Until the page
+  // exists summaryFor() finds it missing and links nothing. Update the month when filing.
+  permissionPage: () => 'ویکی‌واژه:نظرخواهی‌ها/ربات-۲۰۲۶-۱۲/کاربر:MamouriBot برای مجوز ربات',
+};
 /**
  * Consecutive failures to READ the run page before the run halts itself.
  *
@@ -219,6 +250,8 @@ export interface RunOptions {
    * account" and that would mean putting the operator's password on Toolforge.
    */
   flagEdits?: boolean;
+  /** Which wiki. Defaults to fa.wikipedia; see WikiConfig. */
+  wiki?: WikiConfig;
 }
 
 /** Everything that differs between the two identities, in one place. */
@@ -267,8 +300,11 @@ export class Bot {
   private brfaLinkable: boolean | null = null;
   /** Consecutive failures reading the run page; see MAX_RUN_PAGE_READ_FAILURES. */
   private runPageReadFailures = 0;
+  /** The wiki this run talks to. */
+  readonly wiki: WikiConfig;
 
   constructor(public opts: RunOptions) {
+    this.wiki = opts.wiki ?? FAWIKI;
     // Assigned in the body, not as a field initializer: a field initializer that reads
     // `this.opts` depends on when TS emits parameter-property assignments relative to
     // field initializers, and getting the bot's identity from an evaluation-order
@@ -398,7 +434,7 @@ export class Bot {
    * lessons/scripts-and-batch/fetch-without-timeout-wedges-forever.md.
    */
   async apiGet(p: Record<string, string>): Promise<any> {
-    return this.apiGetOn(FA_API, p);
+    return this.apiGetOn(this.wiki.api, p);
   }
 
   /**
@@ -452,7 +488,7 @@ export class Bot {
     // Same as apiGet: `maxlag` unless this is the login round-trip. `edit()` already sets
     // it explicitly; the spread below keeps the caller's value when there is one.
     const withLag = p.action === 'login' ? p : { maxlag: String(this.opts.maxlag), ...p };
-    return this.request(() => fetch(FA_API, {
+    return this.request(() => fetch(this.wiki.api, {
       method: 'POST',
       headers: { 'User-Agent': this.id.ua, 'Content-Type': 'application/x-www-form-urlencoded', Cookie: this.cookieHeader() },
       body: new URLSearchParams({ format: 'json', formatversion: '2', ...withLag }).toString(),
@@ -535,7 +571,7 @@ export class Bot {
     const base = (title ? task.perPageSummary?.(title) : undefined) || task.summary;
     if (this.opts.identity === 'human') return base;
     if (this.brfaLinkable === null) {
-      const page = brfaPage(task.taskNumber);
+      const page = this.wiki.permissionPage(task.taskNumber);
       try {
         const d = await this.apiGet({ action: 'query', titles: page, prop: 'info' });
         this.brfaLinkable = !d.query?.pages?.[0]?.missing;
@@ -545,7 +581,7 @@ export class Bot {
       }
     }
     if (!this.brfaLinkable) return base;
-    const full = withBrfaLink(task.taskNumber, base);
+    const full = withBrfaLink(task.taskNumber, base, page => this.wiki.permissionPage(page));
     if (!fitsSummaryLimit(full)) {
       console.warn('  ⚠ خلاصه با پیوند از ۵۰۰ نویسه بیشتر می‌شود — بدون پیوند فرستاده شد');
       return base;
@@ -567,16 +603,27 @@ export class Bot {
    * switch that silently does not work. After CONSECUTIVE failures the run halts and
    * says why.
    */
+  /** The account the session is authenticated as, once logged in. */
+  get whoami(): string | null { return this.username; }
+
+  /**
+   * Wait the server-driven gap before a write, for callers that drive their own loop
+   * (the fa.wiktionary patrol) instead of runTask(). Same pacer, same lag polling.
+   */
+  async paceWrite(): Promise<void> {
+    await sleep(await this.writeGapMs());
+  }
+
   async mustStop(): Promise<{ stop: boolean; why?: string }> {
     if (this.stopRequested) return { stop: true, why: 'SIGINT' };
     try {
-      const d = await this.apiGet({ action: 'query', prop: 'revisions', rvprop: 'content', rvslots: 'main', titles: RUN_PAGE });
+      const d = await this.apiGet({ action: 'query', prop: 'revisions', rvprop: 'content', rvslots: 'main', titles: this.wiki.runPage });
       const pg = d.query.pages[0];
       this.runPageReadFailures = 0;
       if (!('missing' in pg)) {
         const raw = pg.revisions?.[0]?.slots?.main?.content ?? '';
         const content = raw.replace(/<!--[\s\S]*?-->/g, '').trim(); // ignore HTML comments
-        if (content !== RUN_KEYWORD) return { stop: true, why: `صفحهٔ ادامه «${RUN_PAGE}» مقدارش «${RUN_KEYWORD}» نیست` };
+        if (content !== RUN_KEYWORD) return { stop: true, why: `صفحهٔ ادامه «${this.wiki.runPage}» مقدارش «${RUN_KEYWORD}» نیست` };
       }
     } catch (e) {
       this.runPageReadFailures++;
