@@ -1,6 +1,6 @@
 # وظیفهٔ ۲۱: fa.wiktionary anti-vandalism patrol
 
-Status: **built, not approved, never run live.** Dry runs and the backtest only. The plan
+Status: **approved on fa.wiktionary ۲۳ نوامبر ۲۰۲۶; live trial (`wikt-trial`, ≤ 5 actions a day, unflagged) since ۲۴ نوامبر.** Bot flag requested from stewards. The plan
 and the research behind it are in the companion repository:
 `docs/FAWIKTIONARY_ANTIVANDAL_PLAN.md` and `docs/FAWIKTIONARY_ANTIVANDAL_PREVENTION.md`.
 On-wiki drafts are in `drafts/fawikt-antivandal/`.
