@@ -40,3 +40,16 @@
   emails: onfailure
   filelog-stdout: logs/lf-daily.out
   filelog-stderr: logs/lf-daily.err
+
+# The ranked infobox list (task-20 census): articles whose infobox has English links to
+# subjects that have an fa article. Same task and scope as lf-daily; a different selector.
+# 09:30 UTC, after lf-daily (08:00) has finished.
+- name: lf-ib-daily
+  command: env TARGET_CAP=400 ./task-12-linkfix/run-infobox.sh --live --limit 150 --delay 15
+  image: node20
+  mem: 2Gi
+  schedule: "30 9 * * *"
+  retry: 0
+  emails: onfailure
+  filelog-stdout: logs/lf-ib-daily.out
+  filelog-stderr: logs/lf-ib-daily.err

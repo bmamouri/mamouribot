@@ -98,6 +98,16 @@ export async function candidatePages(bot: Bot): Promise<string[]> {
   return titles.filter(t => allowed.has(ns.get(t) ?? -1) && !NOT_A_TEMPLATE.test(t));
 }
 
+/** Titles in this task's checkpoint (done, deferred or recently clean). */
+function seenTitles(): Set<string> {
+  const path = `${process.env.BOT_STATE_DIR ?? '.state'}/linkfix.json`;
+  if (!existsSync(path)) return new Set();
+  try {
+    const d = JSON.parse(readFileSync(path, 'utf8'));
+    return new Set([...Object.keys(d.done ?? {}), ...Object.keys(d.deferred ?? {}), ...Object.keys(d.clean ?? {})]);
+  } catch { return new Set(); }
+}
+
 async function candidatePagesRaw(bot: Bot, ns: string): Promise<string[]> {
   const titles: string[] = [];
   const explicit = (process.env.TARGET_TITLES ?? '').split('|').map(s => s.trim()).filter(Boolean);
@@ -108,9 +118,17 @@ async function candidatePagesRaw(bot: Bot, ns: string): Promise<string[]> {
   const file = process.env.TARGET_FILE;
   if (file && existsSync(file)) {
     const raw = readFileSync(file, 'utf8').trim();
-    titles.push(...(raw.startsWith('[')
+    let listed = raw.startsWith('[')
       ? JSON.parse(raw) as string[]
-      : raw.split('\n').map(s => s.trim()).filter(Boolean)));
+      : raw.split('\n').map(s => s.trim()).filter(Boolean);
+    // A long ranked file (the infobox list from the task-20 census, ~95,000 titles) is
+    // worked from the top. Pages this task has already looked at are dropped BEFORE the
+    // cap, or every capped run would re-read the same head of the file and find it done.
+    if (process.env.TARGET_FILE_SKIP_SEEN === '1') {
+      const seen = seenTitles();
+      listed = listed.filter(t => !seen.has(t));
+    }
+    titles.push(...listed);
   }
 
   for (const tpl of (process.env.TARGET_TRANSCLUDING ?? '').split('|').map(s => s.trim()).filter(Boolean)) {
