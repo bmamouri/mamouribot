@@ -93,6 +93,29 @@ export async function apiPost(p: Record<string, string>) {
 }
 
 /**
+ * Multipart POST (file uploads) using the shared cookie jar — browser sets
+ * its own boundary header, don't set Content-Type manually.
+ *
+ * MUST set format=json/formatversion=2 on the FormData itself: unlike
+ * apiGet/apiPost, nothing else adds these. Omitting them makes MediaWiki
+ * return the HTML API-help page instead of JSON — the upload still
+ * MUTATES normally (action=upload runs before response formatting), so
+ * the file lands regardless, but json()'s JSON.parse then fails every
+ * single time, gets misreported as "throttled", and the caller's success
+ * check never fires. Caught live: 13 fair-use image uploads during the
+ * Roozitaa 2-year-audit all actually succeeded on the first try while the
+ * log insisted they were being throttled.
+ */
+export async function apiPostForm(fd: FormData) {
+  if (!fd.has('format')) fd.set('format', 'json');
+  if (!fd.has('formatversion')) fd.set('formatversion', '2');
+  return json(
+    () => [endpoint, { method: 'POST', headers: { 'User-Agent': UA, cookie: cookie() }, body: fd }],
+    fd.get('action') as string,
+  );
+}
+
+/**
  * Logs in and returns the CSRF token, hard-gated on the expected identity.
  *
  * A bot-password session cannot log in on top of itself: SUL shares a
