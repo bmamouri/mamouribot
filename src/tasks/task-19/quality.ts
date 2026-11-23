@@ -33,6 +33,8 @@ const GENERIC_SUBSTR = [
   'error 404', 'error-404', '404 not found', 'page not found', 'cloudflare', 'ddos-guard',
   'access denied', 'request rejected', 'captcha', 'enable javascript', 'browser is outdated',
   'account suspended', 'suspendedpage', 'bandwidth limit exceeded', 'database error',
+  'bot verification', 'verify you are human', 'verifying you are human', 'human verification', 'security check',
+  'checking your browser', 'please wait', 'one moment', 'ddos protection', 'access to this page has been denied',
   'خطای ۴۰۴', 'صفحه مورد نظر', 'یافت نشد', 'دسترسی غیرمجاز', 'دسترسی امکان‌پذیر نیست',
   'در حال انتقال به سایت', 'not available in your region', 'not available in your country',
   'the official website for', 'official site of', 'geoblock', 'home of the',
@@ -112,6 +114,8 @@ export function stripSiteSuffix(t: string, ctx: { url: string; site?: string; na
     && !/\s+[-–—]\s+/.test(crumbs[0]) && crumbs[crumbs.length - 1].length >= 8) return crumbs[crumbs.length - 1].trim();
   const lead = /^(.{2,40}?)\s+(?:\||::|:|»|·|•|–|—|-)\s+(.+)$/.exec(t);
   if (lead && named(lead[1]) && lead[2].length >= 3) t = lead[2];
+  // A section label in front: «مجلات : احترام به حس مالکیت کودک» on hawzah.net.
+  t = t.replace(/^(?:مجلات|اخبار|مقالات|گزارش|news|articles|blog)\s*:\s+/i, '');
   // «A Phonology of Southern Luri: …: Amazon.com: Books» — a colon segment that is a domain.
   const colon = t.split(/\s*:\s+/);
   for (let i = 1; i < colon.length; i++) if (named(colon[i]) && /\./.test(colon[i])) { t = colon.slice(0, i).join(': '); break; }
@@ -170,6 +174,10 @@ export function judgeAuthor(first: string, last: string, site?: string, titleSeg
   if (/[a-z][A-Z]/.test(l) || /[a-z][A-Z]/.test(f)) return false;     // «BrennanDiplomatic»
   if (/^[A-Z]{3,}$/.test(l) || /^[A-Z]{3,}$/.test(f)) return false;   // «WELT», an outlet in capitals
   if (/\b(?:staff|reporter|correspondent|editor|admin|desk|news|agency|press|team|online|reuters|ap|afp|bbc|r[ée]daction|redacci[óo]n|redaktion|redazione)\b/i.test(whole)) return false;
+  // CS1's own generic_names (پودمان:Citation/CS1/Configuration): a name matching one of these
+  // is rendered with «نام عام دارد», a visible error. «Britannica Editors» on «هذیان گزند و آسیب».
+  if (/\b(?:editors?|edited|eds?|advisor|author|bureau|company|group|inc|limited|ltd|collaborator|contributor|interviewer|translator|directory|business|statement|submitted|policy|privacy|verfasser|superuser|newsroom|cnn|google|facebook|instagram|twitter|linkedin|pinterest|tumblr|allmusic)\b/i.test(whole)) return false;
+  if (/about us|contact us|home page|site name/i.test(whole)) return false;
   if (/^(?:كتب|کتب|بقلم|إعداد|اعداد|written|by)$/i.test(f.split(/\s+/)[0])) return false;
   // `\b` is ASCII-only in JS, so the Persian words are matched as substrings.
   if (/خبرگزاری|سرویس|گروه|تحریریه|خبرنگار|روابط عمومی|مدیر سایت|ادمین|نیوز|آنلاین|پایگاه|وبگاه|سایت|ایرنا|ایسنا|تسنیم/.test(whole)) return false;

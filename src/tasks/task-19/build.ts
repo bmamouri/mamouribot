@@ -58,7 +58,10 @@ export function todayFa(now = new Date()): string {
 /** `{{یادکرد وب|…}}` or `{{یادکرد خبر|…}}`, on one line, Persian parameter names. */
 export function buildCitation(meta: Meta, opt: { today: string }): string {
   const p: [string, string][] = [];
-  p.push(['نشانی', meta.url]);
+  // The citation module turns Persian and Arabic-Indic digits in its output into Latin ones,
+  // hrefs included, so `/news/…/واگذاری-١٢٠-هکتار` would link to `…-120-…`. Written
+  // percent-encoded they reach the server exactly as the bare link sent them.
+  p.push(['نشانی', meta.url.replace(/[\u0660-\u0669\u06f0-\u06f9]/g, d => encodeURIComponent(d))]);
   p.push(['عنوان', escapeParam(meta.title)]);
   (meta.authors ?? []).slice(0, 9).forEach(([first, last], i) => {
     const n = i === 0 ? '' : faDigits(i + 1);

@@ -292,7 +292,13 @@ export function planPage(text: string, title: string, opt: PlanOptions): Plan {
   // --- 3. links outside citations: [URL label], and URLs left in <ref> text -----------
   const templ = calls.map(c => [c.start, c.end] as Span);
   for (const m of text.matchAll(/\[(https?:\/\/[^\s\[\]<>"{}|]+)(?=[\s\]])/gi)) {
-    const s = m.index! + 1, url = m[1], e = s + url.length;
+    const s = m.index! + 1;
+    // A `[` never closed on its line is not a bracket link: MediaWiki renders a free URL,
+    // which drops trailing punctuation (`…?utm_source=chatgpt.com)` on «امید نیاز»).
+    const lineEnd = text.indexOf('\n', s) < 0 ? text.length : text.indexOf('\n', s);
+    const closed = text.slice(s, lineEnd).includes(']');
+    const url = closed ? m[1] : (freeUrl(m[1])?.url ?? m[1]);
+    const e = s + url.length;
     if (!free(s, e) || inSpans(links, s, e) || inSpans(templ, s, e)) continue;
     const fx = inlineUrlFix(url);
     if (fx.url === url || URL_STOP.test(fx.url)) continue;

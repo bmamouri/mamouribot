@@ -394,7 +394,7 @@ class Gate {
   backoff(ms: number) { this.last = Date.now() + ms; }
 }
 
-const CHALLENGE = /cf-browser-verification|cf_chl_|challenge-platform|__cf_chl|ddos-guard|arvancloud|در حال انتقال به سایت|transferring to the website|enable javascript and cookies|checking your browser/i;
+const CHALLENGE = /<title>\s*Bot Verification|cf-browser-verification|cf_chl_|challenge-platform|__cf_chl|ddos-guard|arvancloud|در حال انتقال به سایت|transferring to the website|enable javascript and cookies|checking your browser/i;
 
 /**
  * Author names a page states about itself. JSON-LD first (it says which object is the

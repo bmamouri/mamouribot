@@ -90,6 +90,8 @@ ok('«David BrennanDiplomatic Correspondent» rejected as an author', !judgeAuth
 ok('«Behnegarsoft.com» rejected', !judgeAuthor('', 'Behnegarsoft.com'));
 ok('«Ap» with no first name rejected', !judgeAuthor('', 'Ap'));
 ok('a real author kept', judgeAuthor('Lesley', 'Wroughton'));
+ok('«Britannica Editors» is a CS1 generic name', !judgeAuthor('Britannica', 'Editors'));
+ok('«The Editors of Encyclopaedia» too', !judgeAuthor('The Editors of', 'Encyclopaedia'));
 eq('webpage dates are not trusted', judgeDate('2024-05-21', '2026-11-21', 'webpage'), undefined);
 eq('news dates are', judgeDate('2019-02-14', '2026-11-21', 'newspaperArticle'), '2019-02-14');
 eq('future date dropped', judgeDate('2030-01-01', '2026-11-21', 'newspaperArticle'), undefined);
@@ -441,6 +443,8 @@ console.log('== planPage: title fill ==');
   eq('google site name with an unknown target: ask, change nothing yet', [p.changed, p.needs], [false, ['https://fa.euronews.com/amp/x']]);
 }
 
+ok('«Bot Verification» rejected', !judgeTitle('Bot Verification', { url: 'http://seemorgh.com/x' }).ok);
+eq('section prefix stripped', judgeTitle('مجلات : احترام به حس مالکیت کودک', { url: 'http://www.hawzah.net/fa/magazine/magart/3992' }), { ok: true, title: 'احترام به حس مالکیت کودک' });
 ok('«[No title found]» rejected', !judgeTitle('[No title found]', { url: 'https://doi.org/10.1/x' }).ok);
 eq('breadcrumb title: the last segment', judgeTitle('رادیو زمانه | خبر اول | موسیقی | دستگیری ۱۳ عامل موسیقی رپ در اصفهان', { url: 'http://zamaaneh.com/news/2009/02/post_8076.html', names: ['رادیو زمانه'] }), { ok: true, title: 'دستگیری ۱۳ عامل موسیقی رپ در اصفهان' });
 eq('«:::.» separator and a ZWNJ-spelled site name', judgeTitle('پایگاه اطلاع رسانی دولت:::. : دولت نهم در روزهای پایانی کماکان به فعالیت خود ادامه می دهد', { url: 'http://www.dolat.ir/x', names: ['پایگاه اطلاع‌رسانی دولت'] }), { ok: true, title: 'دولت نهم در روزهای پایانی کماکان به فعالیت خود ادامه می دهد' });
@@ -489,6 +493,14 @@ eq('appendParams on one line with spaced style', appendParams('{{یادکرد و
   eq('a bare URL cleaned into the citation is in urlMap', [...p.urlMap], [['https://www.eurowings.com/de.html?gclid=CIH_t6&gclsrc=ds', 'https://www.eurowings.com/de.html']]);
   eq('…so verify does not call it lost', unexplainedLoss(['https://www.eurowings.com/de.html?gclid=CIH_t6&gclsrc=ds'], ['https://www.eurowings.com/de.html'], p.urlMap), []);
 }
+
+{
+  const u = 'https://www.mehrnews.com/news/6620494/x?utm_source=chatgpt.com';
+  const p = planPage(`* «t» [${u})\n* next\n a<ref>http://a.org/b</ref>`, 'T', { lookup: () => ({ ok: true, meta: { url: 'http://a.org/b', title: 'A long title', website: 'a.org' } }), today: TODAY });
+  ok('an unclosed [ keeps its trailing «)»', p.text.includes('/6620494/x)\n'), p.text);
+}
+ok('Arabic-Indic digits in a new citation URL are percent-encoded', buildCitation({ url: 'https://www.isna.ir/news/98082315177/واگذاری-١٢٠-هکتار', title: 'T' }, { today: TODAY }).includes('واگذاری-%D9%A1%D9%A2%D9%A0-هکتار'));
+eq('…and verify sees the same link', unexplainedLoss(['https://www.isna.ir/news/1/واگذاری-١٢٠'], ['https://www.isna.ir/news/1/%D9%88%D8%A7%DA%AF%D8%B0%D8%A7%D8%B1%DB%8C-%D9%A1%D9%A2%D9%A0'], new Map()), []);
 
 console.log('== verify: link accounting ==');
 eq('a rewritten URL is accounted for', unexplainedLoss(['https://z.ir/%D8%A8'], ['https://z.ir/ب'], new Map()), []);

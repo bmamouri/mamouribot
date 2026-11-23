@@ -211,8 +211,7 @@ function externalHrefs(html: string): string[] {
     .map(m => m[1].replace(/&amp;/g, '&'));
 }
 
-const PERSIAN_DIGIT = /[۰-۹]/g;
-const toLatin = (s: string) => s.replace(PERSIAN_DIGIT, d => String(d.charCodeAt(0) - 0x06f0));
+const toLatin = (s: string) => s.replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06f0)).replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660));
 
 /**
  * Every external link on the old render must survive on the new one, unless this plan
