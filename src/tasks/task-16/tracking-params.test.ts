@@ -68,6 +68,66 @@ eq('srsltid, other params in order (جنگ سوریه و افرایم)',
 eq('utm_* in the middle', url('https://w.com/a?noredirect=on&utm_term=.7052&id=4'), 'https://w.com/a?noredirect=on&id=4');
 eq('fragment kept', url('https://x.com/a?utm_source=t&id=5#sec'), 'https://x.com/a?id=5#sec');
 
+console.log('\n== second batch: query parameters ==');
+eq('Cloudflare challenge token (مأموریت حمایت قاطع)',
+   url('https://www.klix.ba/vijesti/bih/x/210623180?__cf_chl_jschl_tk__=05cfc584df-1601871197-0-AUx3'),
+   'https://www.klix.ba/vijesti/bih/x/210623180');
+eq('__cf_chl_tk after a real param', url('https://8am.media/fa/x/?p=4&__cf_chl_tk=kkT.tr7E64cy7-1738438917-1.0.1.1-UndH42'),
+   'https://8am.media/fa/x/?p=4');
+eq('__cf_chl_captcha_tk__ keeps cid and year', url('https://www.opensecrets.org/personal-finances/net-worth?cid=N00029127&year=2015&__cf_chl_captcha_tk__=pmd_9ea8'),
+   'https://www.opensecrets.org/personal-finances/net-worth?cid=N00029127&year=2015');
+eq('Yahoo consent redirect', url('https://in.news.yahoo.com/a-162408157.html?guccounter=1&guce_referrer=aHR0&guce_referrer_sig=AQAA'),
+   'https://in.news.yahoo.com/a-162408157.html');
+eq('BBC ns_* and at_*', url('https://www.bbc.com/persian/live/64234351?ns_mchannel=social&ns_source=twitter&ns_campaign=bbc_live&ns_linkname=63c0'),
+   'https://www.bbc.com/persian/live/64234351');
+eq('BBC at_custom*', url('https://www.bbc.co.uk/news/uk-61593051?at_custom2=twitter&at_custom4=A5D0&at_campaign=64&at_medium=custom7'),
+   'https://www.bbc.co.uk/news/uk-61593051');
+eq('NYT smid', url('https://www.nytimes.com/2025/08/25/world/a.html?smid=url-share'), 'https://www.nytimes.com/2025/08/25/world/a.html');
+eq('old NYT: access token kept, partner/emc removed', url('https://www.nytimes.com/2006/08/15/health/15coff.html?ex=1313294400&en=d420f19ee1c77365&ei=5088&partner=rssnyt&emc=rss'),
+   'https://www.nytimes.com/2006/08/15/health/15coff.html?ex=1313294400&en=d420f19ee1c77365&ei=5088');
+eq('Guardian CMP', url('https://www.theguardian.com/world/2025/apr/21/a?CMP=share_btn_url'), 'https://www.theguardian.com/world/2025/apr/21/a');
+eq('MSN ocid', url('https://www.msn.com/en-us/news/world/a/ar-AA1A5iAj?ocid=BingNewsVerp'), 'https://www.msn.com/en-us/news/world/a/ar-AA1A5iAj');
+eq('Forbes sh', url('https://www.forbes.com/sites/b/2018/10/30/a/?sh=25171f21680b'), 'https://www.forbes.com/sites/b/2018/10/30/a/');
+eq('sh elsewhere kept', url('https://example.com/a?sh=1'), 'https://example.com/a?sh=1');
+eq('WT.mc_id', url('https://www.nature.com/news/a-1.14426?WT.mc_id=GPL_NatureNews'), 'https://www.nature.com/news/a-1.14426');
+eq('Amazon pf_rd_*/pd_rd_*', url('https://smile.amazon.com/W/dp/B08MVK2QWY/ref=pd_sbs_1?pd_rd_w=xENys&pf_rd_p=8b76&pf_rd_r=GX&th=1'),
+   'https://smile.amazon.com/W/dp/B08MVK2QWY/ref=pd_sbs_1?th=1');
+eq('Google Books: id/pg/dq/sig kept, ved/sa/ei/usg gone',
+   url('https://books.google.com/books?id=YY94tCLBqp4C&pg=PA50&dq=x&sig=ACfU&hl=en&sa=X&ved=2ahUKEwi&ei=xGaI&usg=AOvV'),
+   'https://books.google.com/books?id=YY94tCLBqp4C&pg=PA50&dq=x&sig=ACfU&hl=en');
+eq('usg on a Google Translate proxy kept', url('http://translate.googleusercontent.com/translate_c?hl=en&u=http://x.ir/&usg=ALkJrhh'),
+   'http://translate.googleusercontent.com/translate_c?hl=en&u=http://x.ir/&usg=ALkJrhh');
+eq('ICID on a sports site', url('http://www.goal.com/iran/news/1825/a?ICID=OP'), 'http://www.goal.com/iran/news/1825/a');
+eq('ICID as an article number kept', url('https://www.medscimonit.com/abstract/index/idArt/1?ICID=11763'),
+   'https://www.medscimonit.com/abstract/index/idArt/1?ICID=11763');
+eq('cid kept everywhere', url('http://www.sify.com/movies/interview.php?id=13608154&cid=2398'), 'http://www.sify.com/movies/interview.php?id=13608154&cid=2398');
+eq('__twitter_impression', url('http://m.slist.kr/news/ampArticleView.html?idxno=264966&__twitter_impression=true'),
+   'http://m.slist.kr/news/ampArticleView.html?idxno=264966');
+eq('xtor', url('https://www.bbc.com/persian/iran-52676844?xtor=AL-73-%5Bpartner%5D'), 'https://www.bbc.com/persian/iran-52676844');
+
+console.log('\n== second batch: fragments ==');
+eq('#google_vignette', url('https://www.worldhistory.org/article/2409/the-causes-of-wwii/#google_vignette'),
+   'https://www.worldhistory.org/article/2409/the-causes-of-wwii/');
+eq('#gsc.tab=0', url('https://www.mojnews.com/a-3/265191-x#gsc.tab=0'), 'https://www.mojnews.com/a-3/265191-x');
+eq('#sthash', url('http://farsnews.ir/newstext.php?nn=13930715000636#sthash.9MPVsbBO.dpuf'), 'http://farsnews.ir/newstext.php?nn=13930715000636');
+eq('#axzz', url('http://www.investopedia.com/terms/f/financialrisk.asp#axzz1b9QLCKIO'), 'http://www.investopedia.com/terms/f/financialrisk.asp');
+eq('query and fragment together', url('http://fa.euronews.com/2017/03/28/a?utm_campaign=Echobox&utm_source=Twitter#link_time=1490702467'),
+   'http://fa.euronews.com/2017/03/28/a');
+eq('AMP viewer, query and fragment',
+   url('https://www-khabaronline-ir.cdn.ampproject.org/v/s/www.khabaronline.ir/amp/1909664/?amp_gsa=1&amp_js_v=a9&usqp=mq331AQIUAKwASCAAgM%3D#amp_tf=%D8%A7%D8%B2%20%251%24s&aoh=1'),
+   'https://www-khabaronline-ir.cdn.ampproject.org/v/s/www.khabaronline.ir/amp/1909664/');
+eq('AMP referrer in the fragment', url('https://www-farsnews-ir.cdn.ampproject.org/v/s/www.farsnews.ir/amp/8501180186?amp_js_v=a6&amp_gsa=1&usqp=mq3#aoh=16307610285539&referrer=https://www.google.com'),
+   'https://www-farsnews-ir.cdn.ampproject.org/v/s/www.farsnews.ir/amp/8501180186');
+eq('a real anchor is kept', url('https://www.cia.gov/library/x/uz.html#People'), 'https://www.cia.gov/library/x/uz.html#People');
+eq('a real anchor after tracking is kept', url('https://www.washingtonpost.com/world/2022/a/?utm_source=t#link-ZFYLGJKG'),
+   'https://www.washingtonpost.com/world/2022/a/#link-ZFYLGJKG');
+eq('amp_tf on a non-AMP host kept', url('https://example.com/a#amp_tf=x'), 'https://example.com/a#amp_tf=x');
+eq('bare trailing # kept', url('https://x.com/a?utm_source=t#'), 'https://x.com/a#');
+{
+  const t = 'ببینید https://www.worldhistory.org/article/2409/#google_vignette.';
+  ok('fragment at the end + trailing period: unchanged', !stripTrackingParams(t).changed);
+}
+
 console.log('\n== left alone ==');
 eq('archive URL is byte-exact', url('https://web.archive.org/web/20250807234612/https://www.youtube.com/watch?si=lVsn&v=Em8t6PHlew4'),
    'https://web.archive.org/web/20250807234612/https://www.youtube.com/watch?si=lVsn&v=Em8t6PHlew4');

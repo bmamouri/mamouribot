@@ -55,6 +55,21 @@ is on the list; every other parameter keeps its place and bytes.
 | spotify.com | `si` | |
 | linkedin.com | `trk`, `trackingId`, `refId`, `lipi`, `midToken`, `midSig` | |
 
+Added ۲۵ نوامبر ۲۰۲۶, from a 1,028-page sample of 54 more candidate keys:
+
+| where | removed |
+|---|---|
+| any host | `__cf_chl_*` (Cloudflare challenge tokens), `pk_*`, `mtm_*`, `at_custom*`, `_ga`, `guccounter`, `guce_referrer*`, `__hstc`/`__hssc`/`__hsfp`, `WT.mc_id`, `ns_*` (BBC), `at_medium`/`at_campaign`, `xtor`, `fb_action_*`, `fb_source`, `fb_ref`, `__twitter_impression`, `dicbo`, `sr_share` |
+| nytimes.com | `smid`, `smtyp`, `partner`, `emc` (`ex`/`en`/`ei` are an access token and stay) |
+| theguardian.com `CMP`, msn/bbc `ocid`, forbes.com `sh`, reddit.com `rdt` | |
+| amazon, imdb | `pf_rd_*`, `pd_rd_*` |
+| books.google.* `/books` | `ved`, `sa`, `ei`, `usg` (`usg` on Google Translate's proxy is a signature and stays) |
+| *.cdn.ampproject.org | `amp_js_v`, `amp_gsa`, `usqp`; fragment keys `amp_tf`, `aoh`, `amp_ct`, `ampshare`, `referrer`, `csi` |
+| `cmpid`, `icid`, `ncid`, `s_cid` | only on the sites measured to use them for campaigns: `ICID=11763` on medscimonit.com is the article |
+| whole fragment | `#google_vignette`, `#gsc.tab=0`, `#sthash.XXXXXXXX.dpuf`, `#axzz…`/`#ixzz…`, `#Echobox=…`, `#link_time=…`, `#xtor=…` |
+
+Replay on that sample: 575 of 1,028 pages change, no structural change on any, idempotent.
+
 Left alone: archive URLs (the captured URL is the archive's key), a query written with HTML
 entities, a `#/route?…` hash route, anything in a comment or `<nowiki>`/`<pre>`/…, and a URL
 whose last parameter would go when it is followed by sentence punctuation (a citation
