@@ -182,6 +182,25 @@ console.log('== linked dictionary values (drug infobox) ==');
      '{{Infobox drug|excretion=[[Kidney|Renal]] 60%}}');
 }
 
+console.log('== officeholder placeholders ==');
+{
+  const D3 = parseDictionary(table([
+    ['Infobox officeholder', 'predecessor#', 'Position established', 'ایجاد سمت', 'هم‌سویی'],
+    ['Infobox officeholder', 'primeminister#', 'Himself', 'خودش', 'هم‌سویی'],
+    ['Infobox officeholder', 'successor#', 'Vacant', 'خالی', 'هم‌سویی'],
+  ]), 3);
+  const r3 = (t: string) => applyPage(t, D3, (n: string) => n).text;
+  eq('placeholder in a numbered family', r3('{{Infobox officeholder|predecessor2=Position established}}'),
+     '{{Infobox officeholder|predecessor2=ایجاد سمت}}');
+  eq('italic Himself', r3("{{Infobox officeholder|primeminister1=''Himself''}}"), '{{Infobox officeholder|primeminister1=خودش}}');
+  const keep = (what: string, t: string) => eq(what, r3(t), t);
+  keep('Himself with a qualifier stays (نیکوشور دان)', "{{Infobox officeholder|predecessor4=''Himself'' (as president of [[Save Bucharest Union|USB]])}}");
+  keep('a name with (interim) stays', '{{Infobox officeholder|successor4=[[Elek Levente]] (interim)}}');
+  keep('an office title stays', '{{Infobox officeholder|office4=President of the [[Save Romania Union]]}}');
+  keep('a name stays', '{{Infobox officeholder|successor1=John Smith}}');
+  keep('Vacant in a parameter not on the list stays', '{{Infobox officeholder|office1=Vacant}}');
+}
+
 console.log('== helpers ==');
 {
   eq('titleLabel strips a disambiguator', titleLabel('مرکوری (سیاره)'), 'مرکوری');

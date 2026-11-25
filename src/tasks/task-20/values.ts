@@ -51,6 +51,11 @@ export const WHITELIST: Record<string, string[]> = {
   'Infobox ecoregion': ['conservation'],
   'Infobox football biography': ['position'],
   'جعبه اطلاعات شناگر': ['strokes'],
+  // Infobox officeholder: placeholders and job words only. Names (people, parties, offices)
+  // are never in the table for these parameters, so a predecessor called «Vacant» is fine
+  // but a predecessor called «John Smith» can never match.
+  'Infobox officeholder': ['predecessor#', 'predecessor', 'successor#', 'successor', 'primeminister#',
+    'president#', 'vicepresident#', 'website', 'term_end#', 'term_end', 'profession', 'occupation'],
   'جعبه اطلاعات دارو': ['routes_of_administration', 'metabolism', 'excretion', 'bioavailability',
     'protein_bound', 'onset', 'elimination_half-life', 'duration_of_action', 'legal_status',
     'dependency_liability', 'addiction_liability'],
