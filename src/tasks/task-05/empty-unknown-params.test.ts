@@ -10,7 +10,7 @@
  * against the identical input (`docs/BUILDING-A-TASK.md` §4).
  */
 import {
-  argNamed, citeCore, findCiteTemplates, flaggedParams, splitTopPipes, stripTemplate,
+  argNamed, citeCore, findCiteTemplates, flaggedParams, pageCore, splitTopPipes, stripTemplate,
 } from './empty-unknown-params.js';
 
 let pass = 0;
@@ -149,6 +149,76 @@ console.log('== cite_core: gate compares citation content minus cs1 spans ==');
   checkTrue('core identical after error removed', JSON.stringify(citeCore(hBefore)) === JSON.stringify(citeCore(hAfter)));
   const hChanged = '<cite class="citation web">متن دیگری.</cite>';
   checkTrue('core differs when content changes (gate would BLOCK)', JSON.stringify(citeCore(hBefore)) !== JSON.stringify(citeCore(hChanged)));
+}
+
+console.log('== REGRESSION بابل (مازندران) rev 44471009: an unclosed citation must not swallow the page ==');
+{
+  // Same shape as the live page: a {{یادکرد وب …|.</ref> with no }}, then a wikitable
+  // whose cells use ||, then a closed citation and a category. The old scanner ran the
+  // unclosed span to the end of the page, removed every || as an "empty positional" and
+  // turned the last ]] into }}.
+  const page = [
+    'متن.<ref>{{یادکرد وب |نویسنده = |نشانی= https://a.ir/1|عنوان= خبر| ناشر = ایسنا|.</ref>',
+    '',
+    '== سینما ==',
+    '{| class="wikitable"',
+    '! نام !! سال',
+    '|-',
+    '| انقلاب || ۱۳۴۲',
+    '|-',
+    '| آزادی || ۱۳۵۲<ref>{{یادکرد وب|نشانی=http://b.ir|عنوان=ب||تاریخ=}}</ref>',
+    '|}',
+    '',
+    '[[رده:بابل| ]]',
+    '[[رده:شهرهای استان مازندران]]',
+  ].join('\n');
+  const spans = findCiteTemplates(page);
+  check('only the closed citation is a span', spans.map(([a, b]) => page.slice(a, b)),
+    ['{{یادکرد وب|نشانی=http://b.ir|عنوان=ب||تاریخ=}}']);
+  let out = '', last = 0;
+  for (const [a, b] of spans) {
+    out += page.slice(last, a) + stripTemplate(page.slice(a, b), new Set(), new Set(['1'])).out;
+    last = b;
+  }
+  out += page.slice(last);
+  checkTrue('table || separators untouched', out.includes('! نام !! سال') && out.includes('| انقلاب || ۱۳۴۲'));
+  checkTrue('category ]] untouched', out.endsWith('[[رده:شهرهای استان مازندران]]'));
+  checkTrue('the closed citation is still fixed', out.includes('{{یادکرد وب|نشانی=http://b.ir|عنوان=ب|تاریخ=}}'));
+  checkTrue('nothing outside the citation changed',
+    out === page.replace('|عنوان=ب||تاریخ=}}', '|عنوان=ب|تاریخ=}}'));
+}
+{
+  // braces that do balance, but only by borrowing a later template's }}
+  const t = '{{cite web|title=a|url=b\n\n{| class="wikitable"\n| x || y\n|}\n{{سخ}}}}';
+  checkTrue('span crossing a blank line / table is rejected', findCiteTemplates(t).length === 0);
+  checkTrue('span crossing a heading is rejected', findCiteTemplates('{{cite web|title=a\n== ب ==\n}}').length === 0);
+  checkTrue('span crossing </ref> is rejected', findCiteTemplates('{{cite web|title=a</ref><ref>{{x}}}}').length === 0);
+  checkTrue('unclosed at end of text is rejected', findCiteTemplates('x {{یادکرد کتاب|عنوان=a').length === 0);
+  // a normal multi-line citation (one param per line) must still be found
+  checkTrue('multi-line citation still matched',
+    findCiteTemplates('{{یادکرد کتاب\n| عنوان = الف\n| ناشر = ب\n| سال =\n}}').length === 1);
+  // a valid citation after an unclosed one is still found
+  checkTrue('citation after an unclosed one still matched',
+    findCiteTemplates('{{cite web|title=a</ref> متن <ref>{{cite web|title=b|x=}}</ref>').length === 1);
+}
+
+console.log('== page_core: verify() sees damage OUTSIDE <cite> ==');
+{
+  const before = '<table><tr><td>انقلاب</td><td>۱۳۴۲</td></tr></table><cite>الف</cite><span class="cs1-visible-error">خطا</span>';
+  const fixed = '<table><tr><td>انقلاب</td><td>۱۳۴۲</td></tr></table><cite>الف</cite>';
+  const broken = '<table><tr><td>انقلاب | ۱۳۴۲</td></tr></table><cite>الف</cite>';
+  checkTrue('page core equal when only the error span goes', pageCore(before) === pageCore(fixed));
+  checkTrue('page core differs when a table collapses', pageCore(before) !== pageCore(broken));
+  checkTrue('cite core alone was blind to it', JSON.stringify(citeCore(before)) === JSON.stringify(citeCore(broken)));
+  // Measured on real edits: the module's "; " separator and a shifted space before
+  // {{پیوند مرده}} change on every clean fix and must not refuse it.
+  checkTrue('a dropped "; " between messages is not damage',
+    pageCore('<cite>الف</cite> ; ; <cite>ب</cite>') === pageCore('<cite>الف</cite> ; <cite>ب</cite>'));
+  checkTrue('a shifted space before [پیوند مرده] is not damage',
+    pageCore('<cite>الف</cite>. &#91;پیوند مرده&#93;') === pageCore('<cite>الف</cite>.&#91;پیوند مرده&#93;'));
+  // ...but the category damage seen on 10 pages still is
+  checkTrue('a category printed as [[رده:…}}] is damage',
+    pageCore('<p>متن</p>') !== pageCore('<p>متن</p> [[رده:افراد زند}}]'));
 }
 
 console.log();

@@ -42,6 +42,17 @@ console.log('== the stop page is checked before EVERY edit, never sampled ==');
      /if \(ms\.stop\)[^\n]*break;/.test(core));
 }
 
+console.log('\n== edit() itself checks the stop page, so report writes obey it too ==');
+{
+  // The bug: the stop check lived only in the writer loop. After a pause the loop exited,
+  // and report() then saved the task's review page anyway, 30 minutes after the pause.
+  const editBody = core.slice(core.indexOf('async edit('), core.indexOf('async edit(') + 600);
+  ok('edit() awaits mustStop before anything else',
+     /async edit\([\s\S]*?\{\s*(?:\/\/[^\n]*\n\s*)*const ms = await this\.mustStop\(\);\s*if \(ms\.stop\) throw new BotStop\(/.test(editBody),
+     'the first statement of edit() must be the stop check');
+  ok('and the stop is fatal for the run', /if \(ms\.stop\) throw new BotStop\([^;]*, true\);/.test(editBody));
+}
+
 console.log('\n== the stop switch fails CLOSED when it cannot be read ==');
 {
   // An unreadable kill switch is not a kill switch. One blip must not halt a batch, but

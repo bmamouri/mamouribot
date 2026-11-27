@@ -17,6 +17,22 @@ touched, whatever its name.
   The port is a faithful translation: same regexes, same safety gates, same 27 unit
   tests, carried over unchanged.
 
+## Incident: unclosed citations, ۱۵ سپتامبر – ۸ اکتبر ۲۰۲۶
+
+A citation missing its closing `}}` (for example `{{یادکرد وب …|.</ref>` on «بابل
+(مازندران)») made the brace counter treat the rest of the article as one citation. The
+strip then removed every `||` in it as an "empty positional" (table cells merged) and
+rewrote the article's final `]]` to `}}` (the last category printed as text and the page
+dropped out of it). The citation-only render check could see neither.
+
+Scope, measured over all 8,346 task-5 edits: 13 edits on 12 pages did visible damage
+(«بابل (مازندران)», «به رسمیت شناختن بین‌المللی اسرائیل» twice, «ویتنام شمالی»,
+«مهدی خورشیدی آزاد», «لوگان (فیلم)», «گیتی», «شوالیه تاریکی (فیلم)», «خوراک انسان»,
+«تشیید المطاعن», «الیگودرز», «نیروی هوایی مصر», «محمدرضا عابدی»). 12 more removed only a
+stray `|` from a malformed citation, with no visible effect. «به رسمیت شناختن…» had
+already been repaired by hand on ۵ اکتبر; the rest were repaired on ۲۷ نوامبر ۲۰۲۶,
+keeping every later edit. The bot was paused from ۲۶ نوامبر until the fix was deployed.
+
 ## What it changes
 
 - A citation parameter that is empty AND appears in the error span's `|key=` list for
@@ -41,6 +57,12 @@ Edit summary: `حذف پارامترهای خالی ناشناخته از یاد
   spans themselves — is byte-identical, and (b) the flagged-parameter count actually
   went down. A citation whose visible text merely shifted is treated the same as one that
   gained an error: refused.
+- `verify()` also compares the visible text of the WHOLE page (cs1 spans, whitespace and
+  `;` dropped), because the citation-only comparison cannot see damage outside a
+  `<cite>`.
+- `findCiteTemplates()` skips a citation whose braces never close, or whose span contains
+  a `</ref>`, a blank line, or a line starting a heading, table row/cell or list item.
+  Such a span is an unclosed `{{یادکرد …` that the brace counter ran past.
 - Citations transcluded from another template are not touched — only citations that
   appear directly in the article's own wikitext (`findCiteTemplates` walks the raw text,
   not the rendered page).

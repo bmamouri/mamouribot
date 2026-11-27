@@ -62,7 +62,23 @@ export function flaggedParams(html: string): { named: Set<string>; pos: Set<stri
   return { named, pos };
 }
 
-/** Find every top-level `{{یادکرد…}}` / `{{cite …}}` / `{{citation}}` span (برون‌مرکزی ویکی excluded). */
+/**
+ * Markup that cannot sit inside one citation call: a ref boundary, a blank line, or a
+ * line starting a heading, table row/cell, list item or table. A span containing any of
+ * these is an unclosed `{{یادکرد …` that the brace counter ran past into the article.
+ */
+const NOT_ONE_CITATION = /<\/?ref[\s>/]|\n[ \t]*\n|\n[ \t]*(?:=|\{\||\|[-}+]|!|\*|#)/i;
+
+/**
+ * Find every top-level `{{یادکرد…}}` / `{{cite …}}` / `{{citation}}` span (برون‌مرکزی ویکی excluded).
+ *
+ * An opener whose braces never balance, or whose span holds markup that cannot be part of
+ * one citation (NOT_ONE_CITATION), is skipped and scanning resumes just after its `{{`.
+ * Returning such a span let stripTemplate() treat the article after it as one citation:
+ * on «بابل (مازندران)» (rev 44471009) a `{{یادکرد وب …|.</ref>` with no `}}` swallowed
+ * the rest of the page, every `||` table-cell separator was removed as an "empty
+ * positional", and the final `]]` was rewritten to `}}`.
+ */
 export function findCiteTemplates(text: string): [number, number][] {
   const spans: [number, number][] = [];
   const n = text.length;
@@ -77,15 +93,19 @@ export function findCiteTemplates(text: string): [number, number][] {
     const isCite = (name.startsWith('یادکرد') && name !== 'یادکرد-ویکی')
       || namel.startsWith('cite') || namel === 'citation';
     if (isCite) {
-      let depth = 0, k = j;
+      let depth = 0, k = j, closed = false;
       while (k < n - 1) {
         const two = text.slice(k, k + 2);
         if (two === '{{') { depth++; k += 2; continue; }
-        if (two === '}}') { depth--; k += 2; if (depth === 0) break; continue; }
+        if (two === '}}') { depth--; k += 2; if (depth === 0) { closed = true; break; } continue; }
         k++;
       }
-      spans.push([j, k]);
-      i = k;
+      if (closed && !NOT_ONE_CITATION.test(text.slice(j, k))) {
+        spans.push([j, k]);
+        i = k;
+      } else {
+        i = j + 2;
+      }
     } else {
       i = j + 2;
     }
@@ -175,6 +195,24 @@ export function citeCore(html: string): string[] {
     out.push(c.replace(/\s+/g, ' ').trim());
   }
   return out;
+}
+
+/**
+ * Visible text of the whole rendered page with the cs1 spans removed. `citeCore` only
+ * sees inside `<cite>`, so a removal that damaged a table or a category link outside any
+ * citation passed it; this is what catches that.
+ *
+ * Whitespace and `;` are dropped before comparing: the module joins its messages with a
+ * `; ` that sits outside the error span, and a removed `| 3=` before `{{پیوند مرده}}`
+ * shifts a space. Both were measured on real task-5 edits (7 of 40 refused otherwise).
+ * Neither can hide the damage this exists for, which removes table cells or prints
+ * `[[رده:…}}]` as text.
+ */
+export function pageCore(html: string): string {
+  return html
+    .replace(/<span class="cs1-[^"]*">[\s\S]*?<\/span>/g, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/[\s;]+/g, '');
 }
 
 /** Apply `stripTemplate` to every top-level cite span in the article, right-to-left, re-building the text. */
@@ -291,6 +329,9 @@ export const emptyUnknownParamsTask: BotTask = {
     const coreBefore = citeCore(beforeHtml), coreAfter = citeCore(afterHtml);
     if (JSON.stringify(coreBefore) !== JSON.stringify(coreAfter)) {
       return { ok: false, detail: 'محتوای نمایشی یادکرد جز حذف خطا تغییر کرد' };
+    }
+    if (pageCore(beforeHtml) !== pageCore(afterHtml)) {
+      return { ok: false, detail: 'متن صفحه بیرون از یادکردها تغییر کرد' };
     }
     const before = flaggedParams(beforeHtml), after = flaggedParams(afterHtml);
     const beforeCount = before.named.size + before.pos.size;

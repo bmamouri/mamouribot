@@ -726,6 +726,11 @@ export class Bot {
    */
   async edit(title: string, text: string, summary: string, baserevid: number, basetimestamp: string,
              opts: { allowCreate?: boolean } = {}) {
+    // Every write checks the stop page, not only the writer loop: a run that was paused
+    // mid-batch still saved its end-of-run report page 30 minutes later (task 3, ۲۷ نوامبر
+    // ۲۰۲۶), because report() writes through here after the loop has already exited.
+    const ms = await this.mustStop();
+    if (ms.stop) throw new BotStop(`توقف: ${ms.why}`, true);
     await this.login();
     const payload: Record<string, string> = {
       action: 'edit', title, text, summary,
